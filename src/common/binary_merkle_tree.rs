@@ -8,15 +8,9 @@ pub trait Hasher {
 }
 
 pub trait Leaf {
-    fn get_key(&self) -> Option<&[u8]>;
+    fn get_key(&self) -> &[u8];
     fn get_data(&self) -> Option<&[u8]>;
     fn get_value(&self) -> Option<&[u8]>;
-}
-
-struct AddressLeaf {
-    key: Address,
-    data: [u8; 32],
-    value: [u8; 128]
 }
 
 impl Hasher for Blake2b {
@@ -28,32 +22,6 @@ impl Hasher for Blake2b {
 
     fn finalize(self) -> Self::HashResult {
         Blake2b::finalize(self)
-    }
-}
-
-impl Leaf for AddressLeaf {
-    fn get_key(&self) -> Option<&[u8]> {
-        if self.key != [0; 20] {
-            return Some(&self.key)
-        } else {
-            return None
-        }
-    }
-
-    fn get_data(&self) -> Option<&[u8]> {
-        if self.data != [0; 32] {
-            return Some(&self.data)
-        } else {
-            return None
-        }
-    }
-
-    fn get_value(&self) -> Option<&[u8]> {
-        if self.value != [0; 128] {
-            return Some(&self.value)
-        } else {
-            return None
-        }
     }
 }
 

@@ -1,5 +1,4 @@
 syntax = "proto3";
-import "block.proto";
 
 message Peer {
   string host = 1;
