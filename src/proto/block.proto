@@ -1,0 +1,25 @@
+syntax = "proto3";
+import "tx.proto";
+import "blockHeader.proto";
+
+message Block {
+    BlockHeader header = 1;
+    repeated SignedTx txs = 2;
+}
+
+message GenesisBlock {
+    GenesisHeader header = 1;
+    repeated GenesisSignedTx txs = 2;
+}
+
+message BlockDB {
+    uint32 height = 1;
+    BlockHeader header = 2;
+    uint32 fileNumber = 3;
+    uint32 offset = 4;
+    uint32 length = 5;
+    double tEMA = 6;
+    double pEMA = 7;
+    double nextDifficulty = 8;
+    double totalWork = 9;
+}

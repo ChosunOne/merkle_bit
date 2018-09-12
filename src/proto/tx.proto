@@ -1,0 +1,44 @@
+syntax = "proto3";
+message Txs {
+  repeated SignedTx txs = 1;
+}
+
+message GenesisTx {
+  bytes to = 2; //Address
+  uint64 amount = 3;
+}
+
+message GenesisSignedTx {
+  bytes to = 2;
+  uint64 amount = 3;
+  bytes signature = 6;
+  uint32 recovery = 7;
+}
+
+message Tx {
+  // Consensus Critical
+  bytes from = 1; //Address
+  bytes to = 2; //Address
+  uint64 amount = 3;
+  uint64 fee = 4;
+  uint32 nonce = 5;
+}
+
+message SignedTx {
+  // Consensus Critical
+  bytes from = 1; //Address
+  bytes to = 2; //Address
+  uint64 amount = 3;
+  uint64 fee = 4;
+  uint32 nonce = 5;
+  bytes signature = 6;
+  uint32 recovery = 7;
+}
+
+
+message TxDB {
+  bytes hash = 1;
+  bytes blockHash = 2;
+  uint32 blockHeight = 3;
+  uint32 txNumber = 4;
+}

@@ -1,0 +1,199 @@
+syntax = "proto3";
+import "block.proto";
+import "blockHeader.proto";
+import "tx.proto";
+import "peer.proto";
+
+message Network { 
+    oneof request {
+        Status status=1;
+        StatusReturn statusReturn=2;
+
+        Ping ping=3;
+        PingReturn pingReturn=4;
+
+        PutTx putTx=5;
+        PutTxReturn putTxReturn=6;
+
+        GetTxs getTxs=7;
+        GetTxsReturn getTxsReturn=8;
+
+        PutBlock putBlock=9;
+        PutBlockReturn putBlockReturn=10;
+
+        GetBlocksByHash getBlocksByHash=11;
+        GetBlocksByHashReturn getBlocksByHashReturn=12;
+
+        GetHeadersByHash getHeadersByHash=13;
+        GetHeadersByHashReturn getHeadersByHashReturn=14;
+
+        GetBlocksByRange getBlocksByRange=15;
+        GetBlocksByRangeReturn getBlocksByRangeReturn=16;
+        
+        GetHeadersByRange getHeadersByRange=17;
+        GetHeadersByRangeReturn getHeadersByRangeReturn=18;
+       
+        GetPeers getPeers=19;
+        GetPeersReturn getPeersReturn=20;
+
+        GetTip getTip=21;
+        GetTipReturn getTipReturn=22;
+
+        PutHeaders putHeaders=23;
+        PutHeadersReturn putHeadersReturn=24;
+
+        GetHash getHash=25;
+        GetHashReturn getHashReturn=26;
+
+        GetBlockTxs getBlockTxs=27;
+        GetBlockTxsReturn getBlockTxsReturn=28;
+    }
+}
+
+message Status {
+    uint32 version = 1;
+    string networkid = 2;
+    int32 port=5;
+    string guid=6;
+    int32 publicPort=7;
+}
+
+message StatusReturn {
+    bool success=1;
+    Status status=2;
+}
+
+message Ping {
+    uint64 nonce =1;
+}
+message PingReturn {
+    uint64 nonce =1;
+}
+
+message PutTx {
+    repeated Tx txs=1;
+}
+
+message PutTxReturn {
+    bool success=1;
+}
+
+message GetBlockTxs {
+    repeated bytes hashes=1;
+}
+
+message BlockTxs {
+    bytes hash=1;
+    repeated Tx txs=2;
+}
+
+message GetBlockTxsReturn {
+    repeated BlockTxs txBlocks=1;
+}
+
+message GetTxs {
+    uint64 minFee=1;
+}
+
+message GetTxsReturn {
+    bool success=1;
+    repeated Tx txs=2;
+}
+
+message PutBlock {
+    repeated Block blocks=1;
+}
+
+message PutBlockReturn {
+    repeated StatusChange statusChanges = 1;
+}
+
+message NewTx {
+    repeated Tx txs=1;
+}
+
+message NewBlock {
+    repeated Block blocks=1;
+}
+
+message GetBlocksByHash {      
+    repeated bytes hashes = 1;
+}
+
+message GetBlocksByHashReturn {
+    bool success =1;
+    repeated Block blocks= 2;
+}
+
+message GetHeadersByHash {    
+    repeated bytes hashes = 1;
+}
+
+message GetHeadersByHashReturn {
+    bool success =1;
+    repeated BlockHeader headers = 2;
+}
+
+message GetBlocksByRange {
+    uint64 fromHeight= 1;
+    uint64 count=2;
+}
+
+message GetBlocksByRangeReturn {
+    bool success =1;
+    repeated Block blocks= 2;
+}
+
+message GetHeadersByRange {    
+    uint64 fromHeight= 1;
+    uint64 count=2;
+}
+
+message GetHeadersByRangeReturn {
+    bool success =1;
+    repeated BlockHeader headers = 2;
+}
+
+message GetPeers {        
+    uint32 count=2;
+}
+
+message GetPeersReturn {  
+    bool success =1;  
+    repeated Peer peers = 2;
+}
+
+message GetTip {   
+    uint64 dummy=1;
+    bool header=2;
+}
+
+message GetTipReturn {
+    bool success=1;
+    bytes hash=2;
+    uint64 height=3;
+    double totalwork=4;
+}
+
+message PutHeaders {   
+   repeated BlockHeader headers=1;
+}
+
+message PutHeadersReturn {
+    repeated StatusChange statusChanges = 1;
+}
+
+message GetHash {   
+    uint64 height=1;
+}
+
+message GetHashReturn {
+    bool success =1;
+    bytes hash=2;    
+}
+
+
+message StatusChange {
+    int32 status = 1;
+    int32 oldStatus = 2;
+}
