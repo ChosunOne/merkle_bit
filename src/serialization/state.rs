@@ -917,6 +917,1012 @@ impl ::protobuf::reflect::ProtobufValue for NodeRef {
     }
 }
 
+#[derive(PartialEq,Clone,Default)]
+pub struct MerkleNode {
+    // message fields
+    pub references: u64,
+    // message oneof groups
+    pub node: ::std::option::Option<MerkleNode_oneof_node>,
+    // special fields
+    unknown_fields: ::protobuf::UnknownFields,
+    cached_size: ::protobuf::CachedSize,
+}
+
+#[derive(Clone,PartialEq)]
+pub enum MerkleNode_oneof_node {
+    branch(Branch),
+    leaf(Leaf),
+    data(Data),
+}
+
+impl MerkleNode {
+    pub fn new() -> MerkleNode {
+        ::std::default::Default::default()
+    }
+
+    // uint64 references = 1;
+
+    pub fn clear_references(&mut self) {
+        self.references = 0;
+    }
+
+    // Param is passed by value, moved
+    pub fn set_references(&mut self, v: u64) {
+        self.references = v;
+    }
+
+    pub fn get_references(&self) -> u64 {
+        self.references
+    }
+
+    // .Branch branch = 2;
+
+    pub fn clear_branch(&mut self) {
+        self.node = ::std::option::Option::None;
+    }
+
+    pub fn has_branch(&self) -> bool {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::branch(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_branch(&mut self, v: Branch) {
+        self.node = ::std::option::Option::Some(MerkleNode_oneof_node::branch(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_branch(&mut self) -> &mut Branch {
+        if let ::std::option::Option::Some(MerkleNode_oneof_node::branch(_)) = self.node {
+        } else {
+            self.node = ::std::option::Option::Some(MerkleNode_oneof_node::branch(Branch::new()));
+        }
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::branch(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_branch(&mut self) -> Branch {
+        if self.has_branch() {
+            match self.node.take() {
+                ::std::option::Option::Some(MerkleNode_oneof_node::branch(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            Branch::new()
+        }
+    }
+
+    pub fn get_branch(&self) -> &Branch {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::branch(ref v)) => v,
+            _ => Branch::default_instance(),
+        }
+    }
+
+    // .Leaf leaf = 3;
+
+    pub fn clear_leaf(&mut self) {
+        self.node = ::std::option::Option::None;
+    }
+
+    pub fn has_leaf(&self) -> bool {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::leaf(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_leaf(&mut self, v: Leaf) {
+        self.node = ::std::option::Option::Some(MerkleNode_oneof_node::leaf(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_leaf(&mut self) -> &mut Leaf {
+        if let ::std::option::Option::Some(MerkleNode_oneof_node::leaf(_)) = self.node {
+        } else {
+            self.node = ::std::option::Option::Some(MerkleNode_oneof_node::leaf(Leaf::new()));
+        }
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::leaf(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_leaf(&mut self) -> Leaf {
+        if self.has_leaf() {
+            match self.node.take() {
+                ::std::option::Option::Some(MerkleNode_oneof_node::leaf(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            Leaf::new()
+        }
+    }
+
+    pub fn get_leaf(&self) -> &Leaf {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::leaf(ref v)) => v,
+            _ => Leaf::default_instance(),
+        }
+    }
+
+    // .Data data = 4;
+
+    pub fn clear_data(&mut self) {
+        self.node = ::std::option::Option::None;
+    }
+
+    pub fn has_data(&self) -> bool {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::data(..)) => true,
+            _ => false,
+        }
+    }
+
+    // Param is passed by value, moved
+    pub fn set_data(&mut self, v: Data) {
+        self.node = ::std::option::Option::Some(MerkleNode_oneof_node::data(v))
+    }
+
+    // Mutable pointer to the field.
+    pub fn mut_data(&mut self) -> &mut Data {
+        if let ::std::option::Option::Some(MerkleNode_oneof_node::data(_)) = self.node {
+        } else {
+            self.node = ::std::option::Option::Some(MerkleNode_oneof_node::data(Data::new()));
+        }
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::data(ref mut v)) => v,
+            _ => panic!(),
+        }
+    }
+
+    // Take field
+    pub fn take_data(&mut self) -> Data {
+        if self.has_data() {
+            match self.node.take() {
+                ::std::option::Option::Some(MerkleNode_oneof_node::data(v)) => v,
+                _ => panic!(),
+            }
+        } else {
+            Data::new()
+        }
+    }
+
+    pub fn get_data(&self) -> &Data {
+        match self.node {
+            ::std::option::Option::Some(MerkleNode_oneof_node::data(ref v)) => v,
+            _ => Data::default_instance(),
+        }
+    }
+}
+
+impl ::protobuf::Message for MerkleNode {
+    fn is_initialized(&self) -> bool {
+        if let Some(MerkleNode_oneof_node::branch(ref v)) = self.node {
+            if !v.is_initialized() {
+                return false;
+            }
+        }
+        if let Some(MerkleNode_oneof_node::leaf(ref v)) = self.node {
+            if !v.is_initialized() {
+                return false;
+            }
+        }
+        if let Some(MerkleNode_oneof_node::data(ref v)) = self.node {
+            if !v.is_initialized() {
+                return false;
+            }
+        }
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                1 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    let tmp = is.read_uint64()?;
+                    self.references = tmp;
+                },
+                2 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeLengthDelimited {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    self.node = ::std::option::Option::Some(MerkleNode_oneof_node::branch(is.read_message()?));
+                },
+                3 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeLengthDelimited {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    self.node = ::std::option::Option::Some(MerkleNode_oneof_node::leaf(is.read_message()?));
+                },
+                4 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeLengthDelimited {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    self.node = ::std::option::Option::Some(MerkleNode_oneof_node::data(is.read_message()?));
+                },
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        if true {
+            my_size += ::protobuf::rt::value_size(1, self.references, ::protobuf::wire_format::WireTypeVarint);
+        }
+        if let ::std::option::Option::Some(ref v) = self.node {
+            match v {
+                &MerkleNode_oneof_node::branch(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
+                },
+                &MerkleNode_oneof_node::leaf(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
+                },
+                &MerkleNode_oneof_node::data(ref v) => {
+                    let len = v.compute_size();
+                    my_size += 1 + ::protobuf::rt::compute_raw_varint32_size(len) + len;
+                },
+            };
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
+        if true {
+            os.write_uint64(1, self.references)?;
+        }
+        if let ::std::option::Option::Some(ref v) = self.node {
+            match v {
+                &MerkleNode_oneof_node::branch(ref v) => {
+                    os.write_tag(2, ::protobuf::wire_format::WireTypeLengthDelimited)?;
+                    os.write_raw_varint32(v.get_cached_size())?;
+                    v.write_to_with_cached_sizes(os)?;
+                },
+                &MerkleNode_oneof_node::leaf(ref v) => {
+                    os.write_tag(3, ::protobuf::wire_format::WireTypeLengthDelimited)?;
+                    os.write_raw_varint32(v.get_cached_size())?;
+                    v.write_to_with_cached_sizes(os)?;
+                },
+                &MerkleNode_oneof_node::data(ref v) => {
+                    os.write_tag(4, ::protobuf::wire_format::WireTypeLengthDelimited)?;
+                    os.write_raw_varint32(v.get_cached_size())?;
+                    v.write_to_with_cached_sizes(os)?;
+                },
+            };
+        }
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &::std::any::Any {
+        self as &::std::any::Any
+    }
+    fn as_any_mut(&mut self) -> &mut ::std::any::Any {
+        self as &mut ::std::any::Any
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<::std::any::Any> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> MerkleNode {
+        MerkleNode::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let mut fields = ::std::vec::Vec::new();
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
+                    "references",
+                    |m: &MerkleNode| { &m.references },
+                    |m: &mut MerkleNode| { &mut m.references },
+                ));
+                fields.push(::protobuf::reflect::accessor::make_singular_message_accessor::<_, Branch>(
+                    "branch",
+                    MerkleNode::has_branch,
+                    MerkleNode::get_branch,
+                ));
+                fields.push(::protobuf::reflect::accessor::make_singular_message_accessor::<_, Leaf>(
+                    "leaf",
+                    MerkleNode::has_leaf,
+                    MerkleNode::get_leaf,
+                ));
+                fields.push(::protobuf::reflect::accessor::make_singular_message_accessor::<_, Data>(
+                    "data",
+                    MerkleNode::has_data,
+                    MerkleNode::get_data,
+                ));
+                ::protobuf::reflect::MessageDescriptor::new::<MerkleNode>(
+                    "MerkleNode",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static MerkleNode {
+        static mut instance: ::protobuf::lazy::Lazy<MerkleNode> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const MerkleNode,
+        };
+        unsafe {
+            instance.get(MerkleNode::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for MerkleNode {
+    fn clear(&mut self) {
+        self.clear_references();
+        self.clear_branch();
+        self.clear_leaf();
+        self.clear_data();
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for MerkleNode {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for MerkleNode {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
+#[derive(PartialEq,Clone,Default)]
+pub struct Branch {
+    // message fields
+    pub count: u64,
+    pub zero: ::std::vec::Vec<u8>,
+    pub one: ::std::vec::Vec<u8>,
+    // special fields
+    unknown_fields: ::protobuf::UnknownFields,
+    cached_size: ::protobuf::CachedSize,
+}
+
+impl Branch {
+    pub fn new() -> Branch {
+        ::std::default::Default::default()
+    }
+
+    // uint64 count = 1;
+
+    pub fn clear_count(&mut self) {
+        self.count = 0;
+    }
+
+    // Param is passed by value, moved
+    pub fn set_count(&mut self, v: u64) {
+        self.count = v;
+    }
+
+    pub fn get_count(&self) -> u64 {
+        self.count
+    }
+
+    // bytes zero = 2;
+
+    pub fn clear_zero(&mut self) {
+        self.zero.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_zero(&mut self, v: ::std::vec::Vec<u8>) {
+        self.zero = v;
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_zero(&mut self) -> &mut ::std::vec::Vec<u8> {
+        &mut self.zero
+    }
+
+    // Take field
+    pub fn take_zero(&mut self) -> ::std::vec::Vec<u8> {
+        ::std::mem::replace(&mut self.zero, ::std::vec::Vec::new())
+    }
+
+    pub fn get_zero(&self) -> &[u8] {
+        &self.zero
+    }
+
+    // bytes one = 3;
+
+    pub fn clear_one(&mut self) {
+        self.one.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_one(&mut self, v: ::std::vec::Vec<u8>) {
+        self.one = v;
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_one(&mut self) -> &mut ::std::vec::Vec<u8> {
+        &mut self.one
+    }
+
+    // Take field
+    pub fn take_one(&mut self) -> ::std::vec::Vec<u8> {
+        ::std::mem::replace(&mut self.one, ::std::vec::Vec::new())
+    }
+
+    pub fn get_one(&self) -> &[u8] {
+        &self.one
+    }
+}
+
+impl ::protobuf::Message for Branch {
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                1 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    let tmp = is.read_uint64()?;
+                    self.count = tmp;
+                },
+                2 => {
+                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.zero)?;
+                },
+                3 => {
+                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.one)?;
+                },
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        if true {
+            my_size += ::protobuf::rt::value_size(1, self.count, ::protobuf::wire_format::WireTypeVarint);
+        }
+        if !self.zero.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(2, &self.zero);
+        }
+        if !self.one.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(3, &self.one);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
+        if true {
+            os.write_uint64(1, self.count)?;
+        }
+        if !self.zero.is_empty() {
+            os.write_bytes(2, &self.zero)?;
+        }
+        if !self.one.is_empty() {
+            os.write_bytes(3, &self.one)?;
+        }
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &::std::any::Any {
+        self as &::std::any::Any
+    }
+    fn as_any_mut(&mut self) -> &mut ::std::any::Any {
+        self as &mut ::std::any::Any
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<::std::any::Any> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> Branch {
+        Branch::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let mut fields = ::std::vec::Vec::new();
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint64>(
+                    "count",
+                    |m: &Branch| { &m.count },
+                    |m: &mut Branch| { &mut m.count },
+                ));
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                    "zero",
+                    |m: &Branch| { &m.zero },
+                    |m: &mut Branch| { &mut m.zero },
+                ));
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                    "one",
+                    |m: &Branch| { &m.one },
+                    |m: &mut Branch| { &mut m.one },
+                ));
+                ::protobuf::reflect::MessageDescriptor::new::<Branch>(
+                    "Branch",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static Branch {
+        static mut instance: ::protobuf::lazy::Lazy<Branch> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const Branch,
+        };
+        unsafe {
+            instance.get(Branch::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for Branch {
+    fn clear(&mut self) {
+        self.clear_count();
+        self.clear_zero();
+        self.clear_one();
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for Branch {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for Branch {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
+#[derive(PartialEq,Clone,Default)]
+pub struct Leaf {
+    // message fields
+    pub key: ::std::vec::Vec<u8>,
+    pub data: ::std::vec::Vec<u8>,
+    // special fields
+    unknown_fields: ::protobuf::UnknownFields,
+    cached_size: ::protobuf::CachedSize,
+}
+
+impl Leaf {
+    pub fn new() -> Leaf {
+        ::std::default::Default::default()
+    }
+
+    // bytes key = 1;
+
+    pub fn clear_key(&mut self) {
+        self.key.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_key(&mut self, v: ::std::vec::Vec<u8>) {
+        self.key = v;
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_key(&mut self) -> &mut ::std::vec::Vec<u8> {
+        &mut self.key
+    }
+
+    // Take field
+    pub fn take_key(&mut self) -> ::std::vec::Vec<u8> {
+        ::std::mem::replace(&mut self.key, ::std::vec::Vec::new())
+    }
+
+    pub fn get_key(&self) -> &[u8] {
+        &self.key
+    }
+
+    // bytes data = 2;
+
+    pub fn clear_data(&mut self) {
+        self.data.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_data(&mut self, v: ::std::vec::Vec<u8>) {
+        self.data = v;
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_data(&mut self) -> &mut ::std::vec::Vec<u8> {
+        &mut self.data
+    }
+
+    // Take field
+    pub fn take_data(&mut self) -> ::std::vec::Vec<u8> {
+        ::std::mem::replace(&mut self.data, ::std::vec::Vec::new())
+    }
+
+    pub fn get_data(&self) -> &[u8] {
+        &self.data
+    }
+}
+
+impl ::protobuf::Message for Leaf {
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                1 => {
+                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.key)?;
+                },
+                2 => {
+                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.data)?;
+                },
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        if !self.key.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(1, &self.key);
+        }
+        if !self.data.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(2, &self.data);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
+        if !self.key.is_empty() {
+            os.write_bytes(1, &self.key)?;
+        }
+        if !self.data.is_empty() {
+            os.write_bytes(2, &self.data)?;
+        }
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &::std::any::Any {
+        self as &::std::any::Any
+    }
+    fn as_any_mut(&mut self) -> &mut ::std::any::Any {
+        self as &mut ::std::any::Any
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<::std::any::Any> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> Leaf {
+        Leaf::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let mut fields = ::std::vec::Vec::new();
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                    "key",
+                    |m: &Leaf| { &m.key },
+                    |m: &mut Leaf| { &mut m.key },
+                ));
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                    "data",
+                    |m: &Leaf| { &m.data },
+                    |m: &mut Leaf| { &mut m.data },
+                ));
+                ::protobuf::reflect::MessageDescriptor::new::<Leaf>(
+                    "Leaf",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static Leaf {
+        static mut instance: ::protobuf::lazy::Lazy<Leaf> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const Leaf,
+        };
+        unsafe {
+            instance.get(Leaf::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for Leaf {
+    fn clear(&mut self) {
+        self.clear_key();
+        self.clear_data();
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for Leaf {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for Leaf {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
+#[derive(PartialEq,Clone,Default)]
+pub struct Data {
+    // message fields
+    pub value: ::std::vec::Vec<u8>,
+    // special fields
+    unknown_fields: ::protobuf::UnknownFields,
+    cached_size: ::protobuf::CachedSize,
+}
+
+impl Data {
+    pub fn new() -> Data {
+        ::std::default::Default::default()
+    }
+
+    // bytes value = 1;
+
+    pub fn clear_value(&mut self) {
+        self.value.clear();
+    }
+
+    // Param is passed by value, moved
+    pub fn set_value(&mut self, v: ::std::vec::Vec<u8>) {
+        self.value = v;
+    }
+
+    // Mutable pointer to the field.
+    // If field is not initialized, it is initialized with default value first.
+    pub fn mut_value(&mut self) -> &mut ::std::vec::Vec<u8> {
+        &mut self.value
+    }
+
+    // Take field
+    pub fn take_value(&mut self) -> ::std::vec::Vec<u8> {
+        ::std::mem::replace(&mut self.value, ::std::vec::Vec::new())
+    }
+
+    pub fn get_value(&self) -> &[u8] {
+        &self.value
+    }
+}
+
+impl ::protobuf::Message for Data {
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream) -> ::protobuf::ProtobufResult<()> {
+        while !is.eof()? {
+            let (field_number, wire_type) = is.read_tag_unpack()?;
+            match field_number {
+                1 => {
+                    ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.value)?;
+                },
+                _ => {
+                    ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u32 {
+        let mut my_size = 0;
+        if !self.value.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(1, &self.value);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
+        self.cached_size.set(my_size);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream) -> ::protobuf::ProtobufResult<()> {
+        if !self.value.is_empty() {
+            os.write_bytes(1, &self.value)?;
+        }
+        os.write_unknown_fields(self.get_unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn get_cached_size(&self) -> u32 {
+        self.cached_size.get()
+    }
+
+    fn get_unknown_fields(&self) -> &::protobuf::UnknownFields {
+        &self.unknown_fields
+    }
+
+    fn mut_unknown_fields(&mut self) -> &mut ::protobuf::UnknownFields {
+        &mut self.unknown_fields
+    }
+
+    fn as_any(&self) -> &::std::any::Any {
+        self as &::std::any::Any
+    }
+    fn as_any_mut(&mut self) -> &mut ::std::any::Any {
+        self as &mut ::std::any::Any
+    }
+    fn into_any(self: Box<Self>) -> ::std::boxed::Box<::std::any::Any> {
+        self
+    }
+
+    fn descriptor(&self) -> &'static ::protobuf::reflect::MessageDescriptor {
+        Self::descriptor_static()
+    }
+
+    fn new() -> Data {
+        Data::new()
+    }
+
+    fn descriptor_static() -> &'static ::protobuf::reflect::MessageDescriptor {
+        static mut descriptor: ::protobuf::lazy::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const ::protobuf::reflect::MessageDescriptor,
+        };
+        unsafe {
+            descriptor.get(|| {
+                let mut fields = ::std::vec::Vec::new();
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeBytes>(
+                    "value",
+                    |m: &Data| { &m.value },
+                    |m: &mut Data| { &mut m.value },
+                ));
+                ::protobuf::reflect::MessageDescriptor::new::<Data>(
+                    "Data",
+                    fields,
+                    file_descriptor_proto()
+                )
+            })
+        }
+    }
+
+    fn default_instance() -> &'static Data {
+        static mut instance: ::protobuf::lazy::Lazy<Data> = ::protobuf::lazy::Lazy {
+            lock: ::protobuf::lazy::ONCE_INIT,
+            ptr: 0 as *const Data,
+        };
+        unsafe {
+            instance.get(Data::new)
+        }
+    }
+}
+
+impl ::protobuf::Clear for Data {
+    fn clear(&mut self) {
+        self.clear_value();
+        self.unknown_fields.clear();
+    }
+}
+
+impl ::std::fmt::Debug for Data {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for Data {
+    fn as_ref(&self) -> ::protobuf::reflect::ProtobufValueRef {
+        ::protobuf::reflect::ProtobufValueRef::Message(self)
+    }
+}
+
 static file_descriptor_proto_data: &'static [u8] = b"\
     \n\x0bstate.proto\"x\n\x07DBState\x12$\n\x07account\x18\x01\x20\x01(\x0b\
     2\x08.AccountH\0R\x07account\x12\x20\n\x04node\x18\x02\x20\x01(\x0b2\n.S\
@@ -925,7 +1931,16 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x01(\x04R\x07balance\x12\x14\n\x05nonce\x18\x02\x20\x01(\rR\x05nonce\"1\
     \n\tStateNode\x12$\n\x08nodeRefs\x18\x01\x20\x03(\x0b2\x08.NodeRefR\x08n\
     odeRefs\"9\n\x07NodeRef\x12\x18\n\x07address\x18\x01\x20\x01(\x0cR\x07ad\
-    dress\x12\x14\n\x05child\x18\x02\x20\x01(\x0cR\x05childb\x06proto3\
+    dress\x12\x14\n\x05child\x18\x02\x20\x01(\x0cR\x05child\"\x91\x01\n\nMer\
+    kleNode\x12\x1e\n\nreferences\x18\x01\x20\x01(\x04R\nreferences\x12!\n\
+    \x06branch\x18\x02\x20\x01(\x0b2\x07.BranchH\0R\x06branch\x12\x1b\n\x04l\
+    eaf\x18\x03\x20\x01(\x0b2\x05.LeafH\0R\x04leaf\x12\x1b\n\x04data\x18\x04\
+    \x20\x01(\x0b2\x05.DataH\0R\x04dataB\x06\n\x04node\"D\n\x06Branch\x12\
+    \x14\n\x05count\x18\x01\x20\x01(\x04R\x05count\x12\x12\n\x04zero\x18\x02\
+    \x20\x01(\x0cR\x04zero\x12\x10\n\x03one\x18\x03\x20\x01(\x0cR\x03one\",\
+    \n\x04Leaf\x12\x10\n\x03key\x18\x01\x20\x01(\x0cR\x03key\x12\x12\n\x04da\
+    ta\x18\x02\x20\x01(\x0cR\x04data\"\x1c\n\x04Data\x12\x14\n\x05value\x18\
+    \x01\x20\x01(\x0cR\x05valueb\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {
