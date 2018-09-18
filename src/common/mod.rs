@@ -1,18 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-pub mod address;
 pub mod binary_merkle_tree;
-pub mod genesis_tx;
-pub mod signed_genesis_tx;
-pub mod signed_tx;
-pub mod transaction;
-pub mod header;
-pub mod genesis_header;
-pub mod block;
-pub mod genesis_block;
-pub mod meta;
-pub mod tx;
+pub mod traits;
 
 pub trait Encode {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>>;
