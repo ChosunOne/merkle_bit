@@ -1,3 +1,6 @@
+use std::error::Error;
+use std::path::PathBuf;
+
 use common::binary_merkle_tree::BinaryMerkleTreeResult;
 use common::binary_merkle_tree::NodeVariant;
 
@@ -29,4 +32,9 @@ pub trait IdentifyNode<BranchType, LeafType, DataType>
           LeafType: Leaf,
           DataType: Data {
     fn get_variant(&self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
+}
+
+pub trait IDB {
+    fn open(path: PathBuf) -> Result<Self, Box<Error>>;
+    fn get<T>(&self, key: &[u8]) -> Result<Option<T>, Box<Error>>;
 }

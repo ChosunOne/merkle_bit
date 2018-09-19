@@ -1,8 +1,9 @@
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::error::Error;
 
 use common::{Encode, Exception, Decode};
-use common::traits::{Branch, Data, Hasher, IdentifyNode, Leaf};
+use common::traits::{Branch, Data, Hasher, IDB, IdentifyNode, Leaf};
 
 use rocksdb::{DB, Options};
 
@@ -22,19 +23,35 @@ enum TreeBranch {
     One
 }
 
-struct SplitPairs<'a, LeafType: 'a>
-    where LeafType: Leaf {
-    zeros: &'a [LeafType],
-    ones: &'a [LeafType]
+struct SplitPairs<'a> {
+    zeros: &'a [&'a [u8]],
+    ones: &'a [&'a [u8]]
 }
 
-impl<'a, LeafType> SplitPairs<'a, LeafType>
-    where LeafType: Leaf {
-    pub fn new(zeros: &'a [LeafType], ones: &'a [LeafType]) -> SplitPairs<'a, LeafType>
-        where LeafType: Leaf {
+struct Foo<'a, NodeType> {
+    keys: &'a [&'a [u8]],
+    node: NodeType,
+    depth: usize
+}
+
+impl<'a> SplitPairs<'a> {
+    pub fn new(zeros: &'a [&'a [u8]], ones: &'a [&'a [u8]]) -> SplitPairs<'a> {
         SplitPairs {
             zeros: &zeros,
             ones: &ones
+        }
+    }
+}
+
+impl<'a, 'b, NodeType> Foo<'a, NodeType> {
+    pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: NodeType, depth: usize) -> Foo<'a, NodeType>
+        where BranchType: Branch,
+              LeafType: Leaf,
+              DataType: Data {
+        Foo {
+            keys,
+            node,
+            depth
         }
     }
 }
@@ -50,14 +67,13 @@ fn choose_branch(key: &[u8], bit: usize) -> TreeBranch {
     }
 }
 
-fn split_pairs<LeafType>(sorted_pairs: &[LeafType], bit: usize) ->  SplitPairs<LeafType>
-    where LeafType: Leaf {
+fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8]], bit: usize) ->  SplitPairs<'a> {
 
-    if let TreeBranch::Zero = choose_branch(sorted_pairs[sorted_pairs.len() - 1].get_key(), bit) {
+    if let TreeBranch::Zero = choose_branch(sorted_pairs[sorted_pairs.len() - 1], bit) {
         return SplitPairs::new(&sorted_pairs[0..sorted_pairs.len()], &sorted_pairs[0..0])
     }
 
-    if let TreeBranch::One = choose_branch(sorted_pairs[0].get_key(), bit) {
+    if let TreeBranch::One = choose_branch(sorted_pairs[0], bit) {
         return SplitPairs::new(&sorted_pairs[0..0], &sorted_pairs[0..sorted_pairs.len()])
     }
 
@@ -66,7 +82,7 @@ fn split_pairs<LeafType>(sorted_pairs: &[LeafType], bit: usize) ->  SplitPairs<L
     let mut iterations = 0;
     while max - min > 1 {
         let bisect = (max - min) / 2 + min;
-        match choose_branch(sorted_pairs[bisect].get_key(), bit) {
+        match choose_branch(sorted_pairs[bisect], bit) {
             TreeBranch::Zero => min = bisect,
             TreeBranch::One =>  max = bisect
         }
@@ -75,40 +91,100 @@ fn split_pairs<LeafType>(sorted_pairs: &[LeafType], bit: usize) ->  SplitPairs<L
     SplitPairs::new(&sorted_pairs[0..max], &sorted_pairs[max..sorted_pairs.len()])
 }
 
-pub struct BinaryMerkleTree {
-    db: DB,
+pub struct BinaryMerkleTree<DatabaseType>
+    where DatabaseType: IDB {
+    db: DatabaseType,
     depth: usize
 }
 
-impl BinaryMerkleTree {
+impl<DatabaseType> BinaryMerkleTree<DatabaseType>
+    where DatabaseType: IDB {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
-        let db = DB::open_default(path)?;
+        let db = DatabaseType::open(path)?;
         Ok(Self {
             db,
             depth
         })
     }
 
-    pub fn get<BranchType, LeafType, DataType, HashResultType, NodeType>(&self, root_hash: &mut HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<LeafType>>
+    pub fn get<BranchType, LeafType, DataType, HashResultType, NodeType, ReturnType>(&self, root_hash: &HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<ReturnType>>
         where BranchType: Branch,
               LeafType: Leaf,
               DataType: Data,
               HashResultType: AsRef<[u8]>,
-              NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode {
-        let retrieved_node = self.db.get(root_hash.as_ref())?;
-        let encoded_node;
-        match retrieved_node {
-            Some(data) => encoded_node = data,
-            None => return Err(Box::new(Exception::new("Failed to find root node in database")))
+              NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode,
+              ReturnType: Decode {
+
+        let root_node;
+        if let Some(n) = self.db.get(root_hash.as_ref())? {
+            root_node = n;
+        } else {
+            return Err(Box::new(Exception::new("Failed to retrieve data")))
         }
 
-        let mut nodes = Vec::with_capacity(10);
-        let
-        let mut node = NodeType::decode(&encoded_node.to_vec())?;
+        let mut data_nodes: Vec<DataType> = Vec::with_capacity(keys.len());
+
+        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
+        let root_foo = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
+
+        foo_queue.push_back(root_foo);
+
+        while foo_queue.len() > 0 {
+            let foo;
+            match foo_queue.pop_front() {
+                Some(f) => foo = f,
+                None => return Err(Box::new(Exception::new("Empty Foo")))
+            }
+
+            if foo.depth > self.depth {
+                return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
+            }
+
+            match foo.node.get_variant()? {
+                NodeVariant::Branch(n) => {
+                    let split = split_pairs(foo.keys, foo.depth);
+                    if let Some(z) = self.db.get(n.get_zero())? {
+                        let zero_node = z;
+                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
+                        foo_queue.push_back(new_foo);
+                    } else {
+                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                    }
+                    if let Some(o) = self.db.get(n.get_one())? {
+                        let one_node = o;
+                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
+                        foo_queue.push_back(new_foo);
+                    } else {
+                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                    }
+                },
+                NodeVariant::Leaf(n) => {
+                    let data = n.get_data();
+                    let new_node;
+                    if let Some(e) = self.db.get(data)? {
+                        new_node = e;
+                    } else {
+                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                    }
+                    let new_foo = Foo::new::<BranchType, LeafType, DataType>(foo.keys, new_node, foo.depth + 1);
+                    foo_queue.push_back(new_foo);
+                },
+                NodeVariant::Data(n) => {data_nodes.push(n)}
+            }
+        }
+
+        let mut values = Vec::with_capacity(data_nodes.len());
 
 
+        for data_node in data_nodes {
+            if let Some(v) = self.db.get(data_node.get_value())? {
+                values.push(v);
+            } else {
+                return Err(Box::new(Exception::new("Failed to find requested key")))
+            }
+        }
 
-        Ok(vec![])
+        Ok(values)
     }
 
     pub fn insert<LeafType, HashResultType>(&self, leaves: &mut Vec<LeafType>, root: Option<HashResultType>) -> BinaryMerkleTreeResult<()>
@@ -118,11 +194,6 @@ impl BinaryMerkleTree {
         leaves.dedup_by(|a, b| a == b);
 
         let count_delta = 0;
-        if let Some(root_hash) = root {
-            if let Ok(data) = self.db.get(root_hash.as_ref()) {
-
-            }
-        }
 
         Ok(())
     }
@@ -143,6 +214,28 @@ mod tests {
     use blake2_rfc::blake2b::{Blake2b, Blake2bResult};
     use protobuf::Message as ProtoMessage;
 
+
+    struct MockDB<ReturnType> {
+        return_value: ReturnType
+    }
+
+    impl<ReturnType> MockDB<ReturnType> {
+        pub fn new(return_value: ReturnType) -> MockDB<ReturnType> {
+            MockDB {
+                return_value
+            }
+        }
+    }
+
+
+    impl<ReturnType> IDB for MockDB<ReturnType> {
+        fn open(path: PathBuf) -> Result<MockDB<ReturnType>, Box<Error>> {
+            MockDB::new()
+        }
+        fn get<T>(&self, key: &[u8]) -> Result<T, Box<Error>> {
+
+        }
+    }
 
     impl Hasher for Blake2b {
         type HashType = Blake2b;
@@ -234,11 +327,16 @@ mod tests {
 
     #[test]
     fn it_splits_an_all_zeros_sorted_list_of_pairs() {
-        let leaves = [
-        [0x00], [0x00], [0x00], [0x00], [0x00],
-        [0x00], [0x00], [0x00], [0x00], [0x00]];
+        // The complexity of these tests result from the fact that getting a key and splitting the
+        // tree should not require any copying or moving of memory.
+        let zero_key = vec![0x00];
+        let key_vec = vec![
+            &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
+            &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..]
+        ];
+        let keys = &key_vec[..];
 
-        let result = split_pairs(&leaves, 0);
+        let result = split_pairs(keys, 0);
         assert_eq!(result.zeros.len(), 10);
         assert_eq!(result.ones.len(), 0);
         for i in 0..result.zeros.len() {
@@ -248,11 +346,12 @@ mod tests {
 
     #[test]
     fn it_splits_an_all_ones_sorted_list_of_pairs() {
-        let leaves = [
-            [0xFF], [0xFF], [0xFF], [0xFF], [0xFF],
-            [0xFF], [0xFF], [0xFF], [0xFF], [0xFF]];
-
-        let result = split_pairs(&leaves, 0);
+        let one_key = vec![0xFF];
+        let key_vec = vec![
+            &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..],
+            &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
+        let keys = &key_vec[..];
+        let result = split_pairs(keys, 0);
         assert_eq!(result.zeros.len(), 0);
         assert_eq!(result.ones.len(), 10);
         for i in 0..result.ones.len() {
@@ -262,11 +361,13 @@ mod tests {
 
     #[test]
     fn it_splits_an_even_length_sorted_list_of_pairs() {
-        let leaves = [
-            [0x00], [0x00], [0x00], [0x00], [0x00],
-            [0xFF], [0xFF], [0xFF], [0xFF], [0xFF]];
-
-        let result = split_pairs(&leaves, 0);
+        let zero_key = vec![0x00];
+        let one_key = vec![0xFF];
+        let key_vec = vec![
+            &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
+            &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
+        let keys = &key_vec[..];
+        let result = split_pairs(keys, 0);
         assert_eq!(result.zeros.len(), 5);
         assert_eq!(result.ones.len(), 5);
         for i in 0..result.zeros.len() {
@@ -279,11 +380,13 @@ mod tests {
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() {
-        let leaves = [
-            [0x00], [0x00], [0x00], [0x00], [0x00], [0x00],
-            [0xFF], [0xFF], [0xFF], [0xFF], [0xFF]];
-
-        let result = split_pairs(&leaves, 0);
+        let zero_key = vec![0x00];
+        let one_key = vec![0xFF];
+        let key_vec = vec![
+            &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
+            &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
+        let keys = &key_vec[..];
+        let result = split_pairs(keys, 0);
         assert_eq!(result.zeros.len(), 6);
         assert_eq!(result.ones.len(), 5);
         for i in 0..result.zeros.len() {
@@ -296,11 +399,15 @@ mod tests {
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() {
-        let leaves = [
-            [0x00], [0x00], [0x00], [0x00], [0x00],
-            [0xFF], [0xFF], [0xFF], [0xFF], [0xFF], [0xFF]];
+        let zero_key = vec![0x00];
+        let one_key = vec![0xFF];
+        let key_vec = vec![
+            &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
+            &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
 
-        let result = split_pairs(&leaves, 0);
+        let keys = &key_vec[..];
+
+        let result = split_pairs(keys, 0);
         assert_eq!(result.zeros.len(), 5);
         assert_eq!(result.ones.len(), 6);
         for i in 0..result.zeros.len() {
@@ -309,6 +416,11 @@ mod tests {
         for i in 0..result.ones.len() {
             assert_eq!(result.ones[i], [0xFF]);
         }
+    }
+
+    #[test]
+    fn it_gets_an_item_out_of_a_simple_tree() {
+
     }
 
 }
