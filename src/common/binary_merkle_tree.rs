@@ -492,16 +492,11 @@ mod tests {
         let mut db = MockDB::new(HashMap::new(), HashMap::new());
         let mut proto_root_node = ProtoMerkleNode::new();
         let mut proto_root_node_key_material = [0; 32];
-        let mut proto_data_node_key_material = [0; 32];
-        let mut data_key_material = [0; 32];
 
         rng.fill(&mut proto_root_node_key_material);
-        rng.fill(&mut proto_data_node_key_material);
-        rng.fill(&mut data_key_material);
 
         let proto_root_node_key = hash(&proto_root_node_key_material, 32);
-        let proto_data_node_key = hash(&proto_data_node_key_material, 32);
-        let data_key = hash(&data_key_material, 32);
+        let proto_data_node_key = insert_data_node(&mut db, vec![0xFF]);
 
         proto_root_node.set_references(1);
 
@@ -511,18 +506,37 @@ mod tests {
 
         proto_root_node.set_leaf(proto_leaf_node);
 
+        db.insert_node(proto_root_node_key.clone(), proto_root_node);
+
+
+        let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let result = bmt.get(&proto_root_node_key, &[&proto_data_node_key[..]]).unwrap();
+        assert_eq!(result, vec![vec![0xFFu8]]);
+    }
+
+    fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
+        let mut rng: StdRng = SeedableRng::from_seed([0x01; 32]);
+        let mut proto_data_node_key_material = [0; 32];
+        let mut data_key_material = [0; 32];
+
+        rng.fill(&mut proto_data_node_key_material);
+        rng.fill(&mut data_key_material);
+
+        let proto_data_node_key = hash(&proto_data_node_key_material, 32);
+        let data_key = hash(&data_key_material, 32);
+
         let mut proto_data_node = ProtoData::new();
         proto_data_node.set_value(data_key.clone());
         let mut proto_outer_data_node = ProtoMerkleNode::new();
         proto_outer_data_node.set_references(1);
         proto_outer_data_node.set_data(proto_data_node);
-        db.insert_node(proto_root_node_key.clone(), proto_root_node);
         db.insert_node(proto_data_node_key.clone(), proto_outer_data_node);
-        db.insert_value(data_key.clone(), vec![0xFF]);
+        db.insert_value(data_key.clone(), value);
+        proto_data_node_key.clone()
+    }
 
-        let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
-        let result = bmt.get(&proto_root_node_key, &[&proto_data_node_key[..]]).unwrap();
-        assert_eq!(result, vec![vec![0xFFu8]]);
+    fn insert_leaf_node(db: &mut MockDB, data: ProtoMerkleNode) -> Vec<u8> {
+        
     }
 
 }
