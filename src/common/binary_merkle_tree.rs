@@ -5,8 +5,6 @@ use std::error::Error;
 use common::{Encode, Exception, Decode};
 use common::traits::{Branch, Data, Hasher, IDB, IdentifyNode, Leaf};
 
-use rocksdb::{DB, Options};
-
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
 
 pub enum NodeVariant<BranchType, LeafType, DataType>
@@ -91,32 +89,55 @@ fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8]], bit: usize) ->  SplitPairs<'a> 
     SplitPairs::new(&sorted_pairs[0..max], &sorted_pairs[max..sorted_pairs.len()])
 }
 
-pub struct BinaryMerkleTree<DatabaseType>
-    where DatabaseType: IDB {
+pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType>
+    where DatabaseType: IDB<NodeType = NodeType, ValueType = ValueType>,
+          BranchType: Branch,
+          LeafType: Leaf,
+          DataType: Data,
+          NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode {
     db: DatabaseType,
-    depth: usize
+    depth: usize,
+    branch: Option<BranchType>,
+    leaf: Option<LeafType>,
+    data: Option<DataType>,
+    node: Option<NodeType>
 }
 
-impl<DatabaseType> BinaryMerkleTree<DatabaseType>
-    where DatabaseType: IDB {
+impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType>
+    where DatabaseType: IDB<NodeType = NodeType, ValueType = ReturnType>,
+          BranchType: Branch,
+          LeafType: Leaf,
+          DataType: Data,
+          NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode,
+          ReturnType: Decode {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
             db,
-            depth
+            depth,
+            branch: None,
+            leaf: None,
+            data: None,
+            node: None
         })
     }
 
-    pub fn get<BranchType, LeafType, DataType, HashResultType, NodeType, ReturnType>(&self, root_hash: &HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<ReturnType>>
-        where BranchType: Branch,
-              LeafType: Leaf,
-              DataType: Data,
-              HashResultType: AsRef<[u8]>,
-              NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode,
-              ReturnType: Decode {
+    pub fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
+        Ok(Self {
+            db,
+            depth,
+            branch: None,
+            leaf: None,
+            data: None,
+            node: None
+        })
+    }
+
+    pub fn get<HashResultType>(&self, root_hash: &HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<ReturnType>>
+        where HashResultType: AsRef<[u8]> {
 
         let root_node;
-        if let Some(n) = self.db.get(root_hash.as_ref())? {
+        if let Some(n) = self.db.get_node(root_hash.as_ref())? {
             root_node = n;
         } else {
             return Err(Box::new(Exception::new("Failed to retrieve data")))
@@ -125,7 +146,7 @@ impl<DatabaseType> BinaryMerkleTree<DatabaseType>
         let mut data_nodes: Vec<DataType> = Vec::with_capacity(keys.len());
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
-        let root_foo = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
+        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
 
         foo_queue.push_back(root_foo);
 
@@ -143,14 +164,14 @@ impl<DatabaseType> BinaryMerkleTree<DatabaseType>
             match foo.node.get_variant()? {
                 NodeVariant::Branch(n) => {
                     let split = split_pairs(foo.keys, foo.depth);
-                    if let Some(z) = self.db.get(n.get_zero())? {
+                    if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
                         foo_queue.push_back(new_foo);
                     } else {
                         return Err(Box::new(Exception::new("Corrupt merkle tree")))
                     }
-                    if let Some(o) = self.db.get(n.get_one())? {
+                    if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
                         foo_queue.push_back(new_foo);
@@ -161,7 +182,7 @@ impl<DatabaseType> BinaryMerkleTree<DatabaseType>
                 NodeVariant::Leaf(n) => {
                     let data = n.get_data();
                     let new_node;
-                    if let Some(e) = self.db.get(data)? {
+                    if let Some(e) = self.db.get_node(data)? {
                         new_node = e;
                     } else {
                         return Err(Box::new(Exception::new("Corrupt merkle tree")))
@@ -177,25 +198,15 @@ impl<DatabaseType> BinaryMerkleTree<DatabaseType>
 
 
         for data_node in data_nodes {
-            if let Some(v) = self.db.get(data_node.get_value())? {
+            if let Some(v) = self.db.get_value(data_node.get_value())? {
                 values.push(v);
             } else {
+                println!("{:?}", data_node.get_value());
                 return Err(Box::new(Exception::new("Failed to find requested key")))
             }
         }
 
         Ok(values)
-    }
-
-    pub fn insert<LeafType, HashResultType>(&self, leaves: &mut Vec<LeafType>, root: Option<HashResultType>) -> BinaryMerkleTreeResult<()>
-        where LeafType: Leaf + Ord + Eq,
-              HashResultType: AsRef<[u8]> + Clone {
-        leaves.sort();
-        leaves.dedup_by(|a, b| a == b);
-
-        let count_delta = 0;
-
-        Ok(())
     }
 
 }
@@ -213,27 +224,63 @@ mod tests {
 
     use blake2_rfc::blake2b::{Blake2b, Blake2bResult};
     use protobuf::Message as ProtoMessage;
+    use std::collections::HashMap;
+    use rand::{Rng, StdRng, SeedableRng};
+    use util::hash::hash;
 
-
-    struct MockDB<ReturnType> {
-        return_value: ReturnType
+    struct MockDB {
+        node_map: HashMap<Vec<u8>, ProtoMerkleNode>,
+        value_map: HashMap<Vec<u8>, Vec<u8>>
     }
 
-    impl<ReturnType> MockDB<ReturnType> {
-        pub fn new(return_value: ReturnType) -> MockDB<ReturnType> {
+    impl MockDB {
+        pub fn new(node_map: HashMap<Vec<u8>, ProtoMerkleNode>, value_map: HashMap<Vec<u8>, Vec<u8>>) -> MockDB {
             MockDB {
-                return_value
+                node_map,
+                value_map
             }
         }
+
+        pub fn update_node_map(&mut self, map: HashMap<Vec<u8>, ProtoMerkleNode>) {
+            self.node_map = map;
+        }
+
+        pub fn update_value_map(&mut self, map: HashMap<Vec<u8>, Vec<u8>>) {
+            self.value_map = map;
+        }
     }
 
 
-    impl<ReturnType> IDB for MockDB<ReturnType> {
-        fn open(path: PathBuf) -> Result<MockDB<ReturnType>, Box<Error>> {
-            MockDB::new()
-        }
-        fn get<T>(&self, key: &[u8]) -> Result<T, Box<Error>> {
+    impl IDB for MockDB {
+        type NodeType = ProtoMerkleNode;
+        type ValueType = Vec<u8>;
 
+        fn open(path: PathBuf) -> Result<MockDB, Box<Error>> {
+            Ok(MockDB::new(HashMap::new(), HashMap::new()))
+        }
+
+        fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>> {
+            if let Some(m) = self.node_map.get(key) {
+                return Ok(Some(m.clone()))
+            } else {
+                return Ok(None)
+            }
+        }
+
+        fn insert_node(&mut self, key: Vec<u8>, value: Self::NodeType) {
+            self.node_map.insert(key, value);
+        }
+
+        fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>> {
+            if let Some(v) = self.value_map.get(key) {
+                return Ok(Some(v.clone()))
+            } else {
+                return Ok(None)
+            }
+        }
+
+        fn insert_value(&mut self, key: Vec<u8>, value: Self::ValueType) {
+            self.value_map.insert(key, value);
         }
     }
 
@@ -308,6 +355,26 @@ mod tests {
 
         fn get_data(&self) -> &[u8] {
             self
+        }
+    }
+
+    impl Encode for ProtoMerkleNode {
+        fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+            Ok(vec![])
+        }
+    }
+
+    impl Decode for ProtoMerkleNode {
+        fn decode(buffer: &[u8]) -> Result<ProtoMerkleNode, Box<Error>> {
+            let mut proto = ProtoMerkleNode::new();
+            proto.merge_from_bytes(buffer)?;
+            Ok(proto)
+        }
+    }
+
+    impl Decode for Vec<u8> {
+        fn decode(buffer: &[u8]) -> Result<Vec<u8>, Box<Error>> {
+            Ok(buffer.to_vec())
         }
     }
 
@@ -420,7 +487,42 @@ mod tests {
 
     #[test]
     fn it_gets_an_item_out_of_a_simple_tree() {
+        let mut rng: StdRng = SeedableRng::from_seed([0; 32]);
 
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut proto_root_node = ProtoMerkleNode::new();
+        let mut proto_root_node_key_material = [0; 32];
+        let mut proto_data_node_key_material = [0; 32];
+        let mut data_key_material = [0; 32];
+
+        rng.fill(&mut proto_root_node_key_material);
+        rng.fill(&mut proto_data_node_key_material);
+        rng.fill(&mut data_key_material);
+
+        let proto_root_node_key = hash(&proto_root_node_key_material, 32);
+        let proto_data_node_key = hash(&proto_data_node_key_material, 32);
+        let data_key = hash(&data_key_material, 32);
+
+        proto_root_node.set_references(1);
+
+        let mut proto_leaf_node = ProtoLeaf::new();
+        proto_leaf_node.set_key(proto_root_node_key.clone());
+        proto_leaf_node.set_data(proto_data_node_key.clone());
+
+        proto_root_node.set_leaf(proto_leaf_node);
+
+        let mut proto_data_node = ProtoData::new();
+        proto_data_node.set_value(data_key.clone());
+        let mut proto_outer_data_node = ProtoMerkleNode::new();
+        proto_outer_data_node.set_references(1);
+        proto_outer_data_node.set_data(proto_data_node);
+        db.insert_node(proto_root_node_key.clone(), proto_root_node);
+        db.insert_node(proto_data_node_key.clone(), proto_outer_data_node);
+        db.insert_value(data_key.clone(), vec![0xFF]);
+
+        let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let result = bmt.get(&proto_root_node_key, &[&proto_data_node_key[..]]).unwrap();
+        assert_eq!(result, vec![vec![0xFFu8]]);
     }
 
 }

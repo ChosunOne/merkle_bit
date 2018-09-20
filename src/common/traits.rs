@@ -35,6 +35,11 @@ pub trait IdentifyNode<BranchType, LeafType, DataType>
 }
 
 pub trait IDB {
-    fn open(path: PathBuf) -> Result<Self, Box<Error>>;
-    fn get<T>(&self, key: &[u8]) -> Result<Option<T>, Box<Error>>;
+    type NodeType;
+    type ValueType;
+    fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
+    fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>>;
+    fn insert_node(&mut self, key: Vec<u8>, node: Self::NodeType);
+    fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>>;
+    fn insert_value(&mut self, key: Vec<u8>, value: Self::ValueType);
 }
