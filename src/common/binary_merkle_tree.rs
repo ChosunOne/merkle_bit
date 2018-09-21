@@ -157,6 +157,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                 None => return Err(Box::new(Exception::new("Empty Foo")))
             }
 
+
+
             if foo.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
             }
@@ -180,6 +182,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                     }
                 },
                 NodeVariant::Leaf(n) => {
+                    if foo.keys.len() == 0 {
+                        return Err(Box::new(Exception::new("No key with which to match the leaf key")))
+                    }
+                    if n.get_key() != foo.keys[0] {
+                        return Err(Box::new(Exception::new("Given key does not match leaf key")))
+                    }
                     let data = n.get_data();
                     let new_node;
                     if let Some(e) = self.db.get_node(data)? {
@@ -201,7 +209,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             if let Some(v) = self.db.get_value(data_node.get_value())? {
                 values.push(v);
             } else {
-                println!("{:?}", data_node.get_value());
                 return Err(Box::new(Exception::new("Failed to find requested key")))
             }
         }
@@ -487,31 +494,56 @@ mod tests {
 
     #[test]
     fn it_gets_an_item_out_of_a_simple_tree() {
-        let mut rng: StdRng = SeedableRng::from_seed([0; 32]);
-
         let mut db = MockDB::new(HashMap::new(), HashMap::new());
-        let mut proto_root_node = ProtoMerkleNode::new();
-        let mut proto_root_node_key_material = [0; 32];
 
-        rng.fill(&mut proto_root_node_key_material);
-
-        let proto_root_node_key = hash(&proto_root_node_key_material, 32);
         let proto_data_node_key = insert_data_node(&mut db, vec![0xFF]);
-
-        proto_root_node.set_references(1);
-
-        let mut proto_leaf_node = ProtoLeaf::new();
-        proto_leaf_node.set_key(proto_root_node_key.clone());
-        proto_leaf_node.set_data(proto_data_node_key.clone());
-
-        proto_root_node.set_leaf(proto_leaf_node);
-
-        db.insert_node(proto_root_node_key.clone(), proto_root_node);
+        let proto_root_node_key = insert_leaf_node(&mut db, None, proto_data_node_key.clone());
 
 
         let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
-        let result = bmt.get(&proto_root_node_key, &[&proto_data_node_key[..]]).unwrap();
+        let result = bmt.get(&proto_root_node_key, &[&proto_root_node_key[..]]).unwrap();
         assert_eq!(result, vec![vec![0xFFu8]]);
+    }
+
+    #[test]
+    #[should_panic]
+    fn it_fails_to_get_from_empty_tree() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut rng: StdRng = SeedableRng::from_seed([0x04; 32]);
+
+        let mut root_key_material = [0; 32];
+        let mut key_material = [0; 32];
+
+        rng.fill(&mut root_key_material);
+        rng.fill(&mut key_material);
+        let root_key = hash(&root_key_material, 32);
+        let key = hash(&key_material, 32);
+
+        let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
+        bmt.get(&root_key, &[&key[..]]).unwrap();
+    }
+
+    #[test]
+    #[should_panic]
+    fn it_fails_to_get_a_nonexistent_item() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut rng: StdRng = SeedableRng::from_seed([0x05; 32]);
+        let mut key_material = [0; 32];
+
+        rng.fill(&mut key_material);
+
+        let key = hash(&key_material, 32);
+
+        let data_node_key = insert_data_node(&mut db, vec![0xFF]);
+        let leaf_node_key = insert_leaf_node(&mut db, None, data_node_key.clone());
+        let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
+        bmt.get(&leaf_node_key, &[&key[..]]).unwrap();
+    }
+
+    #[test]
+    fn it_gets_an_item_from_a_small_tree() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        panic!();
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
@@ -531,12 +563,92 @@ mod tests {
         proto_outer_data_node.set_references(1);
         proto_outer_data_node.set_data(proto_data_node);
         db.insert_node(proto_data_node_key.clone(), proto_outer_data_node);
-        db.insert_value(data_key.clone(), value);
+        db.insert_value(data_key, value);
         proto_data_node_key.clone()
     }
 
-    fn insert_leaf_node(db: &mut MockDB, data: ProtoMerkleNode) -> Vec<u8> {
-        
+    fn insert_leaf_node(db: &mut MockDB, leaf_key: Option<Vec<u8>>, data_key: Vec<u8>) -> Vec<u8> {
+        let mut rng: StdRng = SeedableRng::from_seed([0x02; 32]);
+        let mut proto_leaf_node_key_material = [0; 32];
+
+        rng.fill(&mut proto_leaf_node_key_material);
+
+        let proto_leaf_node_key = hash(&proto_leaf_node_key_material, 32);
+
+        let mut proto_leaf_node = ProtoLeaf::new();
+        proto_leaf_node.set_data(data_key.clone());
+        let leaf_node_key;
+        if let Some(key) = leaf_key {
+            leaf_node_key = key;
+        } else {
+            leaf_node_key = proto_leaf_node_key.clone();
+        }
+        proto_leaf_node.set_key(leaf_node_key.clone());
+
+        let mut proto_outer_leaf_node = ProtoMerkleNode::new();
+        proto_outer_leaf_node.set_references(1);
+        proto_outer_leaf_node.set_leaf(proto_leaf_node);
+        db.insert_node(leaf_node_key.clone(), proto_outer_leaf_node);
+        leaf_node_key.clone()
+    }
+
+    fn insert_branch_node(db: &mut MockDB, zero_key: Vec<u8>, one_key: Vec<u8>) -> Vec<u8> {
+        let mut rng: StdRng = SeedableRng::from_seed([0x03; 32]);
+        let mut proto_branch_node_key_material = [0; 32];
+
+        rng.fill(&mut proto_branch_node_key_material);
+
+        let proto_branch_node_key = hash(&proto_branch_node_key_material, 32);
+
+        let mut proto_branch_node = ProtoBranch::new();
+        proto_branch_node.set_count(2);
+        proto_branch_node.set_zero(zero_key.clone());
+        proto_branch_node.set_one(one_key.clone());
+        let mut proto_outer_branch_node = ProtoMerkleNode::new();
+        proto_outer_branch_node.set_references(1);
+        proto_outer_branch_node.set_branch(proto_branch_node);
+        db.insert_node(proto_branch_node_key.clone(), proto_outer_branch_node);
+        proto_branch_node_key.clone()
+    }
+
+    fn build_tree(db: &mut MockDB, num_data_nodes: usize) -> Vec<u8> {
+        if num_data_nodes == 0 {
+            return vec![]
+        }
+
+        let mut rng: StdRng = SeedableRng::from_seed([0x06; 32]);
+        let mut data_node_keys = Vec::with_capacity(num_data_nodes);
+        for _ in 0..num_data_nodes {
+            let value = rng.gen_range(0x00, 0xFF);
+            data_node_keys.push(insert_data_node(db, vec![value]));
+        }
+
+        let mut depth = (num_data_nodes as f64).log2() as usize;
+        let mut leaf_node_keys = Vec::with_capacity(num_data_nodes);
+        for i in 0..data_node_keys.len() {
+            let key = data_node_keys[i].clone();
+            let mut leaf_key = vec![0xFF; 32];
+            let index = depth / 8;
+            if i % 2 == 0 {
+                leaf_key = vec![0x00, 0xFF, 0x00, ];
+            } else {
+                leaf_key = vec![]
+            }
+            leaf_node_keys.push(insert_leaf_node(db, None, key));
+        }
+
+        if leaf_node_keys.len() == 1 {
+            return leaf_node_keys[0].clone()
+        }
+
+//        let mut branch_node_keys = Vec::with_capacity(leaf_node_keys.len() / 2);
+//
+
+//        for i in (0..leaf_node_keys.len()).step_by(2) {
+//
+//        }
+//
+        vec![]
     }
 
 }
