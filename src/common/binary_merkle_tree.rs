@@ -28,9 +28,7 @@ struct SplitPairs<'a> {
     ones: &'a [&'a [u8]]
 }
 
-#[derive(Debug)]
-struct Foo<'a, NodeType>
-    where NodeType: Debug {
+struct Foo<'a, NodeType> {
     keys: &'a [&'a [u8]],
     node: NodeType,
     depth: usize
@@ -45,8 +43,7 @@ impl<'a> SplitPairs<'a> {
     }
 }
 
-impl<'a, 'b, NodeType> Foo<'a, NodeType>
-    where NodeType: Debug {
+impl<'a, 'b, NodeType> Foo<'a, NodeType> {
     pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: NodeType, depth: usize) -> Foo<'a, NodeType>
         where BranchType: Branch,
               LeafType: Leaf,
@@ -116,9 +113,9 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
     where DatabaseType: IDB<NodeType = NodeType, ValueType = ReturnType>,
           BranchType: Branch,
           LeafType: Leaf,
-          DataType: Data + Debug,
-          NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode + Debug,
-          ReturnType: Decode + Debug {
+          DataType: Data,
+          NodeType: IdentifyNode<BranchType, LeafType, DataType> + Encode + Decode,
+          ReturnType: Decode {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
@@ -169,11 +166,9 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             if foo.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
             }
-            println!("foo.keys {:?}", foo.keys);
 
             match foo.node.get_variant()? {
                 NodeVariant::Branch(n) => {
-                    println!("Branch");
                     let split = split_pairs(foo.keys, foo.depth);
 
                     // If you switch the order of these blocks, the result comes out backwards
@@ -198,7 +193,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                     }
                 },
                 NodeVariant::Leaf(n) => {
-                    println!("Leaf");
                     if foo.keys.len() == 0 {
                         return Err(Box::new(Exception::new("No key with which to match the leaf key")))
                     }
