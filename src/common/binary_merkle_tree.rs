@@ -620,7 +620,7 @@ mod tests {
     }
 
     #[test]
-    fn it_gets_items_from_a_small_tree() {
+    fn it_gets_items_from_a_small_balanced_tree() {
         let mut db = MockDB::new(HashMap::new(), HashMap::new());
         let mut rng: StdRng = SeedableRng::from_seed([0x09; 32]);
         let root_hash = build_tree(&mut db, 8, &mut rng);
@@ -634,6 +634,23 @@ mod tests {
         }
         let items = bmt.get(&root_hash, &keys[..]).unwrap();
         assert_eq!(items, [[232], [32], [169], [199], [83], [69], [27], [24]]);
+    }
+
+    #[test]
+    fn it_gets_items_from_a_small_unbalanced_tree() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut rng: StdRng = SeedableRng::from_seed([0x0a; 32]);
+        let root_hash = build_tree(&mut db, 7, &mut rng);
+        let mut bmt = BinaryMerkleTree::from_db(db, 3).unwrap();
+
+        let key_values: Vec<Vec<u8>> = vec![vec![0], vec![1 << 5], vec![2 << 5], vec![3 << 5], vec![4 << 5], vec![5 << 5], vec![6 << 5]];
+        let mut keys = Vec::with_capacity(7);
+        for i in 0..7 {
+            let value = &key_values[i][..];
+            keys.push(value);
+        }
+        let items = bmt.get(&root_hash, &keys[..]).unwrap();
+        assert_eq!(items, [[57], [9], [16], [164], [142], [170], [11]]);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>, rng: &mut StdRng) -> Vec<u8> {
@@ -729,18 +746,17 @@ mod tests {
         }
 
         let mut previous_level = leaf_node_keys;
-        for i in (0..depth).rev() {
+        for i in (0..depth + 1).rev() {
             let mut branch_node_keys = Vec::with_capacity(previous_level.len() / 2);
             for j in (0..previous_level.len()).step_by(2) {
-                branch_node_keys.push(insert_branch_node(db, previous_level[j].clone(), previous_level[j + 1].clone(), None, rng));
-                if j as i32 + 2 - previous_level.len() as i32 + 1 == 0 && j as i32 + 3 - previous_level.len() as i32 + 1 < 0 {
-                    // Append last node into branch node keys
-                    branch_node_keys.push(previous_level[j + 2].clone());
+                if j + 1 > previous_level.len() - 1 {
+                    branch_node_keys.push(previous_level[j].clone());
+                } else {
+                    branch_node_keys.push(insert_branch_node(db, previous_level[j].clone(), previous_level[j + 1].clone(), None, rng));
                 }
             }
             previous_level = branch_node_keys;
         }
-
         previous_level[0].clone()
     }
 }
