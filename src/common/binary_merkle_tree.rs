@@ -138,7 +138,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
         })
     }
 
-    pub fn get<HashResultType>(&self, root_hash: &HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<ReturnType>>
+    pub fn get<HashResultType>(&self, root_hash: &HashResultType, keys: &[&[u8]]) -> BinaryMerkleTreeResult<Vec<Option<ReturnType>>>
         where HashResultType: AsRef<[u8]> {
 
         let root_node;
@@ -195,9 +195,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                     if foo.keys.len() == 0 {
                         return Err(Box::new(Exception::new("No key with which to match the leaf key")))
                     }
-                    if n.get_key() != foo.keys[0] {
-                        return Err(Box::new(Exception::new(&format!("Given key ({:?}) does not match leaf key ({:?})", foo.keys[0], n.get_key()))))
-                    }
 
                     leaf_nodes.push(n);
                 },
@@ -210,8 +207,13 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
         let mut values = Vec::with_capacity(leaf_nodes.len());
 
 
-        for leaf_node in leaf_nodes {
-            let data = leaf_node.get_data();
+        for i in 0..leaf_nodes.len() {
+            if leaf_nodes[i].get_key() != keys[i] {
+                values.push(None);
+                continue;
+            }
+
+            let data = leaf_nodes[i].get_data();
             let new_node;
             if let Some(e) = self.db.get_node(data)? {
                 new_node = e;
@@ -220,7 +222,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             }
             match new_node.get_variant()? {
                 NodeVariant::Data(n) => {
-                    values.push(ReturnType::decode(n.get_value())?);
+                    values.push(Some(ReturnType::decode(n.get_value())?));
                 },
                 _ => {
                     return Err(Box::new(Exception::new("Corrupt merkle tree")))
@@ -251,7 +253,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             return Err(Box::new(Exception::new("Failed to find root node")))
         }
 
-        let mut data_nodes: Vec<DataType> = Vec::with_capacity(keys.len());
+        let mut leaf_nodes: Vec<DataType> = Vec::with_capacity(keys.len());
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
         let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
@@ -665,7 +667,7 @@ mod tests {
 
         let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
         let result = bmt.get(&proto_root_node_key, &[&key[..]]).unwrap();
-        assert_eq!(result, vec![vec![0xFFu8]]);
+        assert_eq!(result, vec![Some(vec![0xFFu8])]);
     }
 
     #[test]
@@ -692,7 +694,8 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let nonexistent_key = vec![0xAB];
-        bmt.get(&leaf_node_key, &[&nonexistent_key[..]]).unwrap();
+        let item = bmt.get(&leaf_node_key, &[&nonexistent_key[..]]).unwrap();
+        item[0].clone().unwrap();
     }
 
     #[test]
@@ -713,7 +716,11 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 3).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -735,7 +742,11 @@ mod tests {
 
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -759,7 +770,11 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -783,7 +798,11 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -807,7 +826,11 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     #[test]
@@ -831,7 +854,11 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
-        assert_eq!(items, values);
+        let mut expected_items = vec![];
+        for value in values {
+            expected_items.push(Some(value));
+        }
+        assert_eq!(items, expected_items);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
