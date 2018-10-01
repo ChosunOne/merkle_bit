@@ -13,6 +13,7 @@ extern crate serde;
 extern crate serde_json;
 extern crate tiny_keccak;
 extern crate uuid;
+#[macro_use] extern crate bencher;
 
 pub mod common;
 pub mod util;
