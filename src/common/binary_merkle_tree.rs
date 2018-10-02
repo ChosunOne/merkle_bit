@@ -177,8 +177,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                             let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
-                    } else {
-                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
@@ -187,8 +185,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                             let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
-                    } else {
-                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
                     }
                 },
                 NodeVariant::Leaf(n) => {
@@ -233,8 +229,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
         Ok(values)
     }
 
-    pub fn insert<HashResultType>(&mut self, root_hash: &HashResultType, keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<()>
-        where HashResultType: AsRef<[u8]> {
+    pub fn insert<HashResultType>(&mut self, root_hash: &HashResultType, keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<HashResultType>
+        where HashResultType: AsRef<[u8]> + Clone {
 
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Not all keys have values to write")))
@@ -313,7 +309,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             }
         }
 
-        Ok(())
+        let root_hash_new = (*root_hash).clone();
+        Ok(root_hash_new)
     }
 }
 
@@ -683,7 +680,6 @@ mod tests {
     }
 
     #[test]
-    #[should_panic]
     fn it_fails_to_get_a_nonexistent_item() {
         let mut db = MockDB::new(HashMap::new(), HashMap::new());
 
@@ -694,8 +690,18 @@ mod tests {
         let mut bmt = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let nonexistent_key = vec![0xAB];
-        let item = bmt.get(&leaf_node_key, &[&nonexistent_key[..]]).unwrap();
-        item[0].clone().unwrap();
+        let items = bmt.get(&leaf_node_key, &[&nonexistent_key[..]]).unwrap();
+        let mut expected_items = vec![None];
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_handles_a_branch_with_no_elements() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let key = vec![0x00];
+        let data_node_key = insert_data_node(&mut db, vec![0xFF]);
+        let leaf_node_key = insert_leaf_node(&mut db, key.clone(), data_node_key.clone());
+
     }
 
     #[test]
@@ -891,15 +897,31 @@ mod tests {
         leaf_node_key.clone()
     }
 
-    fn insert_branch_node(db: &mut MockDB, zero_key: Vec<u8>, one_key: Vec<u8>) -> Vec<u8> {
-        let mut proto_branch_node_key_material = zero_key.clone();
-        proto_branch_node_key_material.append(&mut one_key.clone());
+    fn insert_branch_node(db: &mut MockDB, zero_key: Option<Vec<u8>>, one_key: Option<Vec<u8>>) -> Vec<u8> {
+        let mut proto_branch_node = ProtoBranch::new();
+        let mut proto_branch_node_key_material;
+
+        if let Some(z) = zero_key {
+            proto_branch_node_key_material = z.clone();
+            proto_branch_node.set_zero(z.clone());
+            proto_branch_node.set_count(1);
+            if let Some(o) = one_key {
+                proto_branch_node_key_material.append(&mut o.clone());
+                proto_branch_node.set_one(o.clone());
+                proto_branch_node.set_count(2);
+            }
+        } else if let Some(o) = one_key {
+            proto_branch_node_key_material = o.clone();
+            proto_branch_node.set_one(o.clone());
+            proto_branch_node.set_count(1);
+        } else {
+            proto_branch_node_key_material = vec![];
+            proto_branch_node.set_count(0);
+        }
+
         let proto_branch_node_key = hash(&proto_branch_node_key_material, 32);
 
-        let mut proto_branch_node = ProtoBranch::new();
-        proto_branch_node.set_count(2);
-        proto_branch_node.set_zero(zero_key.clone());
-        proto_branch_node.set_one(one_key.clone());
+
         let mut proto_outer_branch_node = ProtoMerkleNode::new();
         proto_outer_branch_node.set_references(1);
         proto_outer_branch_node.set_branch(proto_branch_node);
@@ -937,7 +959,7 @@ mod tests {
                 if j + 1 > previous_level.len() - 1 {
                     branch_node_keys.push(previous_level[j].clone());
                 } else {
-                    branch_node_keys.push(insert_branch_node(db, previous_level[j].clone(), previous_level[j + 1].clone()));
+                    branch_node_keys.push(insert_branch_node(db, Some(previous_level[j].clone()), Some(previous_level[j + 1].clone())));
                 }
             }
             previous_level = branch_node_keys;
