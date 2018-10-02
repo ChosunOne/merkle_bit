@@ -1016,7 +1016,16 @@ mod tests {
 
         let bmt = BinaryMerkleTree::from_db(db, 3).unwrap();
         let items = bmt.get(&branch, &get_keys).unwrap();
+        let mut expected_items = vec![];
+        for i in 0..256 {
+            if i == 0 {
+                expected_items.push(Some(vec![0xFF]));
+            } else {
+                expected_items.push(None);
+            }
+        }
         assert_eq!(items.len(), 256);
+        assert_eq!(items, expected_items);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
