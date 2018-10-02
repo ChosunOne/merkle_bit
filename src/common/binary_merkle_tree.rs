@@ -211,6 +211,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                     }
 
                     leaf_nodes.push_back(Some(n));
+
+                    if foo.keys.len() > 1 {
+                        for i in 0..foo.keys.len() - 1 {
+                            leaf_nodes.push_back(None);
+                        }
+                    }
                 },
                 NodeVariant::Data(n) => {
                     return Err(Box::new(Exception::new("Corrupt merkle tree")))
@@ -920,6 +926,97 @@ mod tests {
         let one_key = vec![0xFF];
         let items = bmt.get(&branch, &[&zero_key[..], &one_key[..]]).unwrap();
         assert_eq!(items, vec![None, None]);
+    }
+
+    #[test]
+    fn it_gets_items_from_a_complex_tree() {
+        // Tree description
+        // Node (Letter)
+        // Key (Number)
+        // Value (Number)
+        //
+        // A     B      C      D     E     F     G     H     I     J     K     L     M     N     O     P
+        // 0x00  0x40, 0x41, 0x60, 0x68, 0x70, 0x71, 0x72, 0x80, 0xC0, 0xC1, 0xE0, 0xE1, 0xE2, 0xF0, 0xF8
+        // None, None, None, 0x01, 0x02, None, None, None, 0x03, None, None, None, None, None, 0x04, None
+
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let data_d = insert_data_node(&mut db, vec![0x01]);
+        let leaf_d = insert_leaf_node(&mut db, vec![0x60], data_d);
+        let data_e = insert_data_node(&mut db, vec![0x02]);
+        let leaf_e = insert_leaf_node(&mut db, vec![0x68], data_e);
+        let data_i = insert_data_node(&mut db, vec![0x03]);
+        let leaf_i = insert_leaf_node(&mut db, vec![0x80], data_i);
+        let data_o = insert_data_node(&mut db, vec![0x04]);
+        let leaf_o = insert_leaf_node(&mut db, vec![0xF0], data_o);
+
+        let branch_de = insert_branch_node(&mut db, Some(leaf_d), Some(leaf_e));
+        let branch_de_fgh = insert_branch_node(&mut db, Some(branch_de), None);
+        let branch_bc_defgh = insert_branch_node(&mut db, None, Some(branch_de_fgh));
+        let branch_a_bcdefgh = insert_branch_node(&mut db, None, Some(branch_bc_defgh));
+
+        let branch_op = insert_branch_node(&mut db, Some(leaf_o), None);
+        let branch_lmn_op = insert_branch_node(&mut db, None, Some(branch_op));
+        let branch_jk_lmnop = insert_branch_node(&mut db, None, Some(branch_lmn_op));
+        let branch_i_jklmnop = insert_branch_node(&mut db, Some(leaf_i), Some(branch_jk_lmnop));
+
+        let root_node = insert_branch_node(&mut db, Some(branch_a_bcdefgh), Some(branch_i_jklmnop));
+
+        let key_a = vec![0x00]; // 0000_0000
+        let key_b = vec![0x40]; // 0100_0000
+        let key_c = vec![0x41]; // 0100_0001
+        let key_d = vec![0x60]; // 0110_0000
+        let key_e = vec![0x68]; // 0110_1000
+        let key_f = vec![0x70]; // 0111_0000
+        let key_g = vec![0x71]; // 0111_0001
+        let key_h = vec![0x72]; // 0111_0010
+        let key_i = vec![0x80]; // 1000_0000
+        let key_j = vec![0xC0]; // 1100_0000
+        let key_k = vec![0xC1]; // 1100_0001
+        let key_l = vec![0xE0]; // 1110_0000
+        let key_m = vec![0xE1]; // 1110_0001
+        let key_n = vec![0xE2]; // 1110_0010
+        let key_o = vec![0xF0]; // 1111_0000
+        let key_p = vec![0xF8]; // 1111_1000
+
+        let keys = vec![
+            &key_a[..], &key_b[..], &key_c[..], &key_d[..],
+            &key_e[..], &key_f[..], &key_g[..], &key_h[..],
+            &key_i[..], &key_j[..], &key_k[..], &key_l[..],
+            &key_m[..], &key_n[..], &key_o[..], &key_p[..]];
+
+        let bmt = BinaryMerkleTree::from_db(db, 5).unwrap();
+        let items = bmt.get(&root_node, &keys).unwrap();
+        let expected_items = vec![
+            None, None, None, Some(vec![0x01]),
+            Some(vec![0x02]), None, None, None,
+            Some(vec![0x03]), None, None, None,
+            None, None, Some(vec![0x04]), None];
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_returns_the_same_number_of_values_as_keys() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let data = insert_data_node(&mut db, vec![0xFF]);
+        let leaf = insert_leaf_node(&mut db, vec![0x00], data);
+        let branch = insert_branch_node(&mut db, Some(leaf), None);
+
+
+
+        let mut keys = Vec::with_capacity(256);
+        for i in 0..256 {
+            keys.push(vec![i as u8]);
+        }
+
+        let mut get_keys = vec![];
+        for i in 0..256 {
+            let value = &keys[i];
+            get_keys.push(&value[..]);
+        }
+
+        let bmt = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let items = bmt.get(&branch, &get_keys).unwrap();
+        assert_eq!(items.len(), 256);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
