@@ -148,7 +148,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             return Err(Box::new(Exception::new("Failed to find root node")))
         }
 
-        let mut leaf_nodes: Vec<LeafType> = Vec::with_capacity(keys.len());
+        let mut leaf_nodes: VecDeque<Option<LeafType>> = VecDeque::with_capacity(keys.len());
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
         let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
@@ -170,6 +170,9 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                 NodeVariant::Branch(n) => {
                     let split = split_pairs(foo.keys, foo.depth);
 
+                    let mut empty_zeros = false;
+                    let mut empty_ones = false;
+
                     // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
@@ -177,6 +180,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                             let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
+                    } else {
+                        empty_ones = true;
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
@@ -185,6 +190,19 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                             let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
+                    } else {
+                        empty_zeros = true;
+                    }
+
+                    if empty_zeros {
+                        for i in 0..split.zeros.len() {
+                            leaf_nodes.push_back(None);
+                        }
+                    }
+                    if empty_ones {
+                        for i in 0..split.ones.len() {
+                            leaf_nodes.push_back(None);
+                        }
                     }
                 },
                 NodeVariant::Leaf(n) => {
@@ -192,7 +210,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                         return Err(Box::new(Exception::new("No key with which to match the leaf key")))
                     }
 
-                    leaf_nodes.push(n);
+                    leaf_nodes.push_back(Some(n));
                 },
                 NodeVariant::Data(n) => {
                     return Err(Box::new(Exception::new("Corrupt merkle tree")))
@@ -204,25 +222,29 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
 
 
         for i in 0..leaf_nodes.len() {
-            if leaf_nodes[i].get_key() != keys[i] {
-                values.push(None);
-                continue;
-            }
+            if let Some(ref l) = leaf_nodes[i] {
+                if l.get_key() != keys[i] {
+                    values.push(None);
+                    continue;
+                }
 
-            let data = leaf_nodes[i].get_data();
-            let new_node;
-            if let Some(e) = self.db.get_node(data)? {
-                new_node = e;
-            } else {
-                return Err(Box::new(Exception::new("Corrupt merkle tree")))
-            }
-            match new_node.get_variant()? {
-                NodeVariant::Data(n) => {
-                    values.push(Some(ReturnType::decode(n.get_value())?));
-                },
-                _ => {
+                let data = l.get_data();
+                let new_node;
+                if let Some(e) = self.db.get_node(data)? {
+                    new_node = e;
+                } else {
                     return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
+                match new_node.get_variant()? {
+                    NodeVariant::Data(n) => {
+                        values.push(Some(ReturnType::decode(n.get_value())?));
+                    },
+                    _ => {
+                        return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                    }
+                }
+            } else {
+                values.push(None);
             }
         }
 
