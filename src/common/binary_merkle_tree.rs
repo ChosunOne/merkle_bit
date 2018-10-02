@@ -30,7 +30,7 @@ struct SplitPairs<'a> {
 
 struct Foo<'a, NodeType> {
     keys: &'a [&'a [u8]],
-    node: NodeType,
+    node: Option<NodeType>,
     depth: usize
 }
 
@@ -44,7 +44,7 @@ impl<'a> SplitPairs<'a> {
 }
 
 impl<'a, 'b, NodeType> Foo<'a, NodeType> {
-    pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: NodeType, depth: usize) -> Foo<'a, NodeType>
+    pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: Option<NodeType>, depth: usize) -> Foo<'a, NodeType>
         where BranchType: Branch,
               LeafType: Leaf,
               DataType: Data {
@@ -150,8 +150,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
 
         let mut leaf_nodes: VecDeque<Option<LeafType>> = VecDeque::with_capacity(keys.len());
 
-        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
-        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
+        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
 
         foo_queue.push_front(root_foo);
 
@@ -159,48 +159,48 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
             let foo;
             match foo_queue.pop_front() {
                 Some(f) => foo = f,
-                None => return Err(Box::new(Exception::new("Empty Foo")))
+                None => return Err(Box::new(Exception::new("Empty foo queue")))
             }
 
             if foo.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
             }
 
-            match foo.node.get_variant()? {
+            let node;
+            match foo.node {
+                Some(n) => node = n,
+                None => {
+                    for i in 0..foo.keys.len() {
+                        leaf_nodes.push_back(None);
+                    }
+                    continue;
+                }
+            }
+
+            match node.get_variant()? {
                 NodeVariant::Branch(n) => {
                     let split = split_pairs(foo.keys, foo.depth);
-
-                    let mut empty_zeros = false;
-                    let mut empty_ones = false;
 
                     // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
                         if split.ones.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
+                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
                     } else {
-                        empty_ones = true;
+                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, None, foo.depth);
+                        foo_queue.push_front(new_foo);
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
                         if split.zeros.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
+                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
                     } else {
-                        empty_zeros = true;
-                    }
-
-                    if empty_zeros {
                         for i in 0..split.zeros.len() {
-                            leaf_nodes.push_back(None);
-                        }
-                    }
-                    if empty_ones {
-                        for i in 0..split.ones.len() {
                             leaf_nodes.push_back(None);
                         }
                     }
@@ -219,7 +219,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
         }
 
         let mut values = Vec::with_capacity(leaf_nodes.len());
-
 
         for i in 0..leaf_nodes.len() {
             if let Some(ref l) = leaf_nodes[i] {
@@ -274,7 +273,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
         let mut leaf_nodes: Vec<DataType> = Vec::with_capacity(keys.len());
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0f64.powf(self.depth as f64) as usize);
-        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, root_node, 0);
+        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
 
         foo_queue.push_front(root_foo);
 
@@ -289,14 +288,22 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
             }
 
-            match foo.node.get_variant()? {
+            let node;
+            match foo.node {
+                Some(n) => node = n,
+                None => {
+                    continue;
+                }
+            }
+
+            match node.get_variant()? {
                 NodeVariant::Branch(n) => {
                     let split = split_pairs(foo.keys, foo.depth);
 
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
                         if split.ones.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, one_node, foo.depth + 1);
+                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
                     } else {
@@ -306,7 +313,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType> BinaryM
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
                         if split.zeros.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, zero_node, foo.depth + 1);
+                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
                             foo_queue.push_front(new_foo);
                         }
                     } else {
@@ -897,9 +904,10 @@ mod tests {
         let branch = insert_branch_node(&mut db, Some(leaf), None);
         let bmt = BinaryMerkleTree::from_db(db, 4).unwrap();
 
-        let key = vec![0xFF];
-        let items = bmt.get(&branch, &[&key[..]]).unwrap();
-        assert_eq!(items, vec![None]);
+        let zero_key = vec![0x00];
+        let one_key = vec![0xFF];
+        let items = bmt.get(&branch, &[&zero_key[..], &one_key[..]]).unwrap();
+        assert_eq!(items, vec![Some(vec![0xFF]), None]);
     }
 
     #[test]
