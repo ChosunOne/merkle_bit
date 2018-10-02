@@ -880,6 +880,18 @@ mod tests {
         assert_eq!(items, vec![None]);
     }
 
+    #[test]
+    fn it_handles_a_branch_with_no_children() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let branch = insert_branch_node(&mut db, None, None);
+        let bmt = BinaryMerkleTree::from_db(db, 4).unwrap();
+
+        let zero_key = vec![0x00];
+        let one_key = vec![0xFF];
+        let items = bmt.get(&branch, &[&zero_key[..], &one_key[..]]).unwrap();
+        assert_eq!(items, vec![None, None]);
+    }
+
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
         let data_key = hash(&value, 32);
 
