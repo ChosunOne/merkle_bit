@@ -867,6 +867,19 @@ mod tests {
         assert_eq!(items, expected_items);
     }
 
+    #[test]
+    fn it_handles_a_branch_with_one_child() {
+        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let data = insert_data_node(&mut db, vec![0xFF]);
+        let leaf = insert_leaf_node(&mut db, vec![0x00], data);
+        let branch = insert_branch_node(&mut db, Some(leaf), None);
+        let bmt = BinaryMerkleTree::from_db(db, 4).unwrap();
+
+        let key = vec![0xFF];
+        let items = bmt.get(&branch, &[&key[..]]).unwrap();
+        assert_eq!(items, vec![None]);
+    }
+
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
         let data_key = hash(&value, 32);
 
