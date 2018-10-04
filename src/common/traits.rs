@@ -13,25 +13,40 @@ pub trait Hasher {
 }
 
 pub trait Branch {
+    fn new() -> Self;
     fn get_count(&self) -> u64;
     fn get_zero(&self) -> &[u8];
     fn get_one(&self) -> &[u8];
+    fn set_count(&mut self, count: u64);
+    fn set_zero(&mut self, zero: &[u8]);
+    fn set_one(&mut self, one: &[u8]);
 }
 
 pub trait Leaf {
+    fn new() -> Self;
     fn get_key(&self) -> &[u8];
     fn get_data(&self) -> &[u8];
+    fn set_key(&mut self, key: &[u8]);
+    fn set_data(&mut self, data: &[u8]);
 }
 
 pub trait Data {
+    fn new() -> Self;
     fn get_value(&self) -> &[u8];
+    fn set_value(&mut self, value: &[u8]);
 }
 
-pub trait IdentifyNode<BranchType, LeafType, DataType>
+pub trait Node<BranchType, LeafType, DataType>
     where BranchType: Branch,
           LeafType: Leaf,
           DataType: Data {
+    fn new() -> Self;
+    fn get_references(&self) -> u64;
     fn get_variant(&self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
+    fn set_references(&mut self, references: u64);
+    fn set_branch(&mut self, branch: BranchType);
+    fn set_leaf(&mut self, leaf: LeafType);
+    fn set_data(&mut self, data: DataType);
 }
 
 pub trait IDB {
