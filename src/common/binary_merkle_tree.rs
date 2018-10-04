@@ -279,7 +279,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             return Err(Box::new(Exception::new("Failed to find root node")))
         }
 
-        let mut new_leaves = Vec::with_capacity(keys.len());
+        let mut leaf_map = HashMap::new();
+        let mut data_map = HashMap::new();
 
         for i in 0..keys.len() {
             let mut new_leaf_node = NodeType::new();
@@ -305,8 +306,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             let leaf_location = leaf_hasher.finalize();
             new_leaf_node.set_leaf(new_leaf);
 
-            new_leaves.push(new_data_node);
-            new_leaves.push(new_leaf_node);
+            leaf_map.insert(keys[i], new_leaf_node);
+            data_map.insert(keys[i], new_data_node);
         }
 
         let mut new_root = NodeType::new();
@@ -335,7 +336,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             match foo.node {
                 Some(n) => node = n,
                 None => {
-                    // TODO: Create a new subtree with given key/value pairs
+                    for key in foo.keys {
+                        if let Some(n) = leaf_map.remove(key) {
+                            new_nodes.push(n);
+                        }
+                        if let Some(n) = data_map.remove(key) {
+                            new_nodes.push(n);
+                        }
+                    }
                     continue;
                 }
             }
@@ -369,7 +377,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
                             foo_queue.push_front(new_foo);
                         }
                     } else {
-                        // TODO: Alternatively, just do the subtree creation here rather than putting a foo on the stack since it will definitely be executed next
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, None, foo.depth);
                         foo_queue.push_front(new_foo);
                     }
@@ -393,23 +400,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         // TODO: Return hash of new root
         let root_hash_new = (*root_hash).clone();
         Ok(root_hash_new)
-    }
-
-    fn create_subtree(&mut self, keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<()> {
-        if keys.len() != values.len() {
-            return Err(Box::new(Exception::new("Keys and values are of differing lengths")))
-        }
-        // TODO: Create Data nodes
-        // TODO: Create Leaf nodes
-        for i in 0..keys.len() {
-            let mut data = DataType::new();
-            data.set_value(&(values[i].encode()?));
-
-        }
-
-        // TODO: Connect leaves with branches
-        // TODO: Connect branches with branches
-        Ok(())
     }
 }
 
