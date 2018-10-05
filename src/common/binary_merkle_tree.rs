@@ -34,6 +34,17 @@ struct Foo<'a, NodeType> {
     depth: usize
 }
 
+struct Bar<'a, BranchType, HasherType, HashResultType: 'a>
+    where BranchType: Branch,
+          HasherType: Hasher,
+          HashResultType: AsRef<[u8]> + Clone {
+    left: Option<&'a HashResultType>,
+    right: Option<&'a HashResultType>,
+    hash: Option<HashResultType>,
+    hasher: Option<HasherType>,
+    branch: BranchType
+}
+
 impl<'a> SplitPairs<'a> {
     pub fn new(zeros: &'a [&'a [u8]], ones: &'a [&'a [u8]]) -> SplitPairs<'a> {
         SplitPairs {
@@ -52,6 +63,44 @@ impl<'a, 'b, NodeType> Foo<'a, NodeType> {
             keys,
             node,
             depth
+        }
+    }
+}
+
+impl<'a, BranchType, HasherType, HashResultType: 'a> Bar<'a, BranchType, HasherType, HashResultType>
+    where BranchType: Branch,
+          HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
+          HashResultType: AsRef<[u8]> + Clone {
+    pub fn new(branch: BranchType) -> Bar<'a, BranchType, HasherType, HashResultType> {
+        Bar {
+            left: None,
+            right: None,
+            hash: None,
+            hasher: None,
+            branch
+        }
+    }
+
+    pub fn insert(&mut self, hash: &'a HashResultType) -> BinaryMerkleTreeResult<&Option< HashResultType>> {
+        if let Some(ref l) = self.left {
+            if let Some(ref r) = self.right {
+                // This item already has a left and right hash
+                return Err(Box::new(Exception::new("Bar is already full")))
+            } else {
+                self.right = Some(hash);
+                let mut hasher = HasherType::new(32);
+                hasher.update(l.as_ref());
+                // This was just set, so I'm ok with these unwraps
+                hasher.update(self.right.unwrap().as_ref());
+                self.branch.set_zero(l.as_ref());
+                self.branch.set_one(self.right.unwrap().as_ref());
+                let new_hash = hasher.finalize();
+                self.hash = Some(new_hash);
+                return Ok(&self.hash)
+            }
+        } else {
+            self.left = Some(hash);
+            return Ok(&None)
         }
     }
 }
@@ -283,9 +332,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         let mut data_map = HashMap::new();
 
         for i in 0..keys.len() {
-            let mut new_leaf_node = NodeType::new();
             let mut new_leaf = LeafType::new();
-            let mut new_data_node = NodeType::new();
             let mut new_data = DataType::new();
 
             let encoded_value = values[i].encode()?;
@@ -294,17 +341,34 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             data_hasher.update(&encoded_value);
             let data_location = data_hasher.finalize();
 
-            new_data_node.set_data(new_data);
-            new_data_node.set_references(1);
-
-            new_leaf.set_key(keys[i]);
-            new_leaf.set_data(data_location.as_ref());
+            let mut new_data_node;
+            if let Some(n) = self.db.get_node(data_location.as_ref())? {
+                // The data already exists in the database
+                // TODO: Bump the reference count
+                new_data_node = n;
+            } else {
+                new_data_node = NodeType::new();
+                new_data_node.set_data(new_data);
+                new_data_node.set_references(1);
+            }
 
             let mut leaf_hasher = HasherType::new(32);
             leaf_hasher.update(keys[i]);
             leaf_hasher.update(data_location.as_ref());
             let leaf_location = leaf_hasher.finalize();
-            new_leaf_node.set_leaf(new_leaf);
+
+
+            let mut new_leaf_node;
+            if let Some(n) = self.db.get_node(leaf_location.as_ref())? {
+                // The data already exists in the database
+                // TODO: Bump the reference count
+                new_leaf_node = n;
+            } else {
+                new_leaf_node = NodeType::new();
+                new_leaf.set_key(keys[i]);
+                new_leaf.set_data(data_location.as_ref());
+                new_leaf_node.set_leaf(new_leaf);
+            }
 
             leaf_map.insert(keys[i], new_leaf_node);
             data_map.insert(keys[i], new_data_node);
@@ -336,14 +400,6 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             match foo.node {
                 Some(n) => node = n,
                 None => {
-                    for key in foo.keys {
-                        if let Some(n) = leaf_map.remove(key) {
-                            new_nodes.push(n);
-                        }
-                        if let Some(n) = data_map.remove(key) {
-                            new_nodes.push(n);
-                        }
-                    }
                     continue;
                 }
             }
@@ -401,6 +457,52 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         let root_hash_new = (*root_hash).clone();
         Ok(root_hash_new)
     }
+
+    fn create_tree(keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<HashResultType> {
+        if keys.len() != values.len() {
+            return Err(Box::new(Exception::new("Keys and values are of different lengths")))
+        }
+
+        if keys.len() == 0 {
+            return Err(Box::new(Exception::new("No keys to create a tree with")))
+        }
+
+        let key_bits = 8 * keys[0].len();
+        let tree: Vec<Vec<HashResultType>> = Vec::with_capacity(1);
+
+        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(key_bits as f64) as usize);
+
+
+
+
+        let root_node = NodeType::new();
+        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
+        foo_queue.push_front(root_foo);
+
+        while foo_queue.len() > 0 {
+            let foo;
+            if let Some(f) = foo_queue.pop_front() {
+                foo = f;
+            } else {
+                return Err(Box::new(Exception::new("Empty foo queue")))
+            }
+
+            if foo.keys.len() > 1 {
+                // TODO: Create a branch
+            } else if foo.keys.len() == 1 {
+                // TODO: Create a leaf
+            } else {
+                return Err(Box::new(Exception::new("No keys for foo")))
+            }
+
+        }
+
+        let hasher = HasherType::new(32);
+
+        Ok(hasher.finalize())
+    }
+
+
 }
 
 #[cfg(test)]
