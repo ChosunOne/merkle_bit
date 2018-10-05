@@ -40,9 +40,8 @@ struct Bar<'a, BranchType, HasherType, HashResultType: 'a>
           HashResultType: AsRef<[u8]> + Clone {
     left: Option<&'a HashResultType>,
     right: Option<&'a HashResultType>,
-    hash: Option<HashResultType>,
     hasher: Option<HasherType>,
-    branch: BranchType
+    branch: Option<BranchType>
 }
 
 impl<'a> SplitPairs<'a> {
@@ -71,36 +70,30 @@ impl<'a, BranchType, HasherType, HashResultType: 'a> Bar<'a, BranchType, HasherT
     where BranchType: Branch,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
           HashResultType: AsRef<[u8]> + Clone {
-    pub fn new(branch: BranchType) -> Bar<'a, BranchType, HasherType, HashResultType> {
+    pub fn new() -> Bar<'a, BranchType, HasherType, HashResultType> {
         Bar {
             left: None,
             right: None,
-            hash: None,
             hasher: None,
-            branch
+            branch: None
         }
     }
 
-    pub fn insert(&mut self, hash: &'a HashResultType) -> BinaryMerkleTreeResult<&Option< HashResultType>> {
+    pub fn insert(&mut self, hash: &'a HashResultType) -> BinaryMerkleTreeResult<Option<BranchType>> {
         if let Some(ref l) = self.left {
             if let Some(ref r) = self.right {
                 // This item already has a left and right hash
                 return Err(Box::new(Exception::new("Bar is already full")))
             } else {
+                let mut branch = BranchType::new();
+                branch.set_zero(l.as_ref());
+                branch.set_one(hash.as_ref());
                 self.right = Some(hash);
-                let mut hasher = HasherType::new(32);
-                hasher.update(l.as_ref());
-                // This was just set, so I'm ok with these unwraps
-                hasher.update(self.right.unwrap().as_ref());
-                self.branch.set_zero(l.as_ref());
-                self.branch.set_one(self.right.unwrap().as_ref());
-                let new_hash = hasher.finalize();
-                self.hash = Some(new_hash);
-                return Ok(&self.hash)
+                return Ok(Some(branch))
             }
         } else {
             self.left = Some(hash);
-            return Ok(&None)
+            return Ok(None)
         }
     }
 }
@@ -471,9 +464,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         let tree: Vec<Vec<HashResultType>> = Vec::with_capacity(1);
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(key_bits as f64) as usize);
-
-
-
+        let mut bar_queue: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
+        let mut finished_bars: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
 
         let root_node = NodeType::new();
         let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
@@ -488,7 +480,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
             }
 
             if foo.keys.len() > 1 {
-                // TODO: Create a branch
+
+
             } else if foo.keys.len() == 1 {
                 // TODO: Create a leaf
             } else {
