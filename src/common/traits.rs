@@ -52,9 +52,10 @@ pub trait Node<BranchType, LeafType, DataType>
 pub trait IDB {
     type NodeType;
     type ValueType;
+    type HashResultType;
     fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
     fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>>;
-    fn insert_node(&mut self, key: Vec<u8>, node: Self::NodeType);
+    fn insert_node(&mut self, key: &Self::HashResultType, node: &Self::NodeType);
     fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>>;
-    fn insert_value(&mut self, key: Vec<u8>, value: Self::ValueType);
+    fn insert_value(&mut self, key: Self::HashResultType, value: Self::ValueType);
 }

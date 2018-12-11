@@ -2,6 +2,7 @@ use std::collections::{VecDeque, HashMap};
 use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::Debug;
+use std::hash::Hash;
 
 use common::{Encode, Exception, Decode};
 use common::traits::{Branch, Data, Hasher, IDB, Node, Leaf};
@@ -37,7 +38,7 @@ struct Foo<'a, NodeType> {
 struct Bar<'a, BranchType, HasherType, HashResultType: 'a>
     where BranchType: Branch,
           HasherType: Hasher,
-          HashResultType: AsRef<[u8]> + Clone {
+          HashResultType: AsRef<[u8]> + Clone + Hash {
     left: Option<&'a HashResultType>,
     right: Option<&'a HashResultType>,
     hasher: Option<HasherType>,
@@ -69,7 +70,7 @@ impl<'a, 'b, NodeType> Foo<'a, NodeType> {
 impl<'a, BranchType, HasherType, HashResultType: 'a> Bar<'a, BranchType, HasherType, HashResultType>
     where BranchType: Branch,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
-          HashResultType: AsRef<[u8]> + Clone {
+          HashResultType: AsRef<[u8]> + Clone + Hash {
     pub fn new() -> Bar<'a, BranchType, HasherType, HashResultType> {
         Bar {
             left: None,
@@ -137,13 +138,13 @@ fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8]], bit: usize) ->  SplitPairs<'a> 
 }
 
 pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherType, HashResultType>
-    where DatabaseType: IDB<NodeType = NodeType, ValueType = ValueType>,
+    where DatabaseType: IDB<NodeType = NodeType, ValueType = ValueType, HashResultType = HashResultType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType> + Encode + Decode,
           HasherType: Hasher,
-          HashResultType: AsRef<[u8]> + Clone {
+          HashResultType: AsRef<[u8]> + Clone + Eq + Hash {
     db: DatabaseType,
     depth: usize,
     branch: Option<BranchType>,
@@ -156,14 +157,14 @@ pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeTy
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherType, HashResultType>
     BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherType, HashResultType>
-    where DatabaseType: IDB<NodeType = NodeType, ValueType = ReturnType>,
+    where DatabaseType: IDB<NodeType = NodeType, ValueType = ReturnType, HashResultType = HashResultType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType> + Encode + Decode,
           ReturnType: Encode + Decode,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
-          HashResultType: AsRef<[u8]> + Clone {
+          HashResultType: AsRef<[u8]> + Clone + Eq + Hash {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
@@ -308,28 +309,28 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         Ok(values)
     }
 
-    pub fn insert(&mut self, root_hash: &HashResultType, keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<HashResultType> {
+    pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<HashResultType> {
 
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Keys and values have differing lengths")))
         }
 
-        let root_node;
-        if let Some(n) = self.db.get_node(root_hash.as_ref())? {
-            root_node = n;
-        } else {
-            return Err(Box::new(Exception::new("Failed to find root node")))
-        }
+        // Nodes that point to data that has changed with this insert
+        let old_nodes: HashMap<HashResultType, NodeType> = HashMap::new();
 
-        let mut leaf_map = HashMap::new();
-        let mut data_map = HashMap::new();
+
+
+        let mut new_root = NodeType::new();
+        new_root.set_references(0);
+
+        let mut new_nodes = Vec::new();
+        new_nodes.push(new_root);
 
         for i in 0..keys.len() {
             let mut new_leaf = LeafType::new();
-            let mut new_data = DataType::new();
 
             let encoded_value = values[i].encode()?;
-            new_data.set_value(&encoded_value);
+
             let mut data_hasher = HasherType::new(32);
             data_hasher.update(&encoded_value);
             let data_location = data_hasher.finalize();
@@ -340,6 +341,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
                 // TODO: Bump the reference count
                 new_data_node = n;
             } else {
+                let mut new_data = DataType::new();
+                new_data.set_value(&encoded_value);
                 new_data_node = NodeType::new();
                 new_data_node.set_data(new_data);
                 new_data_node.set_references(1);
@@ -357,98 +360,42 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
                 // TODO: Bump the reference count
                 new_leaf_node = n;
             } else {
+                self.db.insert_node(&data_location, &new_data_node);
                 new_leaf_node = NodeType::new();
                 new_leaf.set_key(keys[i]);
                 new_leaf.set_data(data_location.as_ref());
                 new_leaf_node.set_leaf(new_leaf);
+                new_leaf_node.set_references(1);
+                self.db.insert_node(&leaf_location, &new_leaf_node);
             }
 
-            leaf_map.insert(keys[i], new_leaf_node);
-            data_map.insert(keys[i], new_data_node);
+            new_nodes.push(new_leaf_node);
         }
 
-        let mut new_root = NodeType::new();
-        new_root.set_references(0);
+        while new_nodes.len() > 0 {
+            if let Some(node) = new_nodes.pop() {
+                if new_nodes.len() == 0 {
+                    // Root should point to the path holding this node
 
-        let mut new_nodes = Vec::new();
-        new_nodes.push(new_root);
-
-        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
-        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
-
-        foo_queue.push_front(root_foo);
-
-        while foo_queue.len() > 0 {
-            let foo;
-            match foo_queue.pop_front() {
-                Some(f) => foo = f,
-                None => return Err(Box::new(Exception::new("Empty foo queue")))
-            }
-
-            if foo.depth > self.depth {
-                return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
-            }
-
-            let node;
-            match foo.node {
-                Some(n) => node = n,
-                None => {
-                    continue;
                 }
-            }
+                match node.get_variant()? {
+                    NodeVariant::Branch(n) => {
+                        // Check if we can make a higher level branch
+                    },
+                    NodeVariant::Leaf(n) => {
+                        // There might still be leaves left, try to make a branch
 
-            match node.get_variant()? {
-                NodeVariant::Branch(n) => {
-                    let mut new_node = NodeType::new();
-                    let mut new_branch = BranchType::new();
-                    new_branch.set_count(foo.keys.len() as u64);
-                    new_node.set_branch(new_branch);
-                    new_nodes.push(new_node);
-
-                    let split = split_pairs(foo.keys, foo.depth);
-
-                    // If you switch the order of these blocks, the result comes out backwards
-                    if let Some(o) = self.db.get_node(n.get_one())? {
-                        let one_node = o;
-                        if split.ones.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
-                            foo_queue.push_front(new_foo);
-                        }
-                    } else {
-                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, None, foo.depth);
-                        foo_queue.push_front(new_foo);
+                    },
+                    _ => {
+                        return Err(Box::new(Exception::new("Error in inserting nodes")))
                     }
-
-                    if let Some(z) = self.db.get_node(n.get_zero())? {
-                        let zero_node = z;
-                        if split.zeros.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
-                            foo_queue.push_front(new_foo);
-                        }
-                    } else {
-                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, None, foo.depth);
-                        foo_queue.push_front(new_foo);
-                    }
-                },
-                NodeVariant::Leaf(n) => {
-
-                    // TODO: Pick up the leaf if the insert demands this leaf become a branch
-                    // TODO: Replace this leaf with a branch if the insert demands
-                    // TODO: Replace this leaf with the new leaf from the new value otherwise
-                    if foo.keys.len() == 0 {
-                        return Err(Box::new(Exception::new("No key to insert")))
-                    }
-
-                },
-                NodeVariant::Data(n) => {
-                    return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
+            } else {
+                return Err(Box::new(Exception::new("Failed to insert node")))
             }
         }
 
-        // TODO: Return hash of new root
-        let root_hash_new = (*root_hash).clone();
-        Ok(root_hash_new)
+        Err(Box::new(Exception::new("Failed to insert data")))
     }
 
     fn create_tree(keys: &[&[u8]], values: &[&ReturnType]) -> BinaryMerkleTreeResult<HashResultType> {
@@ -464,8 +411,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ReturnType, HasherT
         let tree: Vec<Vec<HashResultType>> = Vec::with_capacity(1);
 
         let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(key_bits as f64) as usize);
-        let mut bar_queue: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
-        let mut finished_bars: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
+        let bar_queue: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
+        let finished_bars: VecDeque<Bar<BranchType, HasherType, HashResultType>> = VecDeque::with_capacity(16);
 
         let root_node = NodeType::new();
         let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
@@ -540,6 +487,7 @@ mod tests {
     impl IDB for MockDB {
         type NodeType = ProtoMerkleNode;
         type ValueType = Vec<u8>;
+        type HashResultType = Vec<u8>;
 
         fn open(path: PathBuf) -> Result<MockDB, Box<Error>> {
             Ok(MockDB::new(HashMap::new(), HashMap::new()))
@@ -553,8 +501,8 @@ mod tests {
             }
         }
 
-        fn insert_node(&mut self, key: Vec<u8>, value: Self::NodeType) {
-            self.node_map.insert(key, value);
+        fn insert_node(&mut self, key: &Self::HashResultType, value: &Self::NodeType) {
+            self.node_map.insert(key.clone(), value.clone());
         }
 
         fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>> {
@@ -565,7 +513,7 @@ mod tests {
             }
         }
 
-        fn insert_value(&mut self, key: Vec<u8>, value: Self::ValueType) {
+        fn insert_value(&mut self, key: Self::HashResultType, value: Self::ValueType) {
             self.value_map.insert(key, value);
         }
     }
@@ -903,7 +851,7 @@ mod tests {
         let proto_data_node_key = insert_data_node(&mut db, vec![0xFF]);
         let proto_root_node_key = insert_leaf_node(&mut db, key.clone(), proto_data_node_key.clone());
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
         let result = bmt.get(&proto_root_node_key, &[&key[..]]).unwrap();
         assert_eq!(result, vec![Some(vec![0xFFu8])]);
     }
@@ -911,12 +859,12 @@ mod tests {
     #[test]
     #[should_panic]
     fn it_fails_to_get_from_empty_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new(), HashMap::new());
 
         let key = vec![0x00];
         let root_key = vec![0x01];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
         bmt.get(&root_key, &[&key[..]]).unwrap();
     }
 
@@ -928,11 +876,11 @@ mod tests {
 
         let data_node_key = insert_data_node(&mut db, vec![0xFF]);
         let leaf_node_key = insert_leaf_node(&mut db, key.clone(), data_node_key.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let nonexistent_key = vec![0xAB];
         let items = bmt.get(&leaf_node_key, &[&nonexistent_key[..]]).unwrap();
-        let mut expected_items = vec![None];
+        let expected_items = vec![None];
         assert_eq!(items, expected_items);
     }
 
@@ -951,7 +899,7 @@ mod tests {
             get_keys.push(value);
         }
         let root_hash = build_tree(&mut db, 8,  keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
         let mut expected_items = vec![];
@@ -976,7 +924,7 @@ mod tests {
             get_keys.push(value);
         }
         let root_hash = build_tree(&mut db, 7,  keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
 
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
@@ -1005,7 +953,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1033,7 +981,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves,  keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1061,7 +1009,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1089,7 +1037,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, &get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1198,8 +1146,6 @@ mod tests {
         let leaf = insert_leaf_node(&mut db, vec![0x00], data);
         let branch = insert_branch_node(&mut db, Some(leaf), None);
 
-
-
         let mut keys = Vec::with_capacity(256);
         for i in 0..256 {
             keys.push(vec![i as u8]);
@@ -1225,6 +1171,19 @@ mod tests {
         assert_eq!(items, expected_items);
     }
 
+    #[test]
+    fn it_inserts_a_leaf_node_into_empty_tree() {
+        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let key = vec![0xAAu8];
+        let data = vec![0xBBu8];
+
+        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let new_root_hash = bmt.insert(None, &[key.as_ref()], &[data.as_ref()]).unwrap();
+        let items = bmt.get(&new_root_hash, &[new_root_hash.as_ref()]).unwrap();
+        let expected_items = vec![Some(vec![0xBBu8])];
+        assert_eq!(items, expected_items);
+    }
+
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
         let data_key = hash(&value, 32);
 
@@ -1233,7 +1192,7 @@ mod tests {
         let mut proto_outer_data_node = ProtoMerkleNode::new();
         proto_outer_data_node.set_references(1);
         proto_outer_data_node.set_data(proto_data_node);
-        db.insert_node(data_key.clone(), proto_outer_data_node);
+        db.insert_node(&data_key, &proto_outer_data_node);
         db.insert_value(data_key.clone(), value.clone());
         data_key.clone()
     }
@@ -1251,7 +1210,7 @@ mod tests {
         let mut proto_outer_leaf_node = ProtoMerkleNode::new();
         proto_outer_leaf_node.set_references(1);
         proto_outer_leaf_node.set_leaf(proto_leaf_node);
-        db.insert_node(leaf_node_key.clone(), proto_outer_leaf_node);
+        db.insert_node(&leaf_node_key, &proto_outer_leaf_node);
         leaf_node_key.clone()
     }
 
@@ -1283,7 +1242,7 @@ mod tests {
         let mut proto_outer_branch_node = ProtoMerkleNode::new();
         proto_outer_branch_node.set_references(1);
         proto_outer_branch_node.set_branch(proto_branch_node);
-        db.insert_node(proto_branch_node_key.clone(), proto_outer_branch_node);
+        db.insert_node(&proto_branch_node_key, &proto_outer_branch_node);
         proto_branch_node_key.clone()
     }
 
@@ -1297,7 +1256,7 @@ mod tests {
             data_node_keys.push(insert_data_node(db, value.clone()));
         }
 
-        let mut depth = (num_data_nodes as f64).log2() as usize;
+        let depth = (num_data_nodes as f64).log2() as usize;
         let mut leaf_node_keys = Vec::with_capacity(num_data_nodes);
         for i in 0..data_node_keys.len() {
             let key = data_node_keys[i].clone();
