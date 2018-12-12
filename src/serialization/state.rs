@@ -1321,6 +1321,7 @@ pub struct Branch {
     pub count: u64,
     pub zero: ::std::vec::Vec<u8>,
     pub one: ::std::vec::Vec<u8>,
+    pub split_index: u32,
     // special fields
     unknown_fields: ::protobuf::UnknownFields,
     cached_size: ::protobuf::CachedSize,
@@ -1397,6 +1398,21 @@ impl Branch {
     pub fn get_one(&self) -> &[u8] {
         &self.one
     }
+
+    // uint32 split_index = 4;
+
+    pub fn clear_split_index(&mut self) {
+        self.split_index = 0;
+    }
+
+    // Param is passed by value, moved
+    pub fn set_split_index(&mut self, v: u32) {
+        self.split_index = v;
+    }
+
+    pub fn get_split_index(&self) -> u32 {
+        self.split_index
+    }
 }
 
 impl ::protobuf::Message for Branch {
@@ -1421,6 +1437,13 @@ impl ::protobuf::Message for Branch {
                 3 => {
                     ::protobuf::rt::read_singular_proto3_bytes_into(wire_type, is, &mut self.one)?;
                 },
+                4 => {
+                    if wire_type != ::protobuf::wire_format::WireTypeVarint {
+                        return ::std::result::Result::Err(::protobuf::rt::unexpected_wire_type(wire_type));
+                    }
+                    let tmp = is.read_uint32()?;
+                    self.split_index = tmp;
+                },
                 _ => {
                     ::protobuf::rt::read_unknown_or_skip_group(field_number, wire_type, is, self.mut_unknown_fields())?;
                 },
@@ -1442,6 +1465,9 @@ impl ::protobuf::Message for Branch {
         if !self.one.is_empty() {
             my_size += ::protobuf::rt::bytes_size(3, &self.one);
         }
+        if true {
+            my_size += ::protobuf::rt::value_size(4, self.split_index, ::protobuf::wire_format::WireTypeVarint);
+        }
         my_size += ::protobuf::rt::unknown_fields_size(self.get_unknown_fields());
         self.cached_size.set(my_size);
         my_size
@@ -1456,6 +1482,9 @@ impl ::protobuf::Message for Branch {
         }
         if !self.one.is_empty() {
             os.write_bytes(3, &self.one)?;
+        }
+        if true {
+            os.write_uint32(4, self.split_index)?;
         }
         os.write_unknown_fields(self.get_unknown_fields())?;
         ::std::result::Result::Ok(())
@@ -1514,6 +1543,11 @@ impl ::protobuf::Message for Branch {
                     |m: &Branch| { &m.one },
                     |m: &mut Branch| { &mut m.one },
                 ));
+                fields.push(::protobuf::reflect::accessor::make_simple_field_accessor::<_, ::protobuf::types::ProtobufTypeUint32>(
+                    "split_index",
+                    |m: &Branch| { &m.split_index },
+                    |m: &mut Branch| { &mut m.split_index },
+                ));
                 ::protobuf::reflect::MessageDescriptor::new::<Branch>(
                     "Branch",
                     fields,
@@ -1539,6 +1573,7 @@ impl ::protobuf::Clear for Branch {
         self.clear_count();
         self.clear_zero();
         self.clear_one();
+        self.clear_split_index();
         self.unknown_fields.clear();
     }
 }
@@ -1935,12 +1970,13 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     kleNode\x12\x1e\n\nreferences\x18\x01\x20\x01(\x04R\nreferences\x12!\n\
     \x06branch\x18\x02\x20\x01(\x0b2\x07.BranchH\0R\x06branch\x12\x1b\n\x04l\
     eaf\x18\x03\x20\x01(\x0b2\x05.LeafH\0R\x04leaf\x12\x1b\n\x04data\x18\x04\
-    \x20\x01(\x0b2\x05.DataH\0R\x04dataB\x06\n\x04node\"D\n\x06Branch\x12\
+    \x20\x01(\x0b2\x05.DataH\0R\x04dataB\x06\n\x04node\"e\n\x06Branch\x12\
     \x14\n\x05count\x18\x01\x20\x01(\x04R\x05count\x12\x12\n\x04zero\x18\x02\
-    \x20\x01(\x0cR\x04zero\x12\x10\n\x03one\x18\x03\x20\x01(\x0cR\x03one\",\
-    \n\x04Leaf\x12\x10\n\x03key\x18\x01\x20\x01(\x0cR\x03key\x12\x12\n\x04da\
-    ta\x18\x02\x20\x01(\x0cR\x04data\"\x1c\n\x04Data\x12\x14\n\x05value\x18\
-    \x01\x20\x01(\x0cR\x05valueb\x06proto3\
+    \x20\x01(\x0cR\x04zero\x12\x10\n\x03one\x18\x03\x20\x01(\x0cR\x03one\x12\
+    \x1f\n\x0bsplit_index\x18\x04\x20\x01(\rR\nsplitIndex\",\n\x04Leaf\x12\
+    \x10\n\x03key\x18\x01\x20\x01(\x0cR\x03key\x12\x12\n\x04data\x18\x02\x20\
+    \x01(\x0cR\x04data\"\x1c\n\x04Data\x12\x14\n\x05value\x18\x01\x20\x01(\
+    \x0cR\x05valueb\x06proto3\
 ";
 
 static mut file_descriptor_proto_lazy: ::protobuf::lazy::Lazy<::protobuf::descriptor::FileDescriptorProto> = ::protobuf::lazy::Lazy {

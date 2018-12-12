@@ -38,6 +38,7 @@ message Branch {
     uint64 count = 1;
     bytes zero = 2;
     bytes one = 3;
+    uint32 split_index = 4;
 }
 
 message Leaf {
