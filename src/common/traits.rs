@@ -58,6 +58,7 @@ pub trait IDB {
     fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
     fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>>;
     fn insert_node(&mut self, key: &[u8], node: &Self::NodeType);
+    fn remove_node(&mut self, key: &[u8]) -> Result<(), Box<Error>>;
     fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>>;
     fn insert_value(&mut self, key: &[u8], value: Self::ValueType);
 }
