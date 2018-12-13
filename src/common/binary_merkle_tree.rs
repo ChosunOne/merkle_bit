@@ -1,10 +1,11 @@
-use std::collections::{VecDeque, HashMap};
+use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::Debug;
 use std::hash::Hash;
 use std::cmp::Ordering;
-use rand::{Rng, SeedableRng, StdRng};
+use std::marker::PhantomData;
+
 
 use common::{Encode, Exception, Decode};
 use common::traits::{Branch, Data, Hasher, IDB, Node, Leaf};
@@ -143,12 +144,12 @@ pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeTy
           HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd {
     db: DatabaseType,
     depth: usize,
-    branch: Option<BranchType>,
-    leaf: Option<LeafType>,
-    data: Option<DataType>,
-    node: Option<NodeType>,
-    hasher: Option<HasherType>,
-    hash_result: Option<HashResultType>
+    branch: PhantomData<*const BranchType>,
+    leaf: PhantomData<*const LeafType>,
+    data: PhantomData<*const DataType>,
+    node: PhantomData<*const NodeType>,
+    hasher: PhantomData<*const HasherType>,
+    hash_result: PhantomData<*const HashResultType>
 }
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherType, HashResultType>
@@ -166,12 +167,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
         Ok(Self {
             db,
             depth,
-            branch: None,
-            leaf: None,
-            data: None,
-            node: None,
-            hasher: None,
-            hash_result: None
+            branch: PhantomData,
+            leaf: PhantomData,
+            data: PhantomData,
+            node: PhantomData,
+            hasher: PhantomData,
+            hash_result: PhantomData
         })
     }
 
@@ -179,12 +180,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
         Ok(Self {
             db,
             depth,
-            branch: None,
-            leaf: None,
-            data: None,
-            node: None,
-            hasher: None,
-            hash_result: None
+            branch: PhantomData,
+            leaf: PhantomData,
+            data: PhantomData,
+            node: PhantomData,
+            hasher: PhantomData,
+            hash_result: PhantomData
         })
     }
 
@@ -219,7 +220,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             match foo.node {
                 Some(n) => node = n,
                 None => {
-                    for i in 0..foo.keys.len() {
+                    for _ in 0..foo.keys.len() {
                         leaf_nodes.push_back(None);
                     }
                     continue;
@@ -249,7 +250,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                             foo_queue.push_front(new_foo);
                         }
                     } else {
-                        for i in 0..split.zeros.len() {
+                        for _ in 0..split.zeros.len() {
                             leaf_nodes.push_back(None);
                         }
                     }
@@ -262,12 +263,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     leaf_nodes.push_back(Some(n));
 
                     if foo.keys.len() > 1 {
-                        for i in 0..foo.keys.len() - 1 {
+                        for _ in 0..foo.keys.len() - 1 {
                             leaf_nodes.push_back(None);
                         }
                     }
                 },
-                NodeVariant::Data(n) => {
+                NodeVariant::Data(_) => {
                     return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
             }
@@ -342,8 +343,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             leaf_node.set_references(1);
             leaf_node.set_leaf(leaf);
 
-            self.db.insert_node(&data_node_location, &data_node);
-            self.db.insert_node(&leaf_node_location, &leaf_node);
+            self.db.insert_node(data_node_location.as_ref(), &data_node);
+            self.db.insert_node(leaf_node_location.as_ref(), &leaf_node);
 
             nodes.push(leaf_node_location);
         }
@@ -406,7 +407,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                                 if let Some(mut l) = self.db.get_node(key)? {
                                     let refs = l.get_references() + 1;
                                     l.set_references(refs);
-                                    self.db.insert_node(&location, &l);
+                                    self.db.insert_node(location.as_ref(), &l);
                                 }
                                 break;
                             } else if b.key == key {
@@ -423,27 +424,33 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         proof_nodes.push(bar);
                         continue;
                     },
-                    NodeVariant::Data(n) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                    NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
 
                 let split = split_pairs(foo.keys, branch.get_split_index() as usize);
-                if let Some(o) = self.db.get_node(branch.get_one())? {
-                    let one_node = o;
+                if let Some(mut o) = self.db.get_node(branch.get_one())? {
+                    let mut one_node = o;
                     if split.ones.len() > 0 {
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
                         let bar = Bar::new(create_other_key(foo.keys[0], branch.get_split_index() as usize), branch.get_one().to_vec(), branch.get_count());
+                        let refs = one_node.get_references() + 1;
+                        one_node.set_references(refs);
+                        self.db.insert_node(branch.get_one(), &one_node);
                         proof_nodes.push(bar);
                     }
                 }
-                if let Some(z) = self.db.get_node(branch.get_zero())? {
-                    let zero_node = z;
+                if let Some(mut z) = self.db.get_node(branch.get_zero())? {
+                    let mut zero_node = z;
                     if split.zeros.len() > 0 {
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
                         let bar = Bar::new(create_other_key(foo.keys[0], branch.get_split_index() as usize), branch.get_zero().to_vec(), branch.get_count());
+                        let refs = zero_node.get_references() + 1;
+                        zero_node.set_references(refs);
+                        self.db.insert_node(branch.get_zero(), &zero_node);
                         proof_nodes.push(bar);
                     }
                 }
@@ -514,7 +521,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             branch_node.set_branch(branch);
             branch_node.set_references(1);
 
-            self.db.insert_node(&branch_node_location, &branch_node);
+            self.db.insert_node(branch_node_location.as_ref(), &branch_node);
             let new_bar = Bar::new(bar.key, branch_node_location.as_ref().to_vec(), count);
             bars.insert(max_index, new_bar);
         }
@@ -540,6 +547,7 @@ mod tests {
     use protobuf::Message as ProtoMessage;
     use std::collections::HashMap;
     use util::hash::hash;
+    use rand::{Rng, SeedableRng, StdRng};
 
     struct MockDB {
         node_map: HashMap<Vec<u8>, ProtoMerkleNode>,
@@ -553,14 +561,6 @@ mod tests {
                 value_map
             }
         }
-
-        pub fn update_node_map(&mut self, map: HashMap<Vec<u8>, ProtoMerkleNode>) {
-            self.node_map = map;
-        }
-
-        pub fn update_value_map(&mut self, map: HashMap<Vec<u8>, Vec<u8>>) {
-            self.value_map = map;
-        }
     }
 
 
@@ -569,7 +569,7 @@ mod tests {
         type ValueType = Vec<u8>;
         type HashResultType = Vec<u8>;
 
-        fn open(path: PathBuf) -> Result<MockDB, Box<Error>> {
+        fn open(_path: PathBuf) -> Result<MockDB, Box<Error>> {
             Ok(MockDB::new(HashMap::new(), HashMap::new()))
         }
 
@@ -581,14 +581,14 @@ mod tests {
             }
         }
 
-        fn insert_node(&mut self, key: &Self::HashResultType, value: &Self::NodeType) {
+        fn insert_node(&mut self, key: &[u8], value: &Self::NodeType) {
             if let Some(v) = self.node_map.get_mut(key) {
                 let refs = v.get_references();
                 v.set_references(refs + 1);
                 return
             }
 
-            self.node_map.insert(key.clone(), value.clone());
+            self.node_map.insert(key.to_vec(), value.clone());
         }
 
         fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>> {
@@ -599,8 +599,8 @@ mod tests {
             }
         }
 
-        fn insert_value(&mut self, key: Self::HashResultType, value: Self::ValueType) {
-            self.value_map.insert(key, value);
+        fn insert_value(&mut self, key: &[u8], value: Self::ValueType) {
+            self.value_map.insert(key.to_vec(), value);
         }
     }
 
@@ -1644,7 +1644,7 @@ mod tests {
         proto_outer_data_node.set_references(1);
         proto_outer_data_node.set_data(proto_data_node);
         db.insert_node(&data_key, &proto_outer_data_node);
-        db.insert_value(data_key.clone(), value.clone());
+        db.insert_value(&data_key, value.clone());
         data_key.clone()
     }
 
@@ -1738,7 +1738,7 @@ mod tests {
     fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Option<Vec<u8>>>) {
         let mut keys = Vec::with_capacity(num_entries);
         let mut data = Vec::with_capacity(num_entries);
-        for i in 0..num_entries {
+        for _ in 0..num_entries {
             let mut key_value = [0u8; 32];
             rng.fill(&mut key_value);
             keys.push(key_value.to_vec());

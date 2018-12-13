@@ -9,11 +9,9 @@ extern crate rocksdb;
 extern crate rust_base58;
 extern crate secp256k1;
 extern crate serde;
-#[macro_use] extern crate serde_derive;
 extern crate serde_json;
 extern crate tiny_keccak;
 extern crate uuid;
-#[macro_use] extern crate bencher;
 
 pub mod common;
 pub mod util;
