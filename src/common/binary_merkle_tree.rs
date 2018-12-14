@@ -159,7 +159,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
           LeafType: Leaf,
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType> + Encode + Decode,
-          ValueType: Encode + Decode,
+          ValueType: Encode + Decode + Debug,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
           HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -381,7 +381,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
                 }
 
-                let node;
+                let mut node;
                 if let Some(n) = foo.node {
                     node = n;
                 } else {
@@ -433,6 +433,58 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
 
+                let mut min_split_index = foo.keys[0].len() * 8;
+                for i in 0..foo.keys.len() - 1 {
+                    for j in 0..foo.keys[0].len() * 8 {
+                        let left = choose_branch(foo.keys[i], j);
+                        let right = choose_branch(foo.keys[i + 1], j);
+                        if left != right {
+                            if j < min_split_index {
+                                min_split_index = j;
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                if min_split_index < branch.get_split_index() as usize {
+                    let mut branch_hasher = HasherType::new(32);
+                    branch_hasher.update("b".as_bytes());
+                    branch_hasher.update(branch.get_zero());
+                    branch_hasher.update(branch.get_one());
+                    let location = branch_hasher.finalize();
+
+                    let mut found_leaf = false;
+                    let mut key= vec![];
+                    let mut child_location = branch.get_zero().to_vec();
+
+                    // DFS to find a key
+                    while !found_leaf {
+                        if let Some(n) = self.db.get_node(child_location.as_ref())? {
+                            let node = n;
+                            match node.get_variant()? {
+                                NodeVariant::Branch(m) => {
+                                    child_location = m.get_zero().to_vec()},
+                                NodeVariant::Leaf(m) => {
+                                    key = m.get_key().to_vec();
+                                    found_leaf = true;
+                                },
+                                NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                            }
+                        } else {
+                            return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                        }
+                    }
+
+                    let bar = Bar::new(key, location.as_ref().to_vec(), branch.get_count());
+                    let refs = node.get_references() + 1;
+                    node.set_references(refs);
+                    self.db.insert_node(location.as_ref(), &node);
+                    proof_nodes.push(bar);
+                    continue;
+                }
+
+
                 let split = split_pairs(foo.keys, branch.get_split_index() as usize);
                 if let Some(mut o) = self.db.get_node(branch.get_one())? {
                     let mut one_node = o;
@@ -440,7 +492,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
-                        let bar = Bar::new(create_other_key(foo.keys[0], branch.get_split_index() as usize), branch.get_one().to_vec(), branch.get_count());
+                        let other_key = create_other_key(foo.keys[0], branch.get_split_index() as usize);
+                        let bar = Bar::new(other_key, branch.get_one().to_vec(), branch.get_count());
                         let refs = one_node.get_references() + 1;
                         one_node.set_references(refs);
                         self.db.insert_node(branch.get_one(), &one_node);
@@ -453,14 +506,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
-                        let bar = Bar::new(create_other_key(foo.keys[0], branch.get_split_index() as usize), branch.get_zero().to_vec(), branch.get_count());
+                        let other_key = create_other_key(foo.keys[0], branch.get_split_index() as usize);
+                        let bar = Bar::new(other_key, branch.get_zero().to_vec(), branch.get_count());
                         let refs = zero_node.get_references() + 1;
                         zero_node.set_references(refs);
                         self.db.insert_node(branch.get_zero(), &zero_node);
                         proof_nodes.push(bar);
                     }
                 }
-
             }
 
             bars.append(&mut proof_nodes);
@@ -481,9 +534,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             for j in 0..bars[i].key.len() * 8 {
                 let left_branch = choose_branch(bars[i].key.as_ref(), j);
                 let right_branch = choose_branch(bars[i + 1].key.as_ref(), j);
-                if left_branch != right_branch {
+                if left_branch != right_branch{
                     split_indices.push(vec![i, j]);
                     break;
+                } else if j == bars[i].key.len() * 8 - 1 {
+                    // The keys are the same and don't diverge
+                    split_indices.push(vec![i, 0]);
                 }
             }
         }
@@ -542,7 +598,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             let node_location = nodes.remove(0);
 
             let mut node;
-            if let Some(mut n) = self.db.get_node(&node_location)? {
+            if let Some(n) = self.db.get_node(&node_location)? {
                 node = n;
             } else {
                 continue;
@@ -572,7 +628,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         continue;
                     }
                 },
-                NodeVariant::Data(d) => {
+                NodeVariant::Data(_) => {
                     if refs == 0 {
                         self.db.remove_node(&node_location)?;
                         continue;
@@ -1781,9 +1837,39 @@ mod tests {
     }
 
     #[test]
+    fn it_removes_a_small_old_tree() {
+        let db = MockDB::new(HashMap::new(), HashMap::new());
+
+        let first_key = vec![0x00u8];
+        let second_key = vec![0x01u8];
+        let third_key = vec![0x02u8];
+        let fourth_key = vec![0x03u8];
+
+        let first_data = vec![0x04u8];
+        let second_data = vec![0x05u8];
+        let third_data = vec![0x06u8];
+        let fourth_data = vec![0x07u8];
+
+        let first_keys = &[first_key.as_ref(), second_key.as_ref()];
+        let first_entries = &[first_data.as_ref(), second_data.as_ref()];
+        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let first_root_hash = bmt.insert(None, first_keys, first_entries).unwrap();
+
+        let second_keys = &[third_key.as_ref(), fourth_key.as_ref()];
+        let second_entries = &[third_data.as_ref(), fourth_data.as_ref()];
+        let second_root_hash = bmt.insert(Some(&first_root_hash), second_keys, second_entries).unwrap();
+        bmt.remove(&first_root_hash).unwrap();
+
+        let items = bmt.get(&second_root_hash, &[first_key.as_ref(), second_key.as_ref(), third_key.as_ref(), fourth_key.as_ref()]).unwrap();
+        let expected_items = vec![Some(first_data.clone()), Some(second_data.clone()), Some(third_data.clone()), Some(fourth_data.clone())];
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
     fn it_removes_an_old_large_root() {
         let db = MockDB::new(HashMap::new(), HashMap::new());
         let seed = [0xBAu8; 32];
+//        let seed = [0xAB; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         let prepare_initial = prepare_inserts(2, &mut rng);
@@ -1800,7 +1886,7 @@ mod tests {
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, &initial_keys, &initial_data).unwrap();
 
-        let mut prepare_added = prepare_inserts(2, &mut rng);
+        let prepare_added = prepare_inserts(2, &mut rng);
         let added_key_values = prepare_added.0;
         let added_data_values = prepare_added.1;
         let mut added_keys = vec![];
@@ -1813,16 +1899,44 @@ mod tests {
 
         let second_root_hash = bmt.insert(Some(&first_root_hash), &added_keys, &added_data).unwrap();
 
-        bmt.remove(&first_root_hash).unwrap();
-        let mut combined_keys = initial_keys.clone();
-        combined_keys.append(&mut added_keys);
-        combined_keys.sort();
-        println!("{}", combined_keys.len());
+        let combined_size = initial_key_values.len() + added_key_values.len();
+        let mut combined_keys = Vec::with_capacity(combined_size);
+        let mut combined_expected_items = Vec::with_capacity(combined_size);
+        let mut i = 0;
+        let mut j = 0;
+        for _ in 0..combined_size {
+            if i == initial_key_values.len() {
+                if j < added_key_values.len() {
+                    combined_keys.push(added_key_values[j].as_ref());
+                    combined_expected_items.push(prepare_added.2[j].clone());
+                    j += 1;
+                    continue;
+                }
+                continue;
+            } else if j == added_key_values.len() {
+                if i < initial_key_values.len() {
+                    combined_keys.push(initial_key_values[i].as_ref());
+                    combined_expected_items.push(prepare_initial.2[i].clone());
+                    i += 1;
+                    continue;
+                }
+                continue;
+            }
 
+            if i < initial_key_values.len() && initial_key_values[i] < added_key_values[j] {
+                combined_keys.push(initial_key_values[i].as_ref());
+                combined_expected_items.push(prepare_initial.2[i].clone());
+                i += 1;
+            } else if j < added_key_values.len() {
+                combined_keys.push(added_key_values[j].as_ref());
+                combined_expected_items.push(prepare_added.2[j].clone());
+                j += 1;
+            }
+        }
+
+        bmt.remove(&first_root_hash).unwrap();
         let items = bmt.get(&second_root_hash, &combined_keys).unwrap();
-        let mut expected_items = prepare_initial.2;
-        expected_items.append(&mut prepare_added.2);
-        assert_eq!(items, expected_items);
+        assert_eq!(items, combined_expected_items);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
