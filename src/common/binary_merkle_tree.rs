@@ -424,6 +424,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                             let refs = l.get_references() + 1;
                             l.set_references(refs);
                             self.db.insert_node(location.as_ref(), &l);
+                        } else {
+                            return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
 
                         let bar = Bar::new(key.to_vec(), location.as_ref().to_vec(), 1);
@@ -1869,7 +1871,6 @@ mod tests {
     fn it_removes_an_old_large_root() {
         let db = MockDB::new(HashMap::new(), HashMap::new());
         let seed = [0xBAu8; 32];
-//        let seed = [0xAB; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         let prepare_initial = prepare_inserts(2, &mut rng);
@@ -1937,6 +1938,16 @@ mod tests {
         bmt.remove(&first_root_hash).unwrap();
         let items = bmt.get(&second_root_hash, &combined_keys).unwrap();
         assert_eq!(items, combined_expected_items);
+    }
+
+    #[test]
+    fn it_iterates_over_multiple_inserts_correctly() {
+        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let seed = [0xEFu8; 32];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+
+        iterate_inserts(8, 4, &mut rng, &mut bmt);
     }
 
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
@@ -2059,5 +2070,75 @@ mod tests {
         keys.sort();
 
         (keys, data, expected_items)
+    }
+
+    fn iterate_inserts(entries_per_insert: usize,
+                       iterations: usize,
+                       rng: &mut StdRng,
+                       bmt: &mut BinaryMerkleTree<
+                           MockDB,
+                           ProtoBranch,
+                           ProtoLeaf,
+                           ProtoData,
+                           ProtoMerkleNode,
+                           Vec<u8>,
+                           Vec<u8>,
+                           Vec<u8>>) {
+        let mut state_roots: Vec<Option<Vec<u8>>> = Vec::with_capacity(iterations);
+        let mut key_groups = Vec::with_capacity(iterations);
+        let mut data_groups = Vec::with_capacity(iterations);
+        state_roots.push(None);
+
+        for i in 0..iterations {
+            println!("iteration: {}", i);
+            if i == 2 {
+                let a = i;
+            }
+            let prepare = prepare_inserts(entries_per_insert, rng);
+            let key_values = prepare.0;
+            key_groups.push(key_values.clone());
+            let data_values = prepare.1;
+            let expected_data_values = prepare.2;
+            data_groups.push(expected_data_values.clone());
+
+            let mut keys = Vec::with_capacity(key_values.len());
+            let mut data = Vec::with_capacity(data_values.len());
+
+            for j in 0..key_values.len() {
+                keys.push(key_values[j].as_ref());
+                data.push(data_values[j].as_ref());
+            }
+
+            let previous_state_root = &state_roots[i].clone();
+            let mut previous_root;
+            match previous_state_root {
+                Some(r) => previous_root = Some(r),
+                None => previous_root = None
+            }
+
+            let new_root = bmt.insert(previous_root, &keys, &data).unwrap();
+            state_roots.push(Some(new_root));
+
+            let retrieved_items = bmt.get(&state_roots[i + 1].clone().unwrap(), &keys).unwrap();
+            println!("retrieved_items == expected_data_values");
+            assert_eq!(retrieved_items, expected_data_values);
+            println!("PASS");
+
+
+            for j in 0..key_groups.len() {
+                let mut key_block = Vec::with_capacity(key_groups[j].len());
+                for k in 0..key_groups[j].len() {
+                    println!("key_groups[{}][{}]: {:X?}", j, k, key_groups[j][k]);
+                    key_block.push(key_groups[j][k].as_ref());
+                }
+                let items = bmt.get(&state_roots[i + 1].clone().unwrap(), &key_block).unwrap();
+                println!("items == data_groups[{}]", j);
+                for k in 0..items.len() {
+                    println!("items[{}]: {:X?}", k, items[k]);
+                }
+                assert_eq!(items, data_groups[j]);
+                println!("PASS");
+            }
+        }
     }
 }
