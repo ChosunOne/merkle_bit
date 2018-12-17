@@ -311,6 +311,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
     }
 
     pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: Vec<&[u8]>, values: &[&ValueType]) -> BinaryMerkleTreeResult<Vec<u8>> {
+        println!("Inserting keys");
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Keys and values have different lengths")))
         }
@@ -359,6 +360,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
         }
 
         if let Some(n) = previous_root {
+            println!("Has previous root");
             // Nodes that form the merkle proof for the new tree
             let mut proof_nodes: Vec<Bar> = Vec::new();
 
@@ -380,17 +382,25 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
                 }
 
+                println!("foo.depth: {}", foo.depth);
+                println!("foo.keys.len(): {}", foo.keys.len());
+
                 let mut node;
                 if let Some(n) = foo.node {
                     node = n;
                 } else {
+                    println!("Foo has no node");
                     continue
                 }
 
                 let branch;
                 match node.get_variant()? {
-                    NodeVariant::Branch(n) => {branch = n},
+                    NodeVariant::Branch(n) => {
+                        println!("Foo is branch");
+                        branch = n
+                    },
                     NodeVariant::Leaf(n) => {
+                        println!("Foo is leaf");
                         let leaf = n;
                         let key = leaf.get_key();
                         let data = leaf.get_data();
@@ -407,8 +417,10 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                             let b = &bars[i];
                             if b.key == key && b.location == location.as_ref().to_vec() {
                                 // This value is not being updated
+                                println!("Bar is not being updated");
                                 break;
                             } else if b.key == key {
+                                println!("Bar is being updated");
                                 // We are updating this value
                                 skip = true;
                                 break;
@@ -416,6 +428,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         }
 
                         if skip {
+                            println!("Skipping adding bar to proof nodes");
                             continue;
                         }
 
@@ -427,6 +440,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                             return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
 
+                        println!("Adding leaf to proof nodes list");
                         let bar = Bar::new(key.to_vec(), location.as_ref().to_vec(), 1);
                         proof_nodes.push(bar);
                         continue;
@@ -448,9 +462,13 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     }
                 }
 
+                println!("min_split_index: {}", min_split_index);
+                println!("branch_split_index: {}", branch.get_split_index());
+
                 let mut descendants = Vec::with_capacity(foo.keys.len());
 
                 if min_split_index < branch.get_split_index() as usize {
+                    println!("min_split_index is less than branch split index");
                     let mut branch_hasher = HasherType::new(32);
                     branch_hasher.update("b".as_bytes());
                     branch_hasher.update(branch.get_zero());
@@ -472,11 +490,13 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                             }
                         }
                         if descendant {
+                            println!("key is descendant");
                             descendants.push(foo_key);
                         }
                     }
 
                     if descendants.len() == 0 {
+                        println!("keys are not descendants");
                         let bar = Bar::new(key, location.as_ref().to_vec(), branch.get_count());
                         let refs = node.get_references() + 1;
                         node.set_references(refs);
@@ -485,6 +505,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         continue;
                     }
                 } else {
+                    println!("split indices agree");
                     for i in 0..foo.keys.len(){
                         descendants.push(&foo.keys[i]);
                     }
@@ -494,9 +515,11 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                 if let Some(mut o) = self.db.get_node(branch.get_one())? {
                     let mut one_node = o;
                     if split.ones.len() > 0 {
+                        println!("Adding new foo to queue for 1 branch");
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
+                        println!("Adding proof node for 1 branch");
                         let other_key = self.get_proof_key(branch.get_one())?;
                         // TODO: Don't use branch.get_count(), use the child's count
                         let bar = Bar::new(other_key, branch.get_one().to_vec(), branch.get_count());
@@ -509,9 +532,11 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                 if let Some(mut z) = self.db.get_node(branch.get_zero())? {
                     let mut zero_node = z;
                     if split.zeros.len() > 0 {
+                        println!("Adding new foo to queue for 0 branch");
                         let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
                         foo_queue.insert(0, new_foo);
                     } else {
+                        println!("Adding proof node for 0 branch");
                         let other_key = self.get_proof_key(branch.get_zero())?;
                         // TODO: Don't use branch.get_count(), use the child's count
                         let bar = Bar::new(other_key, branch.get_zero().to_vec(), branch.get_count());
@@ -528,6 +553,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             let new_root = self.create_tree(&mut bars)?;
             return Ok(new_root)
         } else {
+            println!("Has no previous root");
             // There is no tree, just build one with the keys and values
             let new_root = self.create_tree(&mut bars)?;
             return Ok(new_root)
@@ -535,6 +561,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
     }
 
     fn create_tree(&mut self, bars: &mut Vec<Bar>) -> BinaryMerkleTreeResult<Vec<u8>> {
+        println!("Creating new tree with {} nodes", bars.len());
         bars.sort();
         let mut split_indices = Vec::with_capacity(bars.len() - 1);
         for i in 0..bars.len() - 1 {
@@ -558,6 +585,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
 
         while bars.len() > 0 {
             if bars.len() == 1 {
+                println!("Last bar");
                 return Ok(bars.remove(0).location.to_vec())
             }
 
@@ -1975,6 +2003,63 @@ mod tests {
         iterate_inserts(4, 200, &mut rng, &mut bmt);
     }
 
+    #[test]
+    fn it_inserts_with_compressed_nodes_that_are_not_descendants() {
+        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+
+        let key_values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x10u8], vec![0x20u8]];
+        let mut keys = Vec::with_capacity(key_values.len());
+        for i in 0..key_values.len() {
+            keys.push(key_values[i].as_ref());
+        }
+        let values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x03u8], vec![0x04u8]];
+        let mut data = Vec::with_capacity(values.len());
+        for i in 0..values.len() {
+            data.push(values[i].as_ref());
+        }
+
+        let first_root = bmt.insert(None, keys[0..2].to_vec(), &data[0..2]).unwrap();
+        let second_root = bmt.insert(Some(&first_root), keys[2..].to_vec(), &data[2..]).unwrap();
+
+        let items = bmt.get(&second_root, keys).unwrap();
+        let mut expected_items = Vec::with_capacity(values.len());
+        for i in 0..values.len() {
+            expected_items.push(Some(values[i].clone()));
+        }
+
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_inserts_with_compressed_nodes_that_are_descendants() {
+        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+
+        let key_values = vec![vec![0x10u8], vec![0x11u8], vec![0x00u8], vec![0x01u8], vec![0x02u8]];
+        let mut keys = Vec::with_capacity(key_values.len());
+        for i in 0..key_values.len() {
+            keys.push(key_values[i].as_ref());
+        }
+        let values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x03u8], vec![0x04u8]];
+        let mut data = Vec::with_capacity(values.len());
+        for i in 0..values.len() {
+            data.push(values[i].as_ref());
+        }
+
+        let first_root = bmt.insert(None, keys[0..2].to_vec(), &data[0..2]).unwrap();
+        let second_root = bmt.insert(Some(&first_root), keys[2..].to_vec(), &data[2..]).unwrap();
+
+        let items = bmt.get(&second_root, keys).unwrap();
+        let mut expected_items = Vec::with_capacity(values.len());
+        for i in 0..values.len() {
+            expected_items.push(Some(values[i].clone()));
+        }
+
+        assert_eq!(items, expected_items);
+        panic!();
+    }
+
     fn insert_data_node(db: &mut MockDB, value: Vec<u8>) -> Vec<u8> {
         let data_key = hash(&value, 32);
 
@@ -2146,24 +2231,24 @@ mod tests {
             state_roots.push(Some(new_root));
 
             let retrieved_items = bmt.get(&state_roots[i + 1].clone().unwrap(), keys.clone()).unwrap();
-            println!("retrieved_items == expected_data_values");
+//            println!("retrieved_items == expected_data_values");
             assert_eq!(retrieved_items, expected_data_values);
-            println!("PASS");
+//            println!("PASS");
 
 
             for j in 0..key_groups.len() {
                 let mut key_block = Vec::with_capacity(key_groups[j].len());
                 for k in 0..key_groups[j].len() {
-                    println!("key_groups[{}][{}]: {:X?}", j, k, key_groups[j][k]);
+//                    println!("key_groups[{}][{}]: {:X?}", j, k, key_groups[j][k]);
                     key_block.push(key_groups[j][k].as_ref());
                 }
                 let items = bmt.get(&state_roots[i + 1].clone().unwrap(), key_block).unwrap();
-                println!("items == data_groups[{}]", j);
+//                println!("items == data_groups[{}]", j);
                 for k in 0..items.len() {
-                    println!("items[{}]: {:X?}", k, items[k]);
+//                    println!("items[{}]: {:X?}", k, items[k]);
                 }
                 assert_eq!(items, data_groups[j]);
-                println!("PASS");
+//                println!("PASS");
             }
         }
     }
