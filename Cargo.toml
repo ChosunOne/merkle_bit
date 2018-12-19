@@ -2,7 +2,6 @@
 name = "starling"
 version = "1.0.0"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
-exclude = ["serialization/state.rs"]
 
 [build-dependencies]
 protoc-rust = {git = "https://github.com/ChosunOne/rust-protobuf", branch = "v2.0"}

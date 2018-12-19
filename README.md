@@ -1,1 +1,2 @@
-starling
+# Merkle Binary Indexed Tree (Merkle-BIT)
+This tree structure is a binary merkle tree with branch compression via split indexes.  See https://medium.com/@niallmoore22/binary-merkle-trie-aad76f422983 for more details.
