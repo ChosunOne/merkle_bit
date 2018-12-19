@@ -434,15 +434,26 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                 }
 
                 let mut min_split_index = foo.keys[0].len() * 8;
-                for i in 0..foo.keys.len() - 1 {
-                    for j in 0..foo.keys[0].len() * 8 {
-                        let left = choose_branch(foo.keys[i], j);
-                        let right = choose_branch(foo.keys[i + 1], j);
-                        if left != right {
-                            if j < min_split_index {
-                                min_split_index = j;
+                let mut branch_hasher = HasherType::new(32);
+                branch_hasher.update("b".as_bytes());
+                branch_hasher.update(branch.get_zero());
+                branch_hasher.update(branch.get_one());
+                let location = branch_hasher.finalize();
+                let branch_key;
+                {
+                    branch_key = self.get_proof_key(location.as_ref())?;
+                    let mut all_keys = foo.keys.clone();
+                    all_keys.push(branch_key.as_ref());
+                    for i in 0..all_keys.len() - 1 {
+                        for j in 0..all_keys[0].len() * 8 {
+                            let left = choose_branch(all_keys[i].as_ref(), j);
+                            let right = choose_branch(all_keys[i + 1].as_ref(), j);
+                            if left != right {
+                                if j < min_split_index {
+                                    min_split_index = j;
+                                }
+                                break;
                             }
-                            break;
                         }
                     }
                 }
@@ -450,20 +461,13 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                 let mut descendants = Vec::with_capacity(foo.keys.len());
 
                 if min_split_index < branch.get_split_index() as usize {
-                    let mut branch_hasher = HasherType::new(32);
-                    branch_hasher.update("b".as_bytes());
-                    branch_hasher.update(branch.get_zero());
-                    branch_hasher.update(branch.get_one());
-                    let location = branch_hasher.finalize();
-
-                    let key = self.get_proof_key(location.as_ref())?;
 
                     // Check if any keys from the search need to go down this branch
                     for i in 0..foo.keys.len() {
                         let foo_key = foo.keys[i];
                         let mut descendant = true;
                         for j in min_split_index..branch.get_split_index() as usize {
-                            let left = choose_branch(&key, j);
+                            let left = choose_branch(&branch_key, j);
                             let right = choose_branch(foo_key, j);
                             if left != right {
                                 descendant = false;
@@ -476,7 +480,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     }
 
                     if descendants.len() == 0 {
-                        let bar = Bar::new(key, location.as_ref().to_vec(), branch.get_count());
+                        let bar = Bar::new(branch_key, location.as_ref().to_vec(), branch.get_count());
                         let refs = node.get_references() + 1;
                         node.set_references(refs);
                         self.db.insert_node(location.as_ref(), &node);
@@ -497,7 +501,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         foo_queue.insert(0, new_foo);
                     } else {
                         let other_key = self.get_proof_key(branch.get_one())?;
-                        let mut count = 0;
+                        let count;
                         match one_node.get_variant()? {
                             NodeVariant::Branch(b) => count = b.get_count(),
                             NodeVariant::Leaf(l) => count = 1,
@@ -735,12 +739,6 @@ mod tests {
         }
 
         fn insert_node(&mut self, key: &[u8], value: &Self::NodeType) {
-            if let Some(v) = self.node_map.get_mut(key) {
-                let refs = v.get_references();
-                v.set_references(refs + 1);
-                return
-            }
-
             self.node_map.insert(key.to_vec(), value.clone());
         }
 
