@@ -8,13 +8,11 @@ keywords = ["binary", "merkle", "tree", "patricia"]
 license = "MIT License"
 
 [build-dependencies]
-protoc-rust = {git = "https://github.com/ChosunOne/rust-protobuf", branch = "v2.0"}
+protoc-rust-no-elision = "2.0.4"
 
 [dev-dependencies]
-protobuf-codegen = {git = "https://github.com/ChosunOne/rust-protobuf", branch = "v2.0"}
+protobuf-codegen-no-elision = "2.0.4"
 protoc = "2.0.4"
-
-
 blake2-rfc = "0.2.18"
 protobuf = "2.0.4"
 rand = "0.5.5"
