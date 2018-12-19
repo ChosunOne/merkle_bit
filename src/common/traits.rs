@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use common::binary_merkle_tree::BinaryMerkleTreeResult;
-use common::binary_merkle_tree::NodeVariant;
+use common::merkle_bit::BinaryMerkleTreeResult;
+use common::merkle_bit::NodeVariant;
 use common::{Decode, Encode};
 
 pub trait Hasher {

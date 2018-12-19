@@ -10,8 +10,10 @@ use std::marker::PhantomData;
 use common::{Encode, Exception, Decode};
 use common::traits::{Branch, Data, Hasher, IDB, Node, Leaf};
 
+/// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
 
+/// Contains the distinguishing data from the node
 pub enum NodeVariant<BranchType, LeafType, DataType>
     where BranchType: Branch,
           LeafType: Leaf,
@@ -121,7 +123,20 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
     SplitPairs::new(sorted_pairs[0..max].to_vec(), sorted_pairs[max..sorted_pairs.len()].to_vec())
 }
 
-pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+/// The MerkleBIT structure relies on many specified types:
+/// # Required Type Annotations
+/// * **DatabaseType**: The type to use for database-like operations.  DatabaseType must implement the IDB trait.
+/// * **BranchType**: The type used for representing branches in the tree.  BranchType must implement the Branch trait.
+/// * **LeafType**: The type used for representing leaves in the tree.  LeafType must implement the Leaf trait.
+/// * **DataType**: The type used for representing data nodes in the tree.  DataType must implement the Data trait.
+/// * **NodeType**: The type used for the outer node that can be either a branch, leaf, or data.  NodeType must implement the Node trait.
+/// * **HasherType**: The type of hasher to use for hashing locations on the tree.  HasherType must implement the Hasher trait.
+/// * **HashResultType**: The type of the result from Hasher.  HashResultTypes must be able to be referenced as a &[u8] slice, and must implement basic traits
+/// * **ValueType**: The type to return from a get.  ValueType must implement the Encode and Decode traits.
+/// # Properties
+/// * **db**: The database to store and retrieve values
+/// * **depth**: The maximum permitted depth of the tree.
+pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
     where DatabaseType: IDB<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
@@ -142,7 +157,7 @@ pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeTy
 }
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
-    BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
     where DatabaseType: IDB<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
@@ -151,6 +166,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
           HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd,
           ValueType: Decode + Encode {
+    /// Create a new MerkleBIT from a saved database
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
@@ -166,6 +182,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
         })
     }
 
+    /// Create a new MerkleBIT from an already opened database
     pub fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
         Ok(Self {
             db,
@@ -180,6 +197,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
         })
     }
 
+    /// Get items from the MerkleBIT.  Keys must be sorted.  Returns a list of Options which may include the corresponding values.
     pub fn get(&self, root_hash: &HashResultType, keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
         let root_node;
         if let Some(n) = self.db.get_node(root_hash.as_ref())? {
@@ -301,6 +319,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
         Ok(values)
     }
 
+    /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
     pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: Vec<&[u8]>, values: &[&ValueType]) -> BinaryMerkleTreeResult<Vec<u8>> {
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Keys and values have different lengths")))
@@ -640,7 +659,9 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
         }
         Ok(key)
     }
-    fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
+
+    /// Remove all items with less than 1 reference under the given root.
+    pub fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
         let mut nodes = Vec::with_capacity(128);
         nodes.push(root_hash.to_vec());
 
@@ -695,7 +716,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use super::*;
     use serialization::state::{MerkleNode as ProtoMerkleNode,
                                MerkleNode_oneof_node::branch as ProtoMerkleNodeBranch,
@@ -705,11 +726,17 @@ mod tests {
                                Leaf as ProtoLeaf,
                                Data as ProtoData};
 
-    use blake2_rfc::blake2b::{Blake2b, Blake2bResult};
+    use blake2_rfc::blake2b::{blake2b, Blake2b, Blake2bResult};
     use protobuf::Message as ProtoMessage;
     use std::collections::HashMap;
-    use util::hash::hash;
     use rand::{Rng, SeedableRng, StdRng};
+
+    fn hash(data: &[u8], size: usize) -> Vec<u8> {
+        let hash_data = blake2b(size, &[], data);
+        let mut hash_vec = vec![0; size];
+        hash_vec.clone_from_slice(&hash_data.as_bytes()[..]);
+        hash_vec
+    }
 
     struct MockDB {
         map: HashMap<Vec<u8>, ProtoMerkleNode>,
@@ -1096,7 +1123,7 @@ mod tests {
         let proto_data_node_key = insert_data_node(&mut db, vec![0xFF]);
         let proto_root_node_key = insert_leaf_node(&mut db, key.clone(), proto_data_node_key.clone());
 
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let result = bmt.get(&proto_root_node_key, vec![&key[..]]).unwrap();
         assert_eq!(result, vec![Some(vec![0xFFu8])]);
     }
@@ -1108,7 +1135,7 @@ mod tests {
         let key = vec![0x00];
         let root_key = vec![0x01];
 
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let items = bmt.get(&root_key, vec![&key[..]]).unwrap();
         let expected_items = vec![None];
         assert_eq!(items, expected_items);
@@ -1122,7 +1149,7 @@ mod tests {
 
         let data_node_key = insert_data_node(&mut db, vec![0xFF]);
         let leaf_node_key = insert_leaf_node(&mut db, key.clone(), data_node_key.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         let nonexistent_key = vec![0xAB];
         let items = bmt.get(&leaf_node_key, vec![&nonexistent_key[..]]).unwrap();
@@ -1145,7 +1172,7 @@ mod tests {
             get_keys.push(value);
         }
         let root_hash = build_tree(&mut db, 8,  keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1170,7 +1197,7 @@ mod tests {
             get_keys.push(value);
         }
         let root_hash = build_tree(&mut db, 7,  keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
 
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
@@ -1199,7 +1226,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1227,7 +1254,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves,  keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 8).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 8).unwrap();
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1255,7 +1282,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1283,7 +1310,7 @@ mod tests {
         }
 
         let root_hash = build_tree(&mut db, num_leaves, keys.clone(), values.clone());
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
 
         let items = bmt.get(&root_hash, get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1299,7 +1326,7 @@ mod tests {
         let data = insert_data_node(&mut db, vec![0xFF]);
         let leaf = insert_leaf_node(&mut db, vec![0x00], data);
         let branch = insert_branch_node(&mut db, Some(leaf), None, 0);
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 4).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 4).unwrap();
 
         let zero_key = vec![0x00];
         let one_key = vec![0xFF];
@@ -1311,7 +1338,7 @@ mod tests {
     fn it_handles_a_branch_with_no_children() {
         let mut db = MockDB::new(HashMap::new());
         let branch = insert_branch_node(&mut db, None, None, 0);
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 4).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 4).unwrap();
 
         let zero_key = vec![0x00];
         let one_key = vec![0xFF];
@@ -1375,7 +1402,7 @@ mod tests {
             &key_i[..], &key_j[..], &key_k[..], &key_l[..],
             &key_m[..], &key_n[..], &key_o[..], &key_p[..]];
 
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 5).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 5).unwrap();
         let items = bmt.get(&root_node, keys).unwrap();
         let expected_items = vec![
             None, None, None, Some(vec![0x01]),
@@ -1403,7 +1430,7 @@ mod tests {
             get_keys.push(&value[..]);
         }
 
-        let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let items = bmt.get(&branch, get_keys).unwrap();
         let mut expected_items = vec![];
         for i in 0..256 {
@@ -1423,7 +1450,7 @@ mod tests {
         let key = vec![0xAAu8];
         let data = vec![0xBBu8];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let new_root_hash = bmt.insert(None, vec![&key[..]], &[data.as_ref()]).unwrap();
         let items = bmt.get(&new_root_hash, vec![&key[..]]).unwrap();
         let expected_items = vec![Some(vec![0xBBu8])];
@@ -1444,7 +1471,7 @@ mod tests {
         ];
         let data = &[data_values[0].as_ref(), data_values[1].as_ref()];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         let expected_items = vec![Some(vec![0x02u8]), Some(vec![0x03u8])];
@@ -1465,7 +1492,7 @@ mod tests {
         ];
         let data = &[data_values[0].as_ref(), data_values[1].as_ref()];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         let expected_items = vec![Some(vec![0x02u8]), Some(vec![0x03u8])];
@@ -1483,7 +1510,7 @@ mod tests {
         let data_values = vec![vec![0xDDu8], vec![0xEEu8], vec![0xFFu8]];
         let data = &[data_values[0].as_ref(), data_values[1].as_ref(), data_values[2].as_ref()];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         let expected_items = vec![Some(vec![0xDDu8]), Some(vec![0xEEu8]), Some(vec![0xFFu8])];
@@ -1508,7 +1535,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1532,7 +1559,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1556,7 +1583,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1580,7 +1607,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1604,7 +1631,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1628,7 +1655,7 @@ mod tests {
         }
         let expected_items = prepare.2;
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 16).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
         let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
         let items = bmt.get(&root_hash, keys.clone()).unwrap();
         assert_eq!(items, expected_items);
@@ -1643,7 +1670,7 @@ mod tests {
         let second_key = vec![0xCCu8];
         let second_data = vec![0xDDu8];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let new_root_hash = bmt.insert(None, vec![first_key.as_ref()], &[first_data.as_ref()]).unwrap();
         let second_root_hash = bmt.insert(Some(&new_root_hash), vec![second_key.as_ref()], &[second_data.as_ref()]).unwrap();
 
@@ -1668,7 +1695,7 @@ mod tests {
             initial_data.push(initial_data_values[i].as_ref());
         }
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, initial_keys.clone(), &initial_data).unwrap();
 
         let prepare_added = prepare_inserts(4096, &mut rng);
@@ -1701,7 +1728,7 @@ mod tests {
         let first_value = vec![0xBBu8];
         let second_value = vec![0xCCu8];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 3).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 3).unwrap();
         let first_root_hash = bmt.insert(None, vec![key.as_ref()], &[first_value.as_ref()]).unwrap();
         let second_root_hash = bmt.insert(Some(&first_root_hash), vec![key.as_ref()], &[second_value.as_ref()]).unwrap();
 
@@ -1744,7 +1771,7 @@ mod tests {
             updated_data.push(updated_data_values[i].as_ref());
         }
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, initial_keys.clone(), &initial_data).unwrap();
         let second_root_hash = bmt.insert(Some(&first_root_hash), initial_keys.clone(), &updated_data).unwrap();
 
@@ -1760,7 +1787,7 @@ mod tests {
     fn it_does_not_panic_when_removing_a_nonexistent_node() {
         let db = MockDB::new(HashMap::new());
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let missing_root_hash = vec![0x00u8];
         bmt.remove(&missing_root_hash).unwrap();
     }
@@ -1771,7 +1798,7 @@ mod tests {
         let key = vec![0x00];
         let data = vec![0x01];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let root_hash = bmt.insert(None, vec![key.as_ref()], &[data.as_ref()]).unwrap();
 
         let inserted_data = bmt.get(&root_hash, vec![key.as_ref()]).unwrap();
@@ -1793,7 +1820,7 @@ mod tests {
 
         let prepare = prepare_inserts(4096, &mut rng);
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let key_values = prepare.0;
         let data_values = prepare.1;
         let mut keys = vec![];
@@ -1823,7 +1850,7 @@ mod tests {
         let first_key = vec![0x00u8];
         let first_data = vec![0x01u8];
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, vec![first_key.as_ref()], &[first_data.as_ref()]).unwrap();
 
         let second_key = vec![0x02u8];
@@ -1853,7 +1880,7 @@ mod tests {
 
         let first_keys = vec![first_key.as_ref(), second_key.as_ref()];
         let first_entries = &[first_data.as_ref(), second_data.as_ref()];
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, first_keys, first_entries).unwrap();
 
         let second_keys = vec![third_key.as_ref(), fourth_key.as_ref()];
@@ -1883,7 +1910,7 @@ mod tests {
             initial_data.push(initial_data_values[i].as_ref());
         }
 
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
         let first_root_hash = bmt.insert(None, initial_keys, &initial_data).unwrap();
 
         let prepare_added = prepare_inserts(16, &mut rng);
@@ -1944,7 +1971,7 @@ mod tests {
         let db = MockDB::new(HashMap::new());
         let seed = [0xEFu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         iterate_inserts(8, 100, &mut rng, &mut bmt);
     }
@@ -1952,7 +1979,7 @@ mod tests {
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_not_descendants() {
         let db = MockDB::new(HashMap::new());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         let key_values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x10u8], vec![0x20u8]];
         let mut keys = Vec::with_capacity(key_values.len());
@@ -1980,7 +2007,7 @@ mod tests {
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_descendants() {
         let db = MockDB::new(HashMap::new());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         let key_values = vec![vec![0x10u8], vec![0x11u8], vec![0x00u8], vec![0x01u8], vec![0x02u8]];
         let mut keys = Vec::with_capacity(key_values.len());
@@ -2008,7 +2035,7 @@ mod tests {
         let db = MockDB::new(HashMap::new());
         let seed = [0xA8u8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         iterate_removals(8, 100, 1, &mut rng, &mut bmt);
     }
@@ -2016,7 +2043,7 @@ mod tests {
     #[test]
     fn it_correctly_increments_a_leaf_reference_count() {
         let db = MockDB::new(HashMap::new());
-        let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 160).unwrap();
 
         let key = vec![0x00u8];
         let data = vec![0x00u8];
@@ -2156,7 +2183,7 @@ mod tests {
     fn iterate_inserts(entries_per_insert: usize,
                        iterations: usize,
                        rng: &mut StdRng,
-                       bmt: &mut BinaryMerkleTree<
+                       bmt: &mut MerkleBIT<
                            MockDB,
                            ProtoBranch,
                            ProtoLeaf,
@@ -2217,7 +2244,7 @@ mod tests {
                         iterations: usize,
                         removal_frequency: usize,
                         rng: &mut StdRng,
-                        bmt: &mut BinaryMerkleTree<
+                        bmt: &mut MerkleBIT<
                             MockDB,
                             ProtoBranch,
                             ProtoLeaf,

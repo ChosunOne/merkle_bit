@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-pub mod binary_merkle_tree;
+pub mod merkle_bit;
 pub mod traits;
 
 pub trait Encode {

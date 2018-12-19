@@ -1,30 +1,5 @@
 syntax = "proto3";
 
-message DBState {
-    oneof state {
-        Account account = 1;
-        StateNode node = 2;
-        uint32 refCount = 3;
-    }
-}
-
-message Account {
-    // Consensus Critical
-    uint64 balance = 1;
-    uint32 nonce = 2;
-}
-
-message StateNode {
-    // Consensus Critical
-    repeated NodeRef nodeRefs = 1;
-}
-
-message NodeRef {
-    // Consensus Critical
-    bytes address = 1;
-    bytes child = 2; //Hash
-}
-
 message MerkleNode {
     uint64 references = 1;
     oneof node {
