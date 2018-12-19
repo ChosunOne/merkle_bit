@@ -6,6 +6,7 @@ description = "This tree structure is a binary merkle tree with branch compressi
 repository = "https://github.com/ChosunOne/merkle_bit"
 keywords = ["binary", "merkle", "tree", "patricia"]
 license = "MIT"
+readme = "README.md"
 
 [build-dependencies]
 protoc-rust-no-elision = "2.0.4"
