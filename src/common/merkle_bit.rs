@@ -423,12 +423,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let location = leaf_hasher.finalize();
 
                         let mut skip = false;
+                        let mut old = false;
 
                         // Check if we are updating an existing value
                         for i in 0..tree_refs.len() {
                             let b = &tree_refs[i];
                             if b.key == key && b.location == location.as_ref().to_vec() {
-                                // This value is not being updated
+                                // This value is not being updated, just update its reference count
+                                old = true;
                                 break;
                             } else if b.key == key {
                                 // We are updating this value
@@ -447,6 +449,10 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                             self.db.insert(location.as_ref(), &l)?;
                         } else {
                             return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                        }
+
+                        if old {
+                            continue;
                         }
 
                         let tree_ref = TreeRef::new(key.to_vec(), location.as_ref().to_vec(), 1);
@@ -582,8 +588,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     break;
                 } else if j == tree_refs[i].key.len() * 8 - 1 {
                     // The keys are the same and don't diverge
-                    // TODO: Figure out what the right thing to do here is
-                    split_indices.push(vec![i, 0]);
+                    return Err(Box::new(Exception::new("Attempted to insert item with duplicate keys")))
                 }
             }
         }
