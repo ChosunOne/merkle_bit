@@ -3,6 +3,7 @@ use std::path::PathBuf;
 
 use common::binary_merkle_tree::BinaryMerkleTreeResult;
 use common::binary_merkle_tree::NodeVariant;
+use common::{Decode, Encode};
 
 pub trait Hasher {
     type HashType;
@@ -38,10 +39,11 @@ pub trait Data {
     fn set_value(&mut self, value: &[u8]);
 }
 
-pub trait Node<BranchType, LeafType, DataType>
+pub trait Node<BranchType, LeafType, DataType, ValueType>
     where BranchType: Branch,
           LeafType: Leaf,
-          DataType: Data {
+          DataType: Data,
+          ValueType: Decode + Encode {
     fn new() -> Self;
     fn get_references(&self) -> u64;
     fn get_variant(&self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
@@ -53,12 +55,10 @@ pub trait Node<BranchType, LeafType, DataType>
 
 pub trait IDB {
     type NodeType;
-    type ValueType;
-    type HashResultType;
+    type EntryType;
     fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
     fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>>;
-    fn insert_node(&mut self, key: &[u8], node: &Self::NodeType);
-    fn remove_node(&mut self, key: &[u8]) -> Result<(), Box<Error>>;
-    fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>>;
-    fn insert_value(&mut self, key: &[u8], value: Self::ValueType);
+    fn insert(&mut self, key: &[u8], node: &Self::NodeType) -> Result<(), Box<Error>>;
+    fn remove(&mut self, key: &[u8]) -> Result<(), Box<Error>>;
+    fn batch_write(&mut self) -> Result<(), Box<Error>>;
 }

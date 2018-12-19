@@ -121,14 +121,15 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
     SplitPairs::new(sorted_pairs[0..max].to_vec(), sorted_pairs[max..sorted_pairs.len()].to_vec())
 }
 
-pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherType, HashResultType>
-    where DatabaseType: IDB<NodeType = NodeType, ValueType = ValueType, HashResultType = HashResultType>,
+pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+    where DatabaseType: IDB<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
-          NodeType: Node<BranchType, LeafType, DataType> + Encode + Decode,
+          NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
           HasherType: Hasher,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd {
+          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd,
+          ValueType: Decode + Encode {
     db: DatabaseType,
     depth: usize,
     branch: PhantomData<*const BranchType>,
@@ -136,19 +137,20 @@ pub struct BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeTy
     data: PhantomData<*const DataType>,
     node: PhantomData<*const NodeType>,
     hasher: PhantomData<*const HasherType>,
-    hash_result: PhantomData<*const HashResultType>
+    hash_result: PhantomData<*const HashResultType>,
+    value: PhantomData<*const ValueType>
 }
 
-impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherType, HashResultType>
-    BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherType, HashResultType>
-    where DatabaseType: IDB<NodeType = NodeType, ValueType = ValueType, HashResultType = HashResultType>,
+impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+    BinaryMerkleTree<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+    where DatabaseType: IDB<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
-          NodeType: Node<BranchType, LeafType, DataType> + Encode + Decode,
-          ValueType: Encode + Decode + Debug,
+          NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd {
+          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd,
+          ValueType: Decode + Encode {
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
@@ -159,7 +161,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             data: PhantomData,
             node: PhantomData,
             hasher: PhantomData,
-            hash_result: PhantomData
+            hash_result: PhantomData,
+            value: PhantomData
         })
     }
 
@@ -172,7 +175,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             data: PhantomData,
             node: PhantomData,
             hasher: PhantomData,
-            hash_result: PhantomData
+            hash_result: PhantomData,
+            value: PhantomData
         })
     }
 
@@ -343,8 +347,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                 leaf_node.set_references(references);
             }
 
-            self.db.insert_node(data_node_location.as_ref(), &data_node);
-            self.db.insert_node(leaf_node_location.as_ref(), &leaf_node);
+            self.db.insert(data_node_location.as_ref(), &data_node)?;
+            self.db.insert(leaf_node_location.as_ref(), &leaf_node)?;
 
             nodes.push(leaf_node_location);
         }
@@ -421,7 +425,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         if let Some(mut l) = self.db.get_node(location.as_ref())? {
                             let refs = l.get_references() + 1;
                             l.set_references(refs);
-                            self.db.insert_node(location.as_ref(), &l);
+                            self.db.insert(location.as_ref(), &l)?;
                         } else {
                             return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
@@ -483,7 +487,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         let bar = Bar::new(branch_key, location.as_ref().to_vec(), branch.get_count());
                         let refs = node.get_references() + 1;
                         node.set_references(refs);
-                        self.db.insert_node(location.as_ref(), &node);
+                        self.db.insert(location.as_ref(), &node)?;
                         proof_nodes.push(bar);
                         continue;
                     }
@@ -504,13 +508,13 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         let count;
                         match one_node.get_variant()? {
                             NodeVariant::Branch(b) => count = b.get_count(),
-                            NodeVariant::Leaf(l) => count = 1,
-                            NodeVariant::Data(d) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                            NodeVariant::Leaf(_) => count = 1,
+                            NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
                         let bar = Bar::new(other_key, branch.get_one().to_vec(), count);
                         let refs = one_node.get_references() + 1;
                         one_node.set_references(refs);
-                        self.db.insert_node(branch.get_one(), &one_node);
+                        self.db.insert(branch.get_one(), &one_node)?;
                         proof_nodes.push(bar);
                     }
                 }
@@ -521,16 +525,16 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         foo_queue.insert(0, new_foo);
                     } else {
                         let other_key = self.get_proof_key(branch.get_zero())?;
-                        let mut count = 0;
+                        let count;
                         match zero_node.get_variant()? {
                             NodeVariant::Branch(b) => count = b.get_count(),
-                            NodeVariant::Leaf(l) => count = 1,
-                            NodeVariant::Data(d) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
+                            NodeVariant::Leaf(_) => count = 1,
+                            NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
                         let bar = Bar::new(other_key, branch.get_zero().to_vec(), count);
                         let refs = zero_node.get_references() + 1;
                         zero_node.set_references(refs);
-                        self.db.insert_node(branch.get_zero(), &zero_node);
+                        self.db.insert(branch.get_zero(), &zero_node)?;
                         proof_nodes.push(bar);
                     }
                 }
@@ -571,6 +575,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
 
         while bars.len() > 0 {
             if bars.len() == 1 {
+                self.db.batch_write()?;
                 return Ok(bars.remove(0).location.to_vec())
             }
 
@@ -603,7 +608,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
             branch_node.set_branch(branch);
             branch_node.set_references(1);
 
-            self.db.insert_node(branch_node_location.as_ref(), &branch_node);
+            self.db.insert(branch_node_location.as_ref(), &branch_node)?;
             let new_bar = Bar::new(bar.key, branch_node_location.as_ref().to_vec(), count);
             bars.insert(max_index, new_bar);
         }
@@ -661,7 +666,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                         let one = b.get_one();
                         nodes.push(zero.to_vec());
                         nodes.push(one.to_vec());
-                        self.db.remove_node(&node_location)?;
+                        self.db.remove(&node_location)?;
                         continue;
                     }
                 },
@@ -669,20 +674,20 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, ValueType, HasherTy
                     if refs == 0 {
                         let data = l.get_data();
                         nodes.push(data.to_vec());
-                        self.db.remove_node(&node_location)?;
+                        self.db.remove(&node_location)?;
                         continue;
                     }
                 },
                 NodeVariant::Data(_) => {
                     if refs == 0 {
-                        self.db.remove_node(&node_location)?;
+                        self.db.remove(&node_location)?;
                         continue;
                     }
                 }
             }
 
             node.set_references(refs);
-            self.db.insert_node(&node_location, &node);
+            self.db.insert(&node_location, &node)?;
         }
 
         Ok(())
@@ -707,57 +712,53 @@ mod tests {
     use rand::{Rng, SeedableRng, StdRng};
 
     struct MockDB {
-        node_map: HashMap<Vec<u8>, ProtoMerkleNode>,
-        value_map: HashMap<Vec<u8>, Vec<u8>>
+        map: HashMap<Vec<u8>, ProtoMerkleNode>,
+        pending_inserts: Vec<(Vec<u8>, ProtoMerkleNode)>
     }
 
     impl MockDB {
-        pub fn new(node_map: HashMap<Vec<u8>, ProtoMerkleNode>, value_map: HashMap<Vec<u8>, Vec<u8>>) -> MockDB {
+        pub fn new(map: HashMap<Vec<u8>, ProtoMerkleNode>) -> MockDB {
             MockDB {
-                node_map,
-                value_map
+                map,
+                pending_inserts: Vec::with_capacity(64)
             }
         }
     }
 
-
     impl IDB for MockDB {
         type NodeType = ProtoMerkleNode;
-        type ValueType = Vec<u8>;
-        type HashResultType = Vec<u8>;
+        type EntryType = (Vec<u8>, Self::NodeType);
 
         fn open(_path: PathBuf) -> Result<MockDB, Box<Error>> {
-            Ok(MockDB::new(HashMap::new(), HashMap::new()))
+            Ok(MockDB::new(HashMap::new()))
         }
 
         fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>> {
-            if let Some(m) = self.node_map.get(key) {
+            if let Some(m) = self.map.get(key) {
                 return Ok(Some(m.clone()))
             } else {
                 return Ok(None)
             }
         }
 
-        fn insert_node(&mut self, key: &[u8], value: &Self::NodeType) {
-            self.node_map.insert(key.to_vec(), value.clone());
-        }
-
-        fn remove_node(&mut self, key: &[u8]) -> Result<(), Box<Error>> {
-            self.node_map.remove(key);
+        fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Box<Error>> {
+            self.pending_inserts.push((key.to_vec(), value.clone()));
             Ok(())
         }
 
-        fn get_value(&self, key: &[u8]) -> Result<Option<Self::ValueType>, Box<Error>> {
-            if let Some(v) = self.value_map.get(key) {
-                return Ok(Some(v.clone()))
-            } else {
-                return Ok(None)
-            }
+        fn remove(&mut self, key: &[u8]) -> Result<(), Box<Error>> {
+            self.map.remove(key);
+            Ok(())
         }
 
-        fn insert_value(&mut self, key: &[u8], value: Self::ValueType) {
-            self.value_map.insert(key.to_vec(), value);
+        fn batch_write(&mut self) -> Result<(), Box<Error>> {
+            while self.pending_inserts.len() > 0 {
+                let entry = self.pending_inserts.remove(0);
+                self.map.insert(entry.0, entry.1);
+            }
+            Ok(())
         }
+
     }
 
     impl Hasher for Blake2b {
@@ -838,7 +839,7 @@ mod tests {
         }
     }
 
-    impl Node<ProtoBranch, ProtoLeaf, ProtoData> for ProtoMerkleNode {
+    impl Node<ProtoBranch, ProtoLeaf, ProtoData, Vec<u8>> for ProtoMerkleNode {
         fn new() -> ProtoMerkleNode {
             ProtoMerkleNode::new()
         }
@@ -1090,7 +1091,7 @@ mod tests {
 
     #[test]
     fn it_gets_an_item_out_of_a_simple_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let key = vec![0xAA];
         let proto_data_node_key = insert_data_node(&mut db, vec![0xFF]);
         let proto_root_node_key = insert_leaf_node(&mut db, key.clone(), proto_data_node_key.clone());
@@ -1102,7 +1103,7 @@ mod tests {
 
     #[test]
     fn it_fails_to_get_from_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
 
         let key = vec![0x00];
         let root_key = vec![0x01];
@@ -1115,7 +1116,7 @@ mod tests {
 
     #[test]
     fn it_fails_to_get_a_nonexistent_item() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
 
         let key = vec![0xAA];
 
@@ -1131,7 +1132,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_small_balanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(8);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(8);
         for i in 0..8 {
@@ -1156,7 +1157,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_small_unbalanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(7);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(7);
         for i in 0..7 {
@@ -1182,7 +1183,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_medium_balanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let num_leaves = 256;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -1210,7 +1211,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_medium_unbalanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let num_leaves = 255;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -1238,7 +1239,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_balanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let num_leaves = 65_536;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -1266,7 +1267,7 @@ mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_unbalanced_tree() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let num_leaves = 65_535;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -1294,7 +1295,7 @@ mod tests {
 
     #[test]
     fn it_handles_a_branch_with_one_child() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let data = insert_data_node(&mut db, vec![0xFF]);
         let leaf = insert_leaf_node(&mut db, vec![0x00], data);
         let branch = insert_branch_node(&mut db, Some(leaf), None, 0);
@@ -1308,7 +1309,7 @@ mod tests {
 
     #[test]
     fn it_handles_a_branch_with_no_children() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let branch = insert_branch_node(&mut db, None, None, 0);
         let bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 4).unwrap();
 
@@ -1329,7 +1330,7 @@ mod tests {
         // 0x00  0x40, 0x41, 0x60, 0x68, 0x70, 0x71, 0x72, 0x80, 0xC0, 0xC1, 0xE0, 0xE1, 0xE2, 0xF0, 0xF8
         // None, None, None, 0x01, 0x02, None, None, None, 0x03, None, None, None, None, None, 0x04, None
 
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let data_d = insert_data_node(&mut db, vec![0x01]);
         let leaf_d = insert_leaf_node(&mut db, vec![0x60], data_d);
         let data_e = insert_data_node(&mut db, vec![0x02]);
@@ -1386,7 +1387,7 @@ mod tests {
 
     #[test]
     fn it_returns_the_same_number_of_values_as_keys() {
-        let mut db = MockDB::new(HashMap::new(), HashMap::new());
+        let mut db = MockDB::new(HashMap::new());
         let data = insert_data_node(&mut db, vec![0xFF]);
         let leaf = insert_leaf_node(&mut db, vec![0x00], data);
         let branch = insert_branch_node(&mut db, Some(leaf), None, 0);
@@ -1418,7 +1419,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_leaf_node_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key = vec![0xAAu8];
         let data = vec![0xBBu8];
 
@@ -1431,7 +1432,7 @@ mod tests {
 
     #[test]
     fn it_inserts_two_leaf_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key_values = vec![
             vec![0x00u8],
             vec![0x01u8]
@@ -1452,7 +1453,7 @@ mod tests {
 
     #[test]
     fn it_inserts_two_leaf_nodes_into_empty_tree_with_first_bit_split() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key_values = vec![
             vec![0x00u8],
             vec![0x80u8]
@@ -1473,7 +1474,7 @@ mod tests {
 
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key_values = vec![
             vec![0xAAu8],  // 1010_1010
             vec![0xBBu8],  // 1011_1011
@@ -1491,7 +1492,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_small_even_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xAAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1515,7 +1516,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_small_odd_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1539,7 +1540,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_medium_even_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1563,7 +1564,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_medium_odd_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1587,7 +1588,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_large_even_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1611,7 +1612,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_large_odd_amount_of_nodes_into_empty_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1635,7 +1636,7 @@ mod tests {
 
     #[test]
     fn it_inserts_a_leaf_node_into_a_tree_with_one_item() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let first_key = vec![0xAAu8];
         let first_data = vec![0xBBu8];
 
@@ -1653,7 +1654,7 @@ mod tests {
 
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_a_tree_with_existing_items() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xCAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1695,7 +1696,7 @@ mod tests {
 
     #[test]
     fn it_updates_an_existing_entry() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key = vec![0xAAu8];
         let first_value = vec![0xBBu8];
         let second_value = vec![0xCCu8];
@@ -1716,7 +1717,7 @@ mod tests {
 
     #[test]
     fn it_updates_multiple_existing_entries() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xEEu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1757,7 +1758,7 @@ mod tests {
 
     #[test]
     fn it_does_not_panic_when_removing_a_nonexistent_node() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
 
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
         let missing_root_hash = vec![0x00u8];
@@ -1766,7 +1767,7 @@ mod tests {
 
     #[test]
     fn it_removes_a_node() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let key = vec![0x00];
         let data = vec![0x01];
 
@@ -1786,7 +1787,7 @@ mod tests {
 
     #[test]
     fn it_removes_an_entire_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1817,7 +1818,7 @@ mod tests {
 
     #[test]
     fn it_removes_an_old_root() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
 
         let first_key = vec![0x00u8];
         let first_data = vec![0x01u8];
@@ -1838,7 +1839,7 @@ mod tests {
 
     #[test]
     fn it_removes_a_small_old_tree() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
 
         let first_key = vec![0x00u8];
         let second_key = vec![0x01u8];
@@ -1867,7 +1868,7 @@ mod tests {
 
     #[test]
     fn it_removes_an_old_large_root() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xBAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
@@ -1940,7 +1941,7 @@ mod tests {
 
     #[test]
     fn it_iterates_over_multiple_inserts_correctly() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xEFu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
@@ -1950,7 +1951,7 @@ mod tests {
 
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_not_descendants() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let key_values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x10u8], vec![0x20u8]];
@@ -1978,7 +1979,7 @@ mod tests {
 
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_descendants() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let key_values = vec![vec![0x10u8], vec![0x11u8], vec![0x00u8], vec![0x01u8], vec![0x02u8]];
@@ -2004,7 +2005,7 @@ mod tests {
 
     #[test]
     fn it_correctly_iterates_removals() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let seed = [0xA8u8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
@@ -2014,7 +2015,7 @@ mod tests {
 
     #[test]
     fn it_correctly_increments_a_leaf_reference_count() {
-        let db = MockDB::new(HashMap::new(), HashMap::new());
+        let db = MockDB::new(HashMap::new());
         let mut bmt: BinaryMerkleTree<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, Vec<u8>, Vec<u8>, Vec<u8>> = BinaryMerkleTree::from_db(db, 160).unwrap();
 
         let key = vec![0x00u8];
@@ -2036,8 +2037,8 @@ mod tests {
         let mut proto_outer_data_node = ProtoMerkleNode::new();
         proto_outer_data_node.set_references(1);
         proto_outer_data_node.set_data(proto_data_node);
-        db.insert_node(&data_key, &proto_outer_data_node);
-        db.insert_value(&data_key, value.clone());
+        db.insert(&data_key, &proto_outer_data_node).unwrap();
+        db.batch_write().unwrap();
         data_key.clone()
     }
 
@@ -2054,7 +2055,8 @@ mod tests {
         let mut proto_outer_leaf_node = ProtoMerkleNode::new();
         proto_outer_leaf_node.set_references(1);
         proto_outer_leaf_node.set_leaf(proto_leaf_node);
-        db.insert_node(&leaf_node_key, &proto_outer_leaf_node);
+        db.insert(&leaf_node_key, &proto_outer_leaf_node).unwrap();
+        db.batch_write().unwrap();
         leaf_node_key.clone()
     }
 
@@ -2086,7 +2088,8 @@ mod tests {
         let mut proto_outer_branch_node = ProtoMerkleNode::new();
         proto_outer_branch_node.set_references(1);
         proto_outer_branch_node.set_branch(proto_branch_node);
-        db.insert_node(&proto_branch_node_key, &proto_outer_branch_node);
+        db.insert(&proto_branch_node_key, &proto_outer_branch_node).unwrap();
+        db.batch_write().unwrap();
         proto_branch_node_key.clone()
     }
 
