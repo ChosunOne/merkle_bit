@@ -32,22 +32,22 @@ struct SplitPairs<'a> {
     ones: Vec<&'a [u8]>
 }
 
-struct Foo<'a, NodeType> {
+struct TreeCell<'a, NodeType> {
     keys: Vec<&'a [u8]>,
     node: Option<NodeType>,
     depth: usize
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd)]
-struct Bar {
+struct TreeRef {
     key: Vec<u8>,
     location: Vec<u8>,
     count: u64
 }
 
-impl Ord for Bar {
-    fn cmp(&self, other_bar: &Bar) -> Ordering {
-        return self.key.cmp(&other_bar.key)
+impl Ord for TreeRef {
+    fn cmp(&self, other_ref: &TreeRef) -> Ordering {
+        return self.key.cmp(&other_ref.key)
     }
 }
 
@@ -60,12 +60,12 @@ impl<'a> SplitPairs<'a> {
     }
 }
 
-impl<'a, 'b, NodeType> Foo<'a, NodeType> {
-    pub fn new<BranchType, LeafType, DataType>(keys: Vec<&'a [u8]>, node: Option<NodeType>, depth: usize) -> Foo<'a, NodeType>
+impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
+    pub fn new<BranchType, LeafType, DataType>(keys: Vec<&'a [u8]>, node: Option<NodeType>, depth: usize) -> TreeCell<'a, NodeType>
         where BranchType: Branch,
               LeafType: Leaf,
               DataType: Data {
-        Foo {
+        TreeCell {
             keys,
             node,
             depth
@@ -73,9 +73,9 @@ impl<'a, 'b, NodeType> Foo<'a, NodeType> {
     }
 }
 
-impl Bar {
-    pub fn new(key: Vec<u8>, location: Vec<u8>, count: u64) -> Bar {
-        Bar {
+impl TreeRef {
+    pub fn new(key: Vec<u8>, location: Vec<u8>, count: u64) -> TreeRef {
+        TreeRef {
             key,
             location,
             count
@@ -194,28 +194,28 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
         let mut leaf_nodes: VecDeque<Option<LeafType>> = VecDeque::with_capacity(keys.len());
 
-        let mut foo_queue: VecDeque<Foo<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+        let mut cell_queue: VecDeque<TreeCell<NodeType>> = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
 
-        let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys.clone(), Some(root_node), 0);
+        let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(keys.clone(), Some(root_node), 0);
 
-        foo_queue.push_front(root_foo);
+        cell_queue.push_front(root_cell);
 
-        while foo_queue.len() > 0 {
-            let foo;
-            match foo_queue.pop_front() {
-                Some(f) => foo = f,
-                None => return Err(Box::new(Exception::new("Empty foo queue")))
+        while cell_queue.len() > 0 {
+            let tree_cell;
+            match cell_queue.pop_front() {
+                Some(f) => tree_cell = f,
+                None => return Err(Box::new(Exception::new("Empty tree_cell queue")))
             }
 
-            if foo.depth > self.depth {
+            if tree_cell.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
             }
 
             let node;
-            match foo.node {
+            match tree_cell.node {
                 Some(n) => node = n,
                 None => {
-                    for _ in 0..foo.keys.len() {
+                    for _ in 0..tree_cell.keys.len() {
                         leaf_nodes.push_back(None);
                     }
                     continue;
@@ -224,25 +224,25 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
             match node.get_variant()? {
                 NodeVariant::Branch(n) => {
-                    let split = split_pairs(foo.keys, n.get_split_index() as usize);
+                    let split = split_pairs(tree_cell.keys, n.get_split_index() as usize);
 
                     // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
                         if split.ones.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
-                            foo_queue.push_front(new_foo);
+                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
+                            cell_queue.push_front(new_cell);
                         }
                     } else {
-                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, None, foo.depth);
-                        foo_queue.push_front(new_foo);
+                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, None, tree_cell.depth);
+                        cell_queue.push_front(new_cell);
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
                         if split.zeros.len() > 0 {
-                            let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
-                            foo_queue.push_front(new_foo);
+                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
+                            cell_queue.push_front(new_cell);
                         }
                     } else {
                         for _ in 0..split.zeros.len() {
@@ -251,14 +251,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     }
                 },
                 NodeVariant::Leaf(n) => {
-                    if foo.keys.len() == 0 {
+                    if tree_cell.keys.len() == 0 {
                         return Err(Box::new(Exception::new("No key with which to match the leaf key")))
                     }
 
                     leaf_nodes.push_back(Some(n));
 
-                    if foo.keys.len() > 1 {
-                        for _ in 0..foo.keys.len() - 1 {
+                    if tree_cell.keys.len() > 1 {
+                        for _ in 0..tree_cell.keys.len() - 1 {
                             leaf_nodes.push_back(None);
                         }
                     }
@@ -353,15 +353,15 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             nodes.push(leaf_node_location);
         }
 
-        let mut bars = Vec::with_capacity(keys.len());
+        let mut tree_refs = Vec::with_capacity(keys.len());
         for i in 0..keys.len() {
-            let bar = Bar::new(keys[i].to_vec(),nodes[i].as_ref().to_vec(), 1);
-            bars.push(bar);
+            let tree_ref = TreeRef::new(keys[i].to_vec(), nodes[i].as_ref().to_vec(), 1);
+            tree_refs.push(tree_ref);
         }
 
         if let Some(n) = previous_root {
             // Nodes that form the merkle proof for the new tree
-            let mut proof_nodes: Vec<Bar> = Vec::new();
+            let mut proof_nodes: Vec<TreeRef> = Vec::new();
 
             let root_node;
             if let Some(m) = self.db.get_node(n.as_ref())? {
@@ -370,19 +370,19 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 return Err(Box::new(Exception::new("Could not find previous root")))
             }
 
-            let mut foo_queue: Vec<Foo<NodeType>> = Vec::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
-            let root_foo: Foo<NodeType> = Foo::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
-            foo_queue.push(root_foo);
+            let mut cell_queue: Vec<TreeCell<NodeType>> = Vec::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+            let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
+            cell_queue.push(root_cell);
 
-            while foo_queue.len() > 0 {
-                let foo = foo_queue.remove(0);
+            while cell_queue.len() > 0 {
+                let tree_cell = cell_queue.remove(0);
 
-                if foo.depth > self.depth {
+                if tree_cell.depth > self.depth {
                     return Err(Box::new(Exception::new("Depth of merkle tree exceeded")))
                 }
 
                 let mut node;
-                if let Some(n) = foo.node {
+                if let Some(n) = tree_cell.node {
                     node = n;
                 } else {
                     continue
@@ -406,8 +406,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let mut skip = false;
 
                         // Check if we are updating an existing value
-                        for i in 0..bars.len() {
-                            let b = &bars[i];
+                        for i in 0..tree_refs.len() {
+                            let b = &tree_refs[i];
                             if b.key == key && b.location == location.as_ref().to_vec() {
                                 // This value is not being updated
                                 break;
@@ -430,14 +430,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                             return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
 
-                        let bar = Bar::new(key.to_vec(), location.as_ref().to_vec(), 1);
-                        proof_nodes.push(bar);
+                        let tree_ref = TreeRef::new(key.to_vec(), location.as_ref().to_vec(), 1);
+                        proof_nodes.push(tree_ref);
                         continue;
                     },
                     NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
 
-                let mut min_split_index = foo.keys[0].len() * 8;
+                let mut min_split_index = tree_cell.keys[0].len() * 8;
                 let mut branch_hasher = HasherType::new(32);
                 branch_hasher.update("b".as_bytes());
                 branch_hasher.update(branch.get_zero());
@@ -446,7 +446,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 let branch_key;
                 {
                     branch_key = self.get_proof_key(location.as_ref())?;
-                    let mut all_keys = foo.keys.clone();
+                    let mut all_keys = tree_cell.keys.clone();
                     all_keys.push(branch_key.as_ref());
                     for i in 0..all_keys.len() - 1 {
                         for j in 0..all_keys[0].len() * 8 {
@@ -462,38 +462,38 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     }
                 }
 
-                let mut descendants = Vec::with_capacity(foo.keys.len());
+                let mut descendants = Vec::with_capacity(tree_cell.keys.len());
 
                 if min_split_index < branch.get_split_index() as usize {
 
                     // Check if any keys from the search need to go down this branch
-                    for i in 0..foo.keys.len() {
-                        let foo_key = foo.keys[i];
+                    for i in 0..tree_cell.keys.len() {
+                        let cell_key = tree_cell.keys[i];
                         let mut descendant = true;
                         for j in min_split_index..branch.get_split_index() as usize {
                             let left = choose_branch(&branch_key, j);
-                            let right = choose_branch(foo_key, j);
+                            let right = choose_branch(cell_key, j);
                             if left != right {
                                 descendant = false;
                                 break;
                             }
                         }
                         if descendant {
-                            descendants.push(foo_key);
+                            descendants.push(cell_key);
                         }
                     }
 
                     if descendants.len() == 0 {
-                        let bar = Bar::new(branch_key, location.as_ref().to_vec(), branch.get_count());
+                        let tree_ref = TreeRef::new(branch_key, location.as_ref().to_vec(), branch.get_count());
                         let refs = node.get_references() + 1;
                         node.set_references(refs);
                         self.db.insert(location.as_ref(), &node)?;
-                        proof_nodes.push(bar);
+                        proof_nodes.push(tree_ref);
                         continue;
                     }
                 } else {
-                    for i in 0..foo.keys.len(){
-                        descendants.push(&foo.keys[i]);
+                    for i in 0..tree_cell.keys.len(){
+                        descendants.push(&tree_cell.keys[i]);
                     }
                 }
 
@@ -501,8 +501,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 if let Some(mut o) = self.db.get_node(branch.get_one())? {
                     let mut one_node = o;
                     if split.ones.len() > 0 {
-                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), foo.depth + 1);
-                        foo_queue.insert(0, new_foo);
+                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
+                        cell_queue.insert(0, new_cell);
                     } else {
                         let other_key = self.get_proof_key(branch.get_one())?;
                         let count;
@@ -511,18 +511,18 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                             NodeVariant::Leaf(_) => count = 1,
                             NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
-                        let bar = Bar::new(other_key, branch.get_one().to_vec(), count);
+                        let tree_ref = TreeRef::new(other_key, branch.get_one().to_vec(), count);
                         let refs = one_node.get_references() + 1;
                         one_node.set_references(refs);
                         self.db.insert(branch.get_one(), &one_node)?;
-                        proof_nodes.push(bar);
+                        proof_nodes.push(tree_ref);
                     }
                 }
                 if let Some(mut z) = self.db.get_node(branch.get_zero())? {
                     let mut zero_node = z;
                     if split.zeros.len() > 0 {
-                        let new_foo = Foo::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), foo.depth + 1);
-                        foo_queue.insert(0, new_foo);
+                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
+                        cell_queue.insert(0, new_cell);
                     } else {
                         let other_key = self.get_proof_key(branch.get_zero())?;
                         let count;
@@ -531,37 +531,37 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                             NodeVariant::Leaf(_) => count = 1,
                             NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
-                        let bar = Bar::new(other_key, branch.get_zero().to_vec(), count);
+                        let tree_ref = TreeRef::new(other_key, branch.get_zero().to_vec(), count);
                         let refs = zero_node.get_references() + 1;
                         zero_node.set_references(refs);
                         self.db.insert(branch.get_zero(), &zero_node)?;
-                        proof_nodes.push(bar);
+                        proof_nodes.push(tree_ref);
                     }
                 }
             }
 
-            bars.append(&mut proof_nodes);
+            tree_refs.append(&mut proof_nodes);
 
-            let new_root = self.create_tree(&mut bars)?;
+            let new_root = self.create_tree(&mut tree_refs)?;
             return Ok(new_root)
         } else {
             // There is no tree, just build one with the keys and values
-            let new_root = self.create_tree(&mut bars)?;
+            let new_root = self.create_tree(&mut tree_refs)?;
             return Ok(new_root)
         }
     }
 
-    fn create_tree(&mut self, bars: &mut Vec<Bar>) -> BinaryMerkleTreeResult<Vec<u8>> {
-        bars.sort();
-        let mut split_indices = Vec::with_capacity(bars.len() - 1);
-        for i in 0..bars.len() - 1 {
-            for j in 0..bars[i].key.len() * 8 {
-                let left_branch = choose_branch(bars[i].key.as_ref(), j);
-                let right_branch = choose_branch(bars[i + 1].key.as_ref(), j);
+    fn create_tree(&mut self, tree_refs: &mut Vec<TreeRef>) -> BinaryMerkleTreeResult<Vec<u8>> {
+        tree_refs.sort();
+        let mut split_indices = Vec::with_capacity(tree_refs.len() - 1);
+        for i in 0..tree_refs.len() - 1 {
+            for j in 0..tree_refs[i].key.len() * 8 {
+                let left_branch = choose_branch(tree_refs[i].key.as_ref(), j);
+                let right_branch = choose_branch(tree_refs[i + 1].key.as_ref(), j);
                 if left_branch != right_branch{
                     split_indices.push(vec![i, j]);
                     break;
-                } else if j == bars[i].key.len() * 8 - 1 {
+                } else if j == tree_refs[i].key.len() * 8 - 1 {
                     // The keys are the same and don't diverge
                     // TODO: Figure out what the right thing to do here is
                     split_indices.push(vec![i, 0]);
@@ -573,14 +573,14 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             a[1].cmp(&b[1]).reverse()
         });
 
-        while bars.len() > 0 {
-            if bars.len() == 1 {
+        while tree_refs.len() > 0 {
+            if tree_refs.len() == 1 {
                 self.db.batch_write()?;
-                return Ok(bars.remove(0).location.to_vec())
+                return Ok(tree_refs.remove(0).location.to_vec())
             }
 
-            let max_bar = split_indices.remove(0);
-            let max_index= max_bar[0];
+            let max_tree_ref = split_indices.remove(0);
+            let max_index= max_tree_ref[0];
 
             for i in 0..split_indices.len() {
                 if split_indices[i][0] > max_index {
@@ -588,29 +588,29 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 }
             }
 
-            let bar = bars.remove(max_index);
+            let tree_ref = tree_refs.remove(max_index);
 
-            let next_bar = bars.remove(max_index);
+            let next_tree_ref = tree_refs.remove(max_index);
             let mut branch_hasher = HasherType::new(32);
             branch_hasher.update("b".as_bytes());
-            branch_hasher.update(bar.location.as_ref());
-            branch_hasher.update(next_bar.location.as_ref());
+            branch_hasher.update(tree_ref.location.as_ref());
+            branch_hasher.update(next_tree_ref.location.as_ref());
             let branch_node_location = branch_hasher.finalize();
 
             let mut branch = BranchType::new();
-            branch.set_zero(bar.location.as_ref());
-            branch.set_one(next_bar.location.as_ref());
-            let count = bar.count + next_bar.count;
+            branch.set_zero(tree_ref.location.as_ref());
+            branch.set_one(next_tree_ref.location.as_ref());
+            let count = tree_ref.count + next_tree_ref.count;
             branch.set_count(count);
-            branch.set_split_index(max_bar[1] as u32);
+            branch.set_split_index(max_tree_ref[1] as u32);
 
             let mut branch_node = NodeType::new();
             branch_node.set_branch(branch);
             branch_node.set_references(1);
 
             self.db.insert(branch_node_location.as_ref(), &branch_node)?;
-            let new_bar = Bar::new(bar.key, branch_node_location.as_ref().to_vec(), count);
-            bars.insert(max_index, new_bar);
+            let new_tree_ref = TreeRef::new(tree_ref.key, branch_node_location.as_ref().to_vec(), count);
+            tree_refs.insert(max_index, new_tree_ref);
         }
 
         Err(Box::new(Exception::new("Corrupt merkle tree")))
