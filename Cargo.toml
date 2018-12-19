@@ -2,6 +2,10 @@
 name = "starling"
 version = "1.0.0"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
+description = "This tree structure is a binary merkle tree with branch compression via split indexes."
+repository = "https://github.com/ChosunOne/merkle_bit"
+keywords = ["binary", "merkle", "tree", "patricia"]
+license = "MIT License"
 
 [build-dependencies]
 protoc-rust = {git = "https://github.com/ChosunOne/rust-protobuf", branch = "v2.0"}
