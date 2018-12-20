@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "1.0.3"
+version = "1.0.4"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -8,14 +8,8 @@ keywords = ["binary", "merkle", "tree", "patricia"]
 license = "MIT"
 readme = "README.md"
 
-[build-dependencies]
-protoc-rust-no-elision = "2.0.4"
-
 [dev-dependencies]
-protobuf-codegen-no-elision = "2.0.4"
-protoc = "2.0.4"
 blake2-rfc = "0.2.18"
-protobuf = "2.0.4"
 rand = "0.5.5"
 
 [dependencies]

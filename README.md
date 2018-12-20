@@ -4,7 +4,7 @@ This tree structure is a binary merkle tree with branch compression via split in
 ## Basic Usage
 ```rust
     extern crate starling;
-    use starling::common::merkle_bit::MerkleBIT;
+    use starling::merkle_bit::MerkleBIT;
     use std::path::PathBuf;
     
     fn main() {
@@ -22,7 +22,7 @@ This tree structure is a binary merkle tree with branch compression via split in
                              HashResultType, 
                              ValueType>::new(path, 8);
                              
-        // Keys must by slices of u8 arrays or vectors
+        // Keys must be slices of u8 arrays or vectors
         let key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
         
         // An example value created from ValueType.  

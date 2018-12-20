@@ -6,14 +6,13 @@ use std::hash::Hash;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-
-use common::{Encode, Exception, Decode};
-use common::traits::{Branch, Data, Hasher, IDB, Node, Leaf};
+use traits::{Encode, Exception, Decode, Branch, Data, Hasher, IDB, Node, Leaf};
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
 
 /// Contains the distinguishing data from the node
+#[derive(Clone)]
 pub enum NodeVariant<BranchType, LeafType, DataType>
     where BranchType: Branch,
           LeafType: Leaf,
@@ -723,16 +722,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 #[cfg(test)]
 pub mod tests {
     use super::*;
-    use serialization::state::{MerkleNode as ProtoMerkleNode,
-                               MerkleNode_oneof_node::branch as ProtoMerkleNodeBranch,
-                               MerkleNode_oneof_node::data as ProtoMerkleNodeData,
-                               MerkleNode_oneof_node::leaf as ProtoMerkleNodeLeaf,
-                               Branch as ProtoBranch,
-                               Leaf as ProtoLeaf,
-                               Data as ProtoData};
 
     use blake2_rfc::blake2b::{blake2b, Blake2b, Blake2bResult};
-    use protobuf::Message as ProtoMessage;
     use std::collections::HashMap;
     use rand::{Rng, SeedableRng, StdRng};
 
@@ -767,7 +758,8 @@ pub mod tests {
 
         fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>> {
             if let Some(m) = self.map.get(key) {
-                return Ok(Some(m.clone()))
+                let node = m.clone();
+                return Ok(Some(node))
             } else {
                 return Ok(None)
             }
@@ -806,6 +798,145 @@ pub mod tests {
         fn finalize(self) -> Self::HashResultType {
             Blake2b::finalize(self)
         }
+    }
+
+    #[derive(Clone)]
+    struct ProtoBranch {
+        count: u64,
+        zero: Vec<u8>,
+        one: Vec<u8>,
+        split_index: u32
+    }
+
+    impl ProtoBranch {
+        fn new() -> ProtoBranch {
+            ProtoBranch {
+                count: 0,
+                zero: vec![],
+                one: vec![],
+                split_index: 0
+            }
+        }
+
+        fn get_count(&self) -> u64 {
+            self.count
+        }
+
+        fn get_zero(&self) -> &[u8] {
+            self.zero.as_ref()
+        }
+
+        fn get_one(&self) -> &[u8] {
+            self.one.as_ref()
+        }
+
+        fn get_split_index(&self) -> u32 {
+            self.split_index
+        }
+
+        fn set_count(&mut self, count: u64) {
+            self.count = count;
+        }
+
+        fn set_zero(&mut self, zero: Vec<u8>) {
+            self.zero = zero;
+        }
+
+        fn set_one(&mut self, one: Vec<u8>) {
+            self.one = one;
+        }
+
+        fn set_split_index(&mut self, split_index: u32) {
+            self.split_index = split_index;
+        }
+    }
+
+    #[derive(Clone)]
+    struct ProtoLeaf {
+        key: Vec<u8>,
+        data: Vec<u8>
+    }
+
+    impl ProtoLeaf {
+        fn new() -> ProtoLeaf {
+            ProtoLeaf {
+                key: vec![],
+                data: vec![]
+            }
+        }
+
+        fn get_key(&self) -> &[u8] {
+            self.key.as_ref()
+        }
+
+        fn get_data(&self) -> &[u8] {
+            self.data.as_ref()
+        }
+
+        fn set_key(&mut self, key: Vec<u8>) {
+            self.key = key;
+        }
+
+        fn set_data(&mut self, data: Vec<u8>) {
+            self.data = data;
+        }
+    }
+
+    #[derive(Clone)]
+    struct ProtoData {
+        value: Vec<u8>
+    }
+
+    impl ProtoData {
+        fn new() -> ProtoData {
+            ProtoData {
+                value: vec![]
+            }
+        }
+
+        fn get_value(&self) -> &[u8] {
+            self.value.as_ref()
+        }
+
+        fn set_value(&mut self, value: Vec<u8>) {
+            self.value = value;
+        }
+    }
+
+    #[derive(Clone)]
+    struct ProtoMerkleNode {
+        references: u64,
+        node: Option<NodeVariant<ProtoBranch, ProtoLeaf, ProtoData>>
+    }
+
+    impl ProtoMerkleNode {
+        fn new() -> ProtoMerkleNode {
+            ProtoMerkleNode {
+                references: 0,
+                node: None
+            }
+        }
+
+        fn get_references(&self) -> u64 {
+            self.references
+        }
+
+        fn set_references(&mut self, references: u64) {
+            self.references = references;
+        }
+
+        fn set_branch(&mut self, branch: ProtoBranch) {
+            self.node = Some(NodeVariant::Branch(branch));
+        }
+
+        fn set_leaf(&mut self, leaf: ProtoLeaf) {
+            self.node = Some(NodeVariant::Leaf(leaf));
+        }
+
+        fn set_data(&mut self, data: ProtoData) {
+            self.node = Some(NodeVariant::Data(data));
+        }
+
     }
 
     impl Branch for ProtoBranch {
@@ -886,9 +1017,9 @@ pub mod tests {
             match self.node {
                 Some(ref node_type) => {
                     match node_type {
-                        ProtoMerkleNodeBranch(branch) => return Ok(NodeVariant::Branch(branch.clone())),
-                        ProtoMerkleNodeData(data) => return Ok(NodeVariant::Data(data.clone())),
-                        ProtoMerkleNodeLeaf(leaf) => return Ok(NodeVariant::Leaf(leaf.clone()))
+                        NodeVariant::Branch(branch) => return Ok(NodeVariant::Branch(branch.clone())),
+                        NodeVariant::Data(data) => return Ok(NodeVariant::Data(data.clone())),
+                        NodeVariant::Leaf(leaf) => return Ok(NodeVariant::Leaf(leaf.clone()))
                     }
                 },
                 None => return Err(Box::new(Exception::new("Failed to distinguish node type")))
@@ -918,7 +1049,6 @@ pub mod tests {
     impl Decode for ProtoMerkleNode {
         fn decode(buffer: &[u8]) -> Result<ProtoMerkleNode, Box<Error>> {
             let mut proto = ProtoMerkleNode::new();
-            proto.merge_from_bytes(buffer)?;
             Ok(proto)
         }
     }

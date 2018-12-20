@@ -1,9 +1,9 @@
 use std::error::Error;
 use std::path::PathBuf;
+use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use common::merkle_bit::BinaryMerkleTreeResult;
-use common::merkle_bit::NodeVariant;
-use common::{Decode, Encode};
+use merkle_bit::BinaryMerkleTreeResult;
+use merkle_bit::NodeVariant;
 
 pub trait Hasher {
     type HashType;
@@ -61,4 +61,38 @@ pub trait IDB {
     fn insert(&mut self, key: &[u8], node: &Self::NodeType) -> Result<(), Box<Error>>;
     fn remove(&mut self, key: &[u8]) -> Result<(), Box<Error>>;
     fn batch_write(&mut self) -> Result<(), Box<Error>>;
+}
+
+pub trait Encode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>>;
+}
+
+pub trait Decode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>>
+        where Self: Sized;
+}
+
+#[derive(Debug)]
+pub struct Exception {
+    details:  String
+}
+
+impl Exception {
+    pub fn new(details: &str) -> Exception {
+        Exception {
+            details: details.to_string()
+        }
+    }
+}
+
+impl Display for Exception {
+    fn fmt(&self, f: &mut Formatter) -> FmtResult {
+        write!(f,"{}",self.details)
+    }
+}
+
+impl Error for Exception {
+    fn description(&self) -> &str {
+        &self.details
+    }
 }
