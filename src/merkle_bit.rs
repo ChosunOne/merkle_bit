@@ -2,7 +2,6 @@ use std::collections::VecDeque;
 use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::Debug;
-use std::hash::Hash;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
@@ -142,7 +141,7 @@ pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, Has
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
           HasherType: Hasher,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd,
+          HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
     db: DatabaseType,
     depth: usize,
@@ -163,7 +162,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Hash + Debug + PartialOrd,
+          HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
     /// Create a new MerkleBIT from a saved database
     pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -723,7 +722,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 pub mod tests {
     use super::*;
 
-    use blake2_rfc::blake2b::{blake2b, Blake2b, Blake2bResult};
+    use blake2_rfc::blake2b::{blake2b};
     use std::collections::HashMap;
     use rand::{Rng, SeedableRng, StdRng};
 
@@ -781,22 +780,6 @@ pub mod tests {
                 self.map.insert(entry.0, entry.1);
             }
             Ok(())
-        }
-
-    }
-
-    impl Hasher for Blake2b {
-        type HashType = Blake2b;
-        type HashResultType = Blake2bResult;
-
-        fn new(size: usize) -> Self::HashType {
-            Blake2b::new(size)
-        }
-        fn update(&mut self, data: &[u8]) {
-            Blake2b::update(self, data)
-        }
-        fn finalize(self) -> Self::HashResultType {
-            Blake2b::finalize(self)
         }
     }
 
@@ -1047,8 +1030,8 @@ pub mod tests {
     }
 
     impl Decode for ProtoMerkleNode {
-        fn decode(buffer: &[u8]) -> Result<ProtoMerkleNode, Box<Error>> {
-            let mut proto = ProtoMerkleNode::new();
+        fn decode(_buffer: &[u8]) -> Result<ProtoMerkleNode, Box<Error>> {
+            let proto = ProtoMerkleNode::new();
             Ok(proto)
         }
     }
@@ -1079,20 +1062,6 @@ pub mod tests {
         fn finalize(self) -> Self::HashResultType {
             self
         }
-    }
-
-    #[test]
-    fn it_recognizes_a_hasher() {
-        let mut blake = Blake2b::new(32);
-        let data = [0u8; 32];
-        blake.update(&data);
-        let hash = blake.finalize();
-        let expected_hash = [
-            137, 235,  13, 106, 138, 105, 29, 174,
-             44, 209,  94, 208,  54, 153, 49, 206,
-             10, 148, 158, 202, 250,  92, 63, 147,
-            248,  18,  24,  51, 100, 110, 21, 195];
-        assert_eq!(hash.as_bytes(), expected_hash);
     }
 
     #[test]
