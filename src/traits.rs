@@ -24,7 +24,7 @@ pub trait Branch {
     fn set_zero(&mut self, zero: &[u8]);
     fn set_one(&mut self, one: &[u8]);
     fn set_split_index(&mut self, index: u32);
-    fn set_key(&self, key: &[u8]);
+    fn set_key(&mut self, key: &[u8]);
 }
 
 pub trait Leaf {
@@ -55,7 +55,7 @@ pub trait Node<BranchType, LeafType, DataType, ValueType>
     fn set_data(&mut self, data: DataType);
 }
 
-pub trait IDB {
+pub trait Database {
     type NodeType;
     type EntryType;
     fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
@@ -69,9 +69,17 @@ pub trait Encode {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>>;
 }
 
+impl Encode for Vec<u8> {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {Ok(self.clone())}
+}
+
 pub trait Decode {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>>
         where Self: Sized;
+}
+
+impl Decode for Vec<u8> {
+    fn decode(buffer: &[u8]) -> Result<Vec<u8>, Box<Error>> { Ok(buffer.to_vec()) }
 }
 
 #[derive(Debug)]

@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-use traits::{Encode, Exception, Decode, Branch, Data, Hasher, IDB, Node, Leaf};
+use traits::{Encode, Exception, Decode, Branch, Data, Hasher, Database, Node, Leaf};
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
@@ -22,7 +22,7 @@ pub enum NodeVariant<BranchType, LeafType, DataType>
 }
 
 #[derive(Debug, PartialEq)]
-enum TreeBranch {
+enum BranchSplit {
     Zero,
     One
 }
@@ -83,14 +83,14 @@ impl TreeRef {
     }
 }
 
-fn choose_branch(key: &[u8], bit: usize) -> TreeBranch {
+fn choose_branch(key: &[u8], bit: usize) -> BranchSplit {
     let index = bit / 8;
     let shift = bit % 8;
     let extracted_bit = (key[index] >> (7 - shift)) & 1;
     if extracted_bit == 0 {
-        return TreeBranch::Zero
+        return BranchSplit::Zero
     } else {
-        return TreeBranch::One
+        return BranchSplit::One
     }
 }
 
@@ -99,11 +99,11 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
         return SplitPairs::new(vec![], vec![])
     }
 
-    if let TreeBranch::Zero = choose_branch(sorted_pairs[sorted_pairs.len() - 1], bit) {
+    if let BranchSplit::Zero = choose_branch(sorted_pairs[sorted_pairs.len() - 1], bit) {
         return SplitPairs::new(sorted_pairs[0..sorted_pairs.len()].to_vec(), vec![])
     }
 
-    if let TreeBranch::One = choose_branch(sorted_pairs[0], bit) {
+    if let BranchSplit::One = choose_branch(sorted_pairs[0], bit) {
         return SplitPairs::new(vec![], sorted_pairs[0..sorted_pairs.len()].to_vec())
     }
 
@@ -113,8 +113,8 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
     while max - min > 1 {
         let bisect = (max - min) / 2 + min;
         match choose_branch(sorted_pairs[bisect], bit) {
-            TreeBranch::Zero => min = bisect,
-            TreeBranch::One =>  max = bisect
+            BranchSplit::Zero => min = bisect,
+            BranchSplit::One =>  max = bisect
         }
     }
 
@@ -123,7 +123,7 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
 
 /// The MerkleBIT structure relies on many specified types:
 /// # Required Type Annotations
-/// * **DatabaseType**: The type to use for database-like operations.  DatabaseType must implement the IDB trait.
+/// * **DatabaseType**: The type to use for database-like operations.  DatabaseType must implement the Database trait.
 /// * **BranchType**: The type used for representing branches in the tree.  BranchType must implement the Branch trait.
 /// * **LeafType**: The type used for representing leaves in the tree.  LeafType must implement the Leaf trait.
 /// * **DataType**: The type used for representing data nodes in the tree.  DataType must implement the Data trait.
@@ -135,11 +135,11 @@ fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
-    where DatabaseType: IDB<NodeType = NodeType>,
+    where DatabaseType: Database<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
-          NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
+          NodeType: Node<BranchType, LeafType, DataType, ValueType>,
           HasherType: Hasher,
           HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
@@ -156,11 +156,11 @@ pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, Has
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
     MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
-    where DatabaseType: IDB<NodeType = NodeType>,
+    where DatabaseType: Database<NodeType = NodeType>,
           BranchType: Branch,
           LeafType: Leaf,
           DataType: Data,
-          NodeType: Node<BranchType, LeafType, DataType, ValueType> + Encode + Decode,
+          NodeType: Node<BranchType, LeafType, DataType, ValueType>,
           HasherType: Hasher<HashType = HasherType, HashResultType = HashResultType>,
           HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
@@ -757,7 +757,7 @@ pub mod tests {
         }
     }
 
-    impl IDB for MockDB {
+    impl Database for MockDB {
         type NodeType = ProtoMerkleNode;
         type EntryType = (Vec<u8>, Self::NodeType);
 
@@ -961,7 +961,7 @@ pub mod tests {
         fn set_split_index(&mut self, index: u32) {
             ProtoBranch::set_split_index(self, index);
         }
-        fn set_key(&self, key: &[u8]) { }
+        fn set_key(&mut self, _key: &[u8]) { }
     }
 
     impl Leaf for ProtoLeaf {
@@ -1045,18 +1045,6 @@ pub mod tests {
         }
     }
 
-    impl Encode for Vec<u8> {
-        fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
-            Ok(self.clone())
-        }
-    }
-
-    impl Decode for Vec<u8> {
-        fn decode(buffer: &[u8]) -> Result<Vec<u8>, Box<Error>> {
-            Ok(buffer.to_vec())
-        }
-    }
-
     impl Hasher for Vec<u8> {
         type HashType = Vec<u8>;
         type HashResultType = Vec<u8>;
@@ -1079,9 +1067,9 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i < 4 {
-                expected_branch = TreeBranch::Zero;
+                expected_branch = BranchSplit::Zero;
             } else {
-                expected_branch = TreeBranch::One;
+                expected_branch = BranchSplit::One;
             }
             let branch = choose_branch(&key, i);
             assert_eq!(branch, expected_branch);
@@ -1094,9 +1082,9 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
-                expected_branch = TreeBranch::Zero;
+                expected_branch = BranchSplit::Zero;
             } else {
-                expected_branch = TreeBranch::One;
+                expected_branch = BranchSplit::One;
             }
             let branch = choose_branch(&key, i);
             assert_eq!(branch, expected_branch);
@@ -1105,9 +1093,9 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
-                expected_branch = TreeBranch::One;
+                expected_branch = BranchSplit::One;
             } else {
-                expected_branch = TreeBranch::Zero;
+                expected_branch = BranchSplit::Zero;
             }
             let branch = choose_branch(&key, i);
             assert_eq!(branch, expected_branch);
@@ -1120,9 +1108,9 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i == 1 || i == 2 || i == 4 {
-                expected_branch = TreeBranch::One;
+                expected_branch = BranchSplit::One;
             } else {
-                expected_branch = TreeBranch::Zero;
+                expected_branch = BranchSplit::Zero;
             }
             let branch = choose_branch(&key, i);
             assert_eq!(branch, expected_branch);
@@ -1132,9 +1120,9 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i == 0 || i == 2 || i == 4 || i == 6 || i == 7 {
-                expected_branch = TreeBranch::One;
+                expected_branch = BranchSplit::One;
             } else {
-                expected_branch = TreeBranch::Zero;
+                expected_branch = BranchSplit::Zero;
             }
             let branch = choose_branch(&key, i);
             assert_eq!(branch, expected_branch);
