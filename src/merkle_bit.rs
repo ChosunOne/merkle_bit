@@ -1267,7 +1267,7 @@ pub mod tests {
             keys.push(vec![i << 5]);
             values.push(vec![i]);
         }
-        let mut get_keys = Vec::with_capacity(7);
+        let mut get_keys = Vec::with_capacity(8);
         for i in 0..8 {
             let value = &keys[i][..];
             get_keys.push(value);

@@ -272,3 +272,62 @@ impl HashTree {
         self.tree.remove(root_hash)
     }
 }
+
+#[cfg(test)]
+pub mod tests {
+    use super::*;
+
+    #[test]
+    fn it_fails_to_get_from_empty_hash_tree() {
+
+        let key = vec![0x00];
+        let root_key = vec![0x01];
+
+        let bmt = HashTree::new(160);
+        let items = bmt.get(&root_key, vec![&key[..]]).unwrap();
+        let expected_items = vec![None];
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_fails_to_get_a_nonexistent_item_from_hash_tree() {
+        let key = vec![0xAAu8];
+        let data = vec![0xFFu8];
+        let values = vec![data.as_ref()];
+        let mut bmt = HashTree::new(160);
+        let root_hash = bmt.insert(None, vec![key.as_ref()], &values).unwrap();
+
+        let nonexistent_key = vec![0xAB];
+        let items = bmt.get(&root_hash, vec![&nonexistent_key[..]]).unwrap();
+        let expected_items = vec![None];
+        assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_gets_items_from_a_small_balanced_hash_tree() {
+        let mut keys = Vec::with_capacity(8);
+        let mut values = Vec::with_capacity(8);
+        for i in 0..8 {
+            keys.push(vec![i << 5]);
+            values.push(vec![i]);
+        }
+        let mut get_keys = Vec::with_capacity(8);
+        let mut get_data = Vec::with_capacity(8);
+        for i in 0..8 {
+            let key = &keys[i][..];
+            get_keys.push(key);
+            let data = &values[i];
+            get_data.push(data);
+        }
+
+        let mut bmt = HashTree::new(3);
+        let root_hash = bmt.insert(None, get_keys.clone(), &get_data).unwrap();
+
+        let items = bmt.get(&root_hash, get_keys).unwrap();
+        let mut expected_items = vec![];
+        for value in &values {
+            expected_items.push(Some(value.clone()));
+        }
+        assert_eq!(items, expected_items);
+    }
+}
