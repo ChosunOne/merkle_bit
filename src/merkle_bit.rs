@@ -527,7 +527,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
-                        let other_key = self.get_proof_key(branch.get_one())?;
+                        let other_key;
+                        if let Some(k) = branch.get_key() {
+                            other_key = k.to_vec();
+                        } else {
+                            other_key = self.get_proof_key(branch.get_one())?;
+                        }
                         let count;
                         match one_node.get_variant()? {
                             NodeVariant::Branch(b) => count = b.get_count(),
@@ -547,7 +552,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
-                        let other_key = self.get_proof_key(branch.get_zero())?;
+                        let other_key;
+                        if let Some(k) = branch.get_key() {
+                            other_key = k.to_vec();
+                        } else {
+                            other_key = self.get_proof_key(branch.get_zero())?;
+                        }
                         let count;
                         match zero_node.get_variant()? {
                             NodeVariant::Branch(b) => count = b.get_count(),
@@ -929,18 +939,16 @@ pub mod tests {
         fn get_count(&self) -> u64 {
             ProtoBranch::get_count(self)
         }
-
         fn get_zero(&self) -> &[u8] {
             ProtoBranch::get_zero(self)
         }
-
         fn get_one(&self) -> &[u8] {
             ProtoBranch::get_one(self)
         }
-
         fn get_split_index(&self) -> u32 {
             ProtoBranch::get_split_index(self)
         }
+        fn get_key(&self) -> Option<&[u8]> { None }
         fn set_count(&mut self, count: u64) {
             ProtoBranch::set_count(self, count);
         }
@@ -953,6 +961,7 @@ pub mod tests {
         fn set_split_index(&mut self, index: u32) {
             ProtoBranch::set_split_index(self, index);
         }
+        fn set_key(&self, key: &[u8]) { }
     }
 
     impl Leaf for ProtoLeaf {

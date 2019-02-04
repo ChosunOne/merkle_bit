@@ -19,10 +19,12 @@ pub trait Branch {
     fn get_zero(&self) -> &[u8];
     fn get_one(&self) -> &[u8];
     fn get_split_index(&self) -> u32;
+    fn get_key(&self) -> Option<&[u8]>;
     fn set_count(&mut self, count: u64);
     fn set_zero(&mut self, zero: &[u8]);
     fn set_one(&mut self, one: &[u8]);
     fn set_split_index(&mut self, index: u32);
+    fn set_key(&self, key: &[u8]);
 }
 
 pub trait Leaf {
