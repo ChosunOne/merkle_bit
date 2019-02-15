@@ -2,8 +2,8 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use merkle_bit::BinaryMerkleTreeResult;
-use merkle_bit::NodeVariant;
+use crate::merkle_bit::BinaryMerkleTreeResult;
+use crate::merkle_bit::NodeVariant;
 
 pub trait Hasher {
     type HashType;

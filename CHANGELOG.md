@@ -1,4 +1,5 @@
 # 1.1.1
+* Update to 2018 edition of Rust
 * Minor code style changes
 * Update dev-dependencies
 

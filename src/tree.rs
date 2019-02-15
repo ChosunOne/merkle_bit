@@ -4,8 +4,8 @@ use std::hash::Hasher;
 use std::path::PathBuf;
 
 
-use merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
-use traits::*;
+use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
+use crate::traits::*;
 
 #[derive(Clone)]
 struct TreeBranch {
