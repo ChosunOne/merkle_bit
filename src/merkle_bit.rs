@@ -47,7 +47,7 @@ struct TreeRef {
 
 impl Ord for TreeRef {
     fn cmp(&self, other_ref: &TreeRef) -> Ordering {
-        return self.key.cmp(&other_ref.key)
+        self.key.cmp(&other_ref.key)
     }
 }
 
@@ -88,14 +88,14 @@ fn choose_branch(key: &[u8], bit: usize) -> BranchSplit {
     let shift = bit % 8;
     let extracted_bit = (key[index] >> (7 - shift)) & 1;
     if extracted_bit == 0 {
-        return BranchSplit::Zero
+        BranchSplit::Zero
     } else {
-        return BranchSplit::One
+        BranchSplit::One
     }
 }
 
 fn split_pairs(sorted_pairs: Vec<&[u8]>, bit: usize) ->  SplitPairs {
-    if sorted_pairs.len() == 0 {
+    if sorted_pairs.is_empty() {
         return SplitPairs::new(vec![], vec![])
     }
 
@@ -196,7 +196,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
     }
 
     /// Get items from the MerkleBIT.  Keys must be sorted.  Returns a list of Options which may include the corresponding values.
-    pub fn get(&self, root_hash: &HashResultType, keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
+    pub fn get(&self, root_hash: &[u8], keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
         let root_node;
         if let Some(n) = self.db.get_node(root_hash.as_ref())? {
             root_node = n;
@@ -216,7 +216,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
         cell_queue.push_front(root_cell);
 
-        while cell_queue.len() > 0 {
+        while !cell_queue.is_empty() {
             let tree_cell;
             match cell_queue.pop_front() {
                 Some(f) => tree_cell = f,
@@ -245,7 +245,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
-                        if split.ones.len() > 0 {
+                        if !split.ones.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                             cell_queue.push_front(new_cell);
                         }
@@ -256,7 +256,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
-                        if split.zeros.len() > 0 {
+                        if !split.zeros.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
                             cell_queue.push_front(new_cell);
                         }
@@ -267,7 +267,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     }
                 },
                 NodeVariant::Leaf(n) => {
-                    if tree_cell.keys.len() == 0 {
+                    if tree_cell.keys.is_empty() {
                         return Err(Box::new(Exception::new("No key with which to match the leaf key")))
                     }
 
@@ -330,7 +330,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             data.set_value(&values[i].encode()?);
 
             let mut data_hasher = HasherType::new(32);
-            data_hasher.update("d".as_bytes());
+            data_hasher.update(b"d");
             data_hasher.update(keys[i]);
             data_hasher.update(data.get_value());
             let data_node_location = data_hasher.finalize();
@@ -345,7 +345,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             leaf.set_key(keys[i]);
 
             let mut leaf_hasher = HasherType::new(32);
-            leaf_hasher.update("l".as_bytes());
+            leaf_hasher.update(b"l");
             leaf_hasher.update(keys[i]);
             leaf_hasher.update(leaf.get_data());
             let leaf_node_location = leaf_hasher.finalize();
@@ -391,7 +391,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(keys, Some(root_node), 0);
             cell_queue.push(root_cell);
 
-            while cell_queue.len() > 0 {
+            while !cell_queue.is_empty() {
                 let tree_cell = cell_queue.remove(0);
 
                 if tree_cell.depth > self.depth {
@@ -415,7 +415,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let key = leaf.get_key();
                         let data = leaf.get_data();
                         let mut leaf_hasher = HasherType::new(32);
-                        leaf_hasher.update("l".as_bytes());
+                        leaf_hasher.update(b"l");
                         leaf_hasher.update(key);
                         leaf_hasher.update(data);
                         let location = leaf_hasher.finalize();
@@ -424,8 +424,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         let mut old = false;
 
                         // Check if we are updating an existing value
-                        for i in 0..tree_refs.len() {
-                            let b = &tree_refs[i];
+                        for b in &tree_refs {
                             if b.key == key && b.location == location.as_ref().to_vec() {
                                 // This value is not being updated, just update its reference count
                                 old = true;
@@ -462,7 +461,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
                 let mut min_split_index = tree_cell.keys[0].len() * 8;
                 let mut branch_hasher = HasherType::new(32);
-                branch_hasher.update("b".as_bytes());
+                branch_hasher.update(b"b");
                 branch_hasher.update(branch.get_zero());
                 branch_hasher.update(branch.get_one());
                 let location = branch_hasher.finalize();
@@ -473,8 +472,8 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                     all_keys.push(branch_key.as_ref());
                     for i in 0..all_keys.len() - 1 {
                         for j in 0..all_keys[0].len() * 8 {
-                            let left = choose_branch(all_keys[i].as_ref(), j);
-                            let right = choose_branch(all_keys[i + 1].as_ref(), j);
+                            let left = choose_branch(all_keys[i], j);
+                            let right = choose_branch(all_keys[i + 1], j);
                             if left != right {
                                 if j < min_split_index {
                                     min_split_index = j;
@@ -506,7 +505,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                         }
                     }
 
-                    if descendants.len() == 0 {
+                    if descendants.is_empty() {
                         let tree_ref = TreeRef::new(branch_key, location.as_ref().to_vec(), branch.get_count());
                         let refs = node.get_references() + 1;
                         node.set_references(refs);
@@ -523,7 +522,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 let split = split_pairs(descendants, branch.get_split_index() as usize);
                 if let Some(mut o) = self.db.get_node(branch.get_one())? {
                     let mut one_node = o;
-                    if split.ones.len() > 0 {
+                    if !split.ones.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
@@ -548,7 +547,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
                 }
                 if let Some(mut z) = self.db.get_node(branch.get_zero())? {
                     let mut zero_node = z;
-                    if split.zeros.len() > 0 {
+                    if !split.zeros.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
@@ -605,7 +604,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             a[1].cmp(&b[1]).reverse()
         });
 
-        while tree_refs.len() > 0 {
+        while !tree_refs.is_empty() {
             if tree_refs.len() == 1 {
                 self.db.batch_write()?;
                 return Ok(tree_refs.remove(0).location.to_vec())
@@ -614,9 +613,9 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
             let max_tree_ref = split_indices.remove(0);
             let max_index= max_tree_ref[0];
 
-            for i in 0..split_indices.len() {
-                if split_indices[i][0] > max_index {
-                    split_indices[i][0] -= 1;
+            for split_index in &mut split_indices {
+                if split_index[0] > max_index {
+                    split_index[0] -= 1;
                 }
             }
 
@@ -624,7 +623,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
 
             let next_tree_ref = tree_refs.remove(max_index);
             let mut branch_hasher = HasherType::new(32);
-            branch_hasher.update("b".as_bytes());
+            branch_hasher.update(b"b");
             branch_hasher.update(tree_ref.location.as_ref());
             branch_hasher.update(next_tree_ref.location.as_ref());
             let branch_node_location = branch_hasher.finalize();
@@ -678,7 +677,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
         let mut nodes = Vec::with_capacity(128);
         nodes.push(root_hash.to_vec());
 
-        while nodes.len() > 0 {
+        while !nodes.is_empty() {
             let node_location = nodes.remove(0);
 
             let mut node;

@@ -177,12 +177,12 @@ impl Node<TreeBranch, TreeLeaf, TreeData, Vec<u8>> for TreeNode {
         match self.node {
             Some(ref node_type) => {
                 match node_type {
-                    NodeVariant::Branch(branch) => return Ok(NodeVariant::Branch(branch.clone())),
-                    NodeVariant::Data(data) => return Ok(NodeVariant::Data(data.clone())),
-                    NodeVariant::Leaf(leaf) => return Ok(NodeVariant::Leaf(leaf.clone()))
+                    NodeVariant::Branch(branch) => Ok(NodeVariant::Branch(branch.clone())),
+                    NodeVariant::Data(data) => Ok(NodeVariant::Data(data.clone())),
+                    NodeVariant::Leaf(leaf) => Ok(NodeVariant::Leaf(leaf.clone()))
                 }
             },
-            None => return Err(Box::new(Exception::new("Failed to distinguish node type")))
+            None => Err(Box::new(Exception::new("Failed to distinguish node type")))
         }
     }
 
@@ -241,7 +241,7 @@ impl Database for HashDB {
     }
 
     fn batch_write(&mut self) -> Result<(), Box<Error>> {
-        while self.pending_inserts.len() > 0 {
+        while !self.pending_inserts.is_empty() {
             let entry = self.pending_inserts.remove(0);
             self.map.insert(entry.0, entry.1);
         }
@@ -260,7 +260,7 @@ impl HashTree {
         }
     }
 
-    pub fn get(&self, root_hash: &Vec<u8>, keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
+    pub fn get(&self, root_hash: &[u8], keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
         self.tree.get(root_hash, keys)
     }
 

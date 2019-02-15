@@ -1,3 +1,7 @@
+# 1.1.1
+* Minor code style changes
+* Update dev-dependencies
+
 # 1.1.0
 * Removed Encode and Decode trait bounds for Node type
 * Added usable implementation for the Merkle-BIT with a HashMap backend (HashTree)  
