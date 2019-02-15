@@ -165,7 +165,7 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashRes
           HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
     /// Create a new MerkleBIT from a saved database
-    pub fn new(path: PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
+    pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
             db,
@@ -766,7 +766,7 @@ pub mod tests {
         type NodeType = ProtoMerkleNode;
         type EntryType = (Vec<u8>, Self::NodeType);
 
-        fn open(_path: PathBuf) -> Result<MockDB, Box<Error>> {
+        fn open(_path: &PathBuf) -> Result<MockDB, Box<Error>> {
             Ok(MockDB::new(HashMap::new()))
         }
 

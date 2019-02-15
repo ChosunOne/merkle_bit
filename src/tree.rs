@@ -7,8 +7,11 @@ use std::path::PathBuf;
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
 use crate::traits::*;
 
+// Max 16MB for safety
+static MAX_DECODE_SIZE: usize = 1024 * 1024 * 16;
+
 #[derive(Clone)]
-struct TreeBranch {
+pub struct TreeBranch {
     count: u64,
     zero: Vec<u8>,
     one: Vec<u8>,
@@ -72,8 +75,34 @@ impl Branch for TreeBranch {
     fn set_key(&mut self, key: &[u8]) { Self::set_key(self, key.to_vec()) }
 }
 
-#[derive(Clone)]
-struct TreeLeaf {
+#[optional]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+
+    }
+}
+
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        if buffer.len() > MAX_DECODE_SIZE {
+            return Err(Box::new(Exception::new(&format!("Buffer length exceeds maximum allowable size: {} > {}", buffer.len(), MAX_DECODE_SIZE))))
+        }
+        if buffer.len() < 8 {
+            return Err(Box::new(Exception::new("Buffer is lacking count data")))
+        }
+        let mut count_bytes = [0u8; 8];
+        count_bytes.clone_from_slice(&buffer[0..8]);
+        let count = u64::from_le_bytes(count_bytes);
+        let split_index_bytes = [0u8; 4];
+
+
+
+        unimplemented!();
+    }
+}
+
+#[derive(Clone, Default)]
+pub struct TreeLeaf {
     key: Vec<u8>,
     data: Vec<u8>
 }
@@ -111,8 +140,75 @@ impl Leaf for TreeLeaf {
     fn set_data(&mut self, data: &[u8]) { Self::set_data(self, data.to_vec()) }
 }
 
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        let size = 8 + self.key.len() + self.data.len();
+        let mut encoding = Vec::with_capacity(size);
+        let keylen = (self.key.len() as u32).to_le_bytes();
+        let datalen = (self.data.len() as u32).to_le_bytes();
+        for byte in &keylen {
+            encoding.push(*byte);
+        }
+        for byte in &self.key {
+            encoding.push(*byte);
+        }
+        for byte in &datalen {
+            encoding.push(*byte);
+        }
+        for byte in &self.data {
+            encoding.push(*byte);
+        }
+
+        if encoding.len() > MAX_DECODE_SIZE {
+            return Err(Box::new(Exception::new(&format!("Buffer length exceeds maximum allowable size: {} > {}", buffer.len(), MAX_DECODE_SIZE))))
+        }
+
+        Ok(encoding)
+    }
+}
+
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        if buffer.len() > MAX_DECODE_SIZE {
+            return Err(Box::new(Exception::new(&format!("Buffer length exceeds maximum allowable size: {} > {}", buffer.len(), MAX_DECODE_SIZE))))
+        }
+
+        if buffer.len() < 4 {
+            return Err(Box::new(Exception::new("Buffer is missing key length")))
+        }
+        let mut key_len_bytes = [0; 4];
+        key_len_bytes.clone_from_slice(&buffer[0..4]);
+        let keylen = (u32::from_le_bytes(key_len_bytes)) as usize;
+        if buffer.len() < keylen + 4 {
+            return Err(Box::new(Exception::new("Buffer is missing key data")))
+        }
+        let mut key = Vec::with_capacity(keylen);
+        for i in 4..keylen + 4 {
+            key.push(buffer[i]);
+        }
+        if buffer.len() < keylen + 8 {
+            return Err(Box::new(Exception::new("Buffer is missing data length")))
+        }
+        let mut data_len_bytes = [0; 4];
+        data_len_bytes.clone_from_slice(&buffer[keylen + 4..keylen + 8]);
+        let datalen = (u32::from_le_bytes(data_len_bytes)) as usize;
+        if buffer.len() < keylen + 8 + datalen {
+            return Err(Box::new(Exception::new("Buffer is missing data")))
+        }
+        let mut data = Vec::with_capacity(datalen);
+        for i in keylen + 8..keylen + 8 + datalen {
+            data.push(buffer[i]);
+        }
+
+        let mut leaf = TreeLeaf::new();
+        leaf.set_key(key);
+        leaf.set_data(data);
+        Ok(leaf)
+    }
+}
+
 #[derive(Clone)]
-struct TreeData {
+pub struct TreeData {
     value: Vec<u8>
 }
 
@@ -136,8 +232,26 @@ impl Data for TreeData {
     fn set_value(&mut self, value: &[u8]) { Self::set_value(self, value.to_vec())}
 }
 
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(self.value.clone())
+    }
+}
+
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        if buffer.len() > MAX_DECODE_SIZE {
+            return Err(Box::new(Exception::new(&format!("Buffer length exceeds maximum allowable size: {} > {}", buffer.len(), MAX_DECODE_SIZE))))
+        }
+
+        let mut data = TreeData::new();
+        data.set_value(buffer.to_vec());
+        Ok(data)
+    }
+}
+
 #[derive(Clone)]
-struct TreeNode {
+pub struct TreeNode {
     references: u64,
     node: Option<NodeVariant<TreeBranch, TreeLeaf, TreeData>>
 }
@@ -219,7 +333,7 @@ impl Database for HashDB {
     type NodeType = TreeNode;
     type EntryType = (Vec<u8>, TreeNode);
 
-    fn open(_path: PathBuf) -> Result<Self, Box<Error>> { Ok(Self::new(HashMap::new())) }
+    fn open(_path: &PathBuf) -> Result<Self, Box<Error>> { Ok(Self::new(HashMap::new())) }
 
     fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>> {
         if let Some(m) = self.map.get(key) {
@@ -255,8 +369,9 @@ pub struct HashTree {
 
 impl HashTree {
     pub fn new(depth: usize) -> Self {
+        let path = PathBuf::new();
         Self {
-            tree: MerkleBIT::new(PathBuf::new(), depth).unwrap()
+            tree: MerkleBIT::new(&path, depth).unwrap()
         }
     }
 

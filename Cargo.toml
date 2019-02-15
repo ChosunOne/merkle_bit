@@ -10,9 +10,11 @@ license = "MIT"
 readme = "README.md"
 edition = "2018"
 
-
 [dev-dependencies]
 blake2-rfc = "0.2.18"
 rand = "0.6.5"
+rocksdb = "0.11.0"
 
 [dependencies]
+
+[features]

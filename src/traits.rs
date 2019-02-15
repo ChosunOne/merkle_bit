@@ -58,7 +58,7 @@ pub trait Node<BranchType, LeafType, DataType, ValueType>
 pub trait Database {
     type NodeType;
     type EntryType;
-    fn open(path: PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
+    fn open(path: &PathBuf) -> Result<Self, Box<Error>> where Self: Sized;
     fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>>;
     fn insert(&mut self, key: &[u8], node: &Self::NodeType) -> Result<(), Box<Error>>;
     fn remove(&mut self, key: &[u8]) -> Result<(), Box<Error>>;
