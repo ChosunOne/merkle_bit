@@ -33,6 +33,9 @@ This structure can be used for small amounts of data, but all the data in the tr
 For larger numbers of items to store in the tree, it is recommended to connect the structure to a database by implementing the 
 Database trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
 
+You can take advantage of the "default_tree" feature to use serde and bincode for serializing and deserializing data 
+prior to putting it into a database (see the integration test for details).
+
 To use the full power of the Merkle-BIT structure, you should customize the structures stored in the tree to match your needs.  
 ```rust
     extern crate starling;
