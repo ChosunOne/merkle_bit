@@ -26,7 +26,6 @@ addons:
   apt:
     packages:
       - libcurl4-openssl-dev
-      - libbfd-dev
       - libelf-dev
       - libdw-dev
       - cmake
