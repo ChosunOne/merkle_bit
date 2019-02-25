@@ -17,12 +17,16 @@ matrix:
 sudo: true
 
 before_install:
-  - sudo apt-get update
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "linux"]]; then
+      sudo apt-get update
+    fi
 
 addons:
   apt:
     packages:
       - libcurl4-openssl-dev
+      - libbfd-dev
       - libelf-dev
       - libdw-dev
       - cmake
