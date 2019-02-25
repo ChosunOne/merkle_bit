@@ -40,15 +40,9 @@ before_script:
   - export PATH=$PATH:~/.cargo/bin
 
 script:
-  - |
-    if [[ "$TRAVIS_RUST_VERSION" == "1.0.0" ]]; then
-      ((cargo build --verbose &&
-        cargo test --verbose &&
-        cargo test --features="default_tree" --verbose) ||
-        (cargo build --verbose --all &&
-         cargo test --verbose --all &&
-         cargo test --features="default_tree" --verbose --all));
-    fi
+  - cargo build --verbose --all
+  - cargo test --verbose --all
+  - cargo test --features="default_tree" --verbose --all
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
