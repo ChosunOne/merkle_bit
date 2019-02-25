@@ -12,3 +12,5 @@ script:
   - cargo build --verbose --all
   - cargo test --verbose --all
   - cargo test --features="default_tree" --verbose --all
+
+cache: cargo
