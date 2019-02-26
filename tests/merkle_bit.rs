@@ -16,16 +16,19 @@ pub mod integration_tests {
 
     #[test]
     fn it_works_with_a_real_database() {
-        let key = vec![0xAAu8];
+        let retrieved_value;
+        let removed_retrieved_value;
         let data = vec![0xFFu8];
-        let values = vec![data.as_ref()];
-
         let path = PathBuf::from("db");
-        let mut tree = RocksTree::open(&path);
-        let root = tree.insert(None, vec![key.as_ref()], &values).unwrap();
-        let retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
-        tree.remove(&root).unwrap();
-        let removed_retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
+        {
+            let key = vec![0xAAu8];
+            let values = vec![data.as_ref()];
+            let mut tree = RocksTree::open(&path);
+            let root = tree.insert(None, vec![key.as_ref()], &values).unwrap();
+            retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
+            tree.remove(&root).unwrap();
+            removed_retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
+        }
         remove_dir_all(&path).unwrap();
         assert_eq!(retrieved_value, vec![Some(data)]);
         assert_eq!(removed_retrieved_value, vec![None]);
