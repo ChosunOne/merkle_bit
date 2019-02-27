@@ -55,7 +55,7 @@ script:
   - cargo build --verbose --all
   - cargo audit
   - cargo test --verbose --all
-  - cargo test --features="default_tree" --verbose --all
+  - cargo test --features="default_tree use_serde use_bincode" --verbose --all
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
