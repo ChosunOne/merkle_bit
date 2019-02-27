@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "default_tree", feature = "use_serde", feature = "use_bincode"))]
 pub mod integration_tests {
     extern crate rocksdb;
 

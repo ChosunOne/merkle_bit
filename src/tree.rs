@@ -3,17 +3,17 @@ use std::error::Error;
 use std::hash::Hasher;
 use std::path::PathBuf;
 
-#[cfg(feature = "default_tree")]
+#[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
 
-#[cfg(feature = "default_tree")]
+#[cfg(feature = "use_serde")]
 use serde::{Serialize, Deserialize};
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
 use crate::traits::*;
 
 #[derive(Clone)]
-#[cfg_attr(feature = "default_tree", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,
     zero: Vec<u8>,
@@ -78,14 +78,14 @@ impl Branch for TreeBranch {
     fn set_key(&mut self, key: &[u8]) { Self::set_key(self, key.to_vec()) }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(feature = "use_serde use_bincode")]
 impl Encode for TreeBranch {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(feature = "use_serde use_bincode")]
 impl Decode for TreeBranch {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
@@ -93,7 +93,7 @@ impl Decode for TreeBranch {
 }
 
 #[derive(Clone, Default)]
-#[cfg_attr(feature = "default_tree", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: Vec<u8>,
     data: Vec<u8>,
@@ -132,14 +132,14 @@ impl Leaf for TreeLeaf {
     fn set_data(&mut self, data: &[u8]) { Self::set_data(self, data.to_vec()) }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde",  feature="use_bincode"))]
 impl Encode for TreeLeaf {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde",  feature = "use_bincode"))]
 impl Decode for TreeLeaf {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
@@ -147,7 +147,7 @@ impl Decode for TreeLeaf {
 }
 
 #[derive(Clone)]
-#[cfg_attr(feature = "default_tree", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeData {
     value: Vec<u8>
 }
@@ -172,14 +172,14 @@ impl Data for TreeData {
     fn set_value(&mut self, value: &[u8]) { Self::set_value(self, value.to_vec()) }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
 impl Encode for TreeData {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
 impl Decode for TreeData {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
@@ -187,7 +187,7 @@ impl Decode for TreeData {
 }
 
 #[derive(Clone)]
-#[cfg_attr(feature = "default_tree", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeNode {
     references: u64,
     node: Option<NodeVariant<TreeBranch, TreeLeaf, TreeData>>,
@@ -220,14 +220,14 @@ impl TreeNode {
     }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
 impl Encode for TreeNode {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(feature = "default_tree")]
+#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
 impl Decode for TreeNode {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)

@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "1.2.1"
+version = "2.0.0"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -24,4 +24,7 @@ serde = {version = "1.0.88", features = ["derive"], optional = true}
 
 [features]
 default = []
-default_tree = ["bincode", "blake2-rfc", "serde"]
+default_tree = []
+use_serde = ["serde"]
+use_blake2b = ["blake2-rfc"]
+use_bincode = ["default_tree", "bincode"]
