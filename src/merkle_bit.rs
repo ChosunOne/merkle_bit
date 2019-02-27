@@ -200,7 +200,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
     }
 
     /// Get items from the MerkleBIT.  Keys must be sorted.  Returns a list of Options which may include the corresponding values.
-    pub fn get(&self, root_hash: &[u8], keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
+    pub fn get(&self, root_hash: &[u8], unsorted_keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
+        let mut keys = unsorted_keys;
+        keys.sort();
         let root_node;
         if let Some(n) = self.db.get_node(root_hash)? {
             root_node = n;

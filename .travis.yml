@@ -49,6 +49,10 @@ before_script:
     if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
       ( ( cargo install clippy && export CLIPPY=true ) || export CLIPPY=false );
     fi
+  - |
+    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
+      ( pip install six );
+    fi
   - export PATH=$PATH:~/.cargo/bin
 
 script:
