@@ -5,7 +5,7 @@ use std::fmt::Debug;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 
-#[cfg(feature = "use_serde")]
+#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use serde::{Serialize, Deserialize};
 
 use crate::traits::{Encode, Exception, Decode, Branch, Data, Hasher, Database, Node, Leaf};
@@ -14,8 +14,8 @@ use crate::traits::{Encode, Exception, Decode, Branch, Data, Hasher, Database, N
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
 
 /// Contains the distinguishing data from the node
-#[derive(Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
+#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType>
     where BranchType: Branch,
           LeafType: Leaf,

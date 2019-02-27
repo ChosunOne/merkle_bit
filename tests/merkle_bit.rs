@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(all(feature = "default_tree", feature = "use_serde", feature = "use_bincode"))]
+#[cfg(feature = "default_tree")]
 pub mod integration_tests {
     extern crate rocksdb;
 
@@ -24,8 +24,23 @@ pub mod integration_tests {
             let key = vec![0xAAu8];
             let values = vec![data.as_ref()];
             let mut tree = RocksTree::open(&path);
-            let root = tree.insert(None, vec![key.as_ref()], &values).unwrap();
-            retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
+            let root;
+            match tree.insert(None, vec![key.as_ref()], &values) {
+                Ok(r) => root = r,
+                Err(e) => {
+                    drop(tree);
+                    remove_dir_all(&path).unwrap();
+                    panic!("{:?}", e.description());
+                }
+            }
+            match tree.get(&root, vec![&key[..]]) {
+                Ok(v) => retrieved_value = v,
+                Err(e) => {
+                    drop(tree);
+                    remove_dir_all(&path).unwrap();
+                    panic!("{:?}", e.description());
+                }
+            }
             tree.remove(&root).unwrap();
             removed_retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
         }

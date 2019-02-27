@@ -3,17 +3,32 @@ use std::error::Error;
 use std::hash::Hasher;
 use std::path::PathBuf;
 
+#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
+use serde::{Serialize, Deserialize};
+
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
 
-#[cfg(feature = "use_serde")]
-use serde::{Serialize, Deserialize};
+#[cfg(feature = "use_json")]
+use serde_json;
+
+#[cfg(feature = "use_cbor")]
+use serde_cbor;
+
+#[cfg(feature = "use_yaml")]
+use serde_yaml;
+
+#[cfg(feature = "use_pickle")]
+use serde_pickle;
+
+#[cfg(feature = "use_ron")]
+use ron;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
 use crate::traits::*;
 
-#[derive(Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+#[derive(Clone, Debug)]
+#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,
     zero: Vec<u8>,
@@ -78,22 +93,95 @@ impl Branch for TreeBranch {
     fn set_key(&mut self, key: &[u8]) { Self::set_key(self, key.to_vec()) }
 }
 
-#[cfg(feature = "use_serde use_bincode")]
+#[cfg(feature = "use_bincode")]
 impl Encode for TreeBranch {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(feature = "use_serde use_bincode")]
+#[cfg(feature = "use_json")]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        let encoded = serde_json::to_string(&self)?;
+        Ok(encoded.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_cbor::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_yaml::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_pickle::to_vec(&self, true)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Encode for TreeBranch {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_bincode")]
 impl Decode for TreeBranch {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
     }
 }
 
-#[derive(Clone, Default)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+#[cfg(feature = "use_json")]
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        let decoded_string = String::from_utf8(buffer.to_vec())?;
+        let decoded = serde_json::from_str(&decoded_string)?;
+        Ok(decoded)
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_cbor::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_yaml::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_pickle::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Decode for TreeBranch {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(ron::de::from_bytes(buffer)?)
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: Vec<u8>,
     data: Vec<u8>,
@@ -132,22 +220,95 @@ impl Leaf for TreeLeaf {
     fn set_data(&mut self, data: &[u8]) { Self::set_data(self, data.to_vec()) }
 }
 
-#[cfg(all(feature = "use_serde",  feature="use_bincode"))]
+#[cfg(feature="use_bincode")]
 impl Encode for TreeLeaf {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(all(feature = "use_serde",  feature = "use_bincode"))]
+#[cfg(feature = "use_json")]
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        let encoded = serde_json::to_string(&self)?;
+        Ok(encoded.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_cbor::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_yaml::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_pickle::to_vec(&self, true)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Encode for TreeLeaf {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_bincode")]
 impl Decode for TreeLeaf {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
     }
 }
 
-#[derive(Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+#[cfg(feature = "use_json")]
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        let decoded_string = String::from_utf8(buffer.to_vec())?;
+        let decoded = serde_json::from_str(&decoded_string)?;
+        Ok(decoded)
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_cbor::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_yaml::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_pickle::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Decode for TreeLeaf {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(ron::de::from_bytes(buffer)?)
+    }
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
 pub struct TreeData {
     value: Vec<u8>
 }
@@ -172,22 +333,95 @@ impl Data for TreeData {
     fn set_value(&mut self, value: &[u8]) { Self::set_value(self, value.to_vec()) }
 }
 
-#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
+#[cfg(feature = "use_bincode")]
 impl Encode for TreeData {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
+#[cfg(feature = "use_json")]
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        let encoded = serde_json::to_string(&self)?;
+        Ok(encoded.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_cbor::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_yaml::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_pickle::to_vec(&self, true)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Encode for TreeData {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_bincode")]
 impl Decode for TreeData {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
     }
 }
 
-#[derive(Clone)]
-#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
+#[cfg(feature = "use_json")]
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        let decoded_string = String::from_utf8(buffer.to_vec())?;
+        let decoded = serde_json::from_str(&decoded_string)?;
+        Ok(decoded)
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_cbor::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_yaml::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_pickle::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Decode for TreeData {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(ron::de::from_bytes(buffer)?)
+    }
+}
+
+#[derive(Clone, Debug)]
+#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
 pub struct TreeNode {
     references: u64,
     node: Option<NodeVariant<TreeBranch, TreeLeaf, TreeData>>,
@@ -220,17 +454,90 @@ impl TreeNode {
     }
 }
 
-#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
+#[cfg(feature = "use_bincode")]
 impl Encode for TreeNode {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
     }
 }
 
-#[cfg(all(feature = "use_serde", feature = "use_bincode"))]
+#[cfg(feature = "use_json")]
+impl Encode for TreeNode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        let encoded = serde_json::to_string(&self)?;
+        Ok(encoded.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Encode for TreeNode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_cbor::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Encode for TreeNode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_yaml::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Encode for TreeNode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(serde_pickle::to_vec(&self, true)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Encode for TreeNode {
+    fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
+        Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_bincode")]
 impl Decode for TreeNode {
     fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
         Ok(deserialize(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_json")]
+impl Decode for TreeNode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        let decoded_string = String::from_utf8(buffer.to_vec())?;
+        let decoded = serde_json::from_str(&decoded_string)?;
+        Ok(decoded)
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl Decode for TreeNode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_cbor::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_yaml")]
+impl Decode for TreeNode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_yaml::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_pickle")]
+impl Decode for TreeNode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(serde_pickle::from_slice(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl Decode for TreeNode {
+    fn decode(buffer: &[u8]) -> Result<Self, Box<Error>> {
+        Ok(ron::de::from_bytes(buffer)?)
     }
 }
 
