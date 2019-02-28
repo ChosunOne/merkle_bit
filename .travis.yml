@@ -29,12 +29,6 @@ before_install:
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
       sudo apt-get update
     fi
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      brew upgrade python
-      sudo pip install --upgrade pip
-      pip install six
-    fi
   - cargo install --force cargo-audit
 
 addons:
@@ -54,10 +48,6 @@ before_script:
   - |
     if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]]; then
       ( ( cargo install clippy && export CLIPPY=true ) || export CLIPPY=false );
-    fi
-  - |
-    if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then
-      ( pip install six );
     fi
   - export PATH=$PATH:~/.cargo/bin
 
@@ -80,7 +70,7 @@ script:
 after_success:
   # Coverage report
   - |
-    if [[ "$TRAVIS_RUST_VERSION" == "stable" ]]; then
+    if [[ "$TRAVIS_RUST_VERSION" == "stable" && "$TRAVIS_OS_NAME" == "linux" ]]; then
       wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
       tar xzf master.tar.gz &&
       cd kcov-master &&
