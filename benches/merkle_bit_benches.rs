@@ -9,7 +9,7 @@ use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 use std::path::PathBuf;
 use std::error::Error;
-
+/** Benchmarks 1, 10 , and 100 inserts to a tree with no previous state */
 fn empty_tree_insert_benchmark(c: &mut Criterion){
     c.bench_function_over_inputs("Hash Tree Empty Insert", move |b,index| {
         let seed = [0xBBu8; 32];
@@ -29,6 +29,7 @@ fn empty_tree_insert_benchmark(c: &mut Criterion){
         b.iter(|| bmt.insert(None, keys[0..*index].to_vec(), &data[0..*index]))
     },vec![1,10,100]);
 }
+/** Benchmarks 1, 10, and 100 inserts into a tree with existing root */
 fn existing_tree_insert_benchmark(c: &mut Criterion) {
         c.bench_function_over_inputs("Hash Tree Non Empty Insert", move |b,index| {
         let db = MockDB::new(HashMap::new());
@@ -58,7 +59,7 @@ fn existing_tree_insert_benchmark(c: &mut Criterion) {
             b.iter(|| bmt.insert(Some(&root_hash),second_keys[0..*index].to_vec(),&second_data[0..*index]))
         },vec![1,10,100]);
 }
-
+/** Benchmarks retrieving 4096 keys from a tree with 4096 keys */
 fn get_from_tree_benchmark(c: &mut Criterion) {
     let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
