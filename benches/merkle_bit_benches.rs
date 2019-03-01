@@ -2,7 +2,6 @@
 extern crate criterion;
 
 use criterion::Criterion;
-use starling::tree::HashTree;
 use starling::merkle_bit::{MerkleBIT,NodeVariant,BinaryMerkleTreeResult};
 use starling::traits::{Database,Branch,Leaf,Data,Node,Exception,Encode,Decode,Hasher};
 use std::collections::HashMap;
@@ -59,8 +58,11 @@ fn existing_tree_insert_benchmark(c: &mut Criterion) {
             b.iter(|| bmt.insert(Some(&root_hash),second_keys[0..*index].to_vec(),&second_data[0..*index]))
         },vec![1,10,100]);
 }
-// fn get_from_tree_benchmark(c: &mut Criterion) {}
-// fn get_from_tree_worst_case_benchmark(c: &mut Criterion) {}
+
+fn get_from_tree_benchmark(c: &mut Criterion) {
+    
+}
+
 
 criterion_group!(benches, empty_tree_insert_benchmark,existing_tree_insert_benchmark);
 criterion_main!(benches);
