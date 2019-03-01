@@ -60,11 +60,33 @@ fn existing_tree_insert_benchmark(c: &mut Criterion) {
 }
 
 fn get_from_tree_benchmark(c: &mut Criterion) {
-    
+    let seed = [0xBBu8; 32];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let prepare = prepare_inserts(4096, &mut rng);
+        let key_values = prepare.0;
+        let mut keys = vec![];    
+        let data_values = prepare.1;
+        let mut data = vec![];
+        for i in 0..data_values.len() {
+            data.push(data_values[i].as_ref());
+            keys.push(key_values[i].as_ref());
+        }
+        let db = MockDB::new(HashMap::new());
+        let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, HasherContainer, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
+        let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
+        c.bench_function("Get from BMT Benchmark", move|b|{
+            let keys_ = key_values.clone();
+            let mut keys_to_get = vec![];
+            for i in 0..keys_.len() {
+            keys_to_get.push(keys_[i].as_ref());
+        }
+            b.iter(|| bmt.get(&root_hash,keys_to_get.clone()))
+        });
 }
 
 
-criterion_group!(benches, empty_tree_insert_benchmark,existing_tree_insert_benchmark);
+criterion_group!(benches, empty_tree_insert_benchmark,existing_tree_insert_benchmark,get_from_tree_benchmark);
 criterion_main!(benches);
 
     fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Option<Vec<u8>>>) {
