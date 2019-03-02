@@ -574,15 +574,13 @@ impl crate::traits::Hasher for DefaultHasher {
 }
 
 struct HashDB {
-    map: HashMap<Vec<u8>, TreeNode>,
-    pending_inserts: Vec<(Vec<u8>, TreeNode)>,
+    map: HashMap<Vec<u8>, TreeNode>
 }
 
 impl HashDB {
     pub fn new(map: HashMap<Vec<u8>, TreeNode>) -> Self {
         Self {
-            map,
-            pending_inserts: Vec::with_capacity(64),
+            map
         }
     }
 }
@@ -603,7 +601,7 @@ impl Database for HashDB {
     }
 
     fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Box<Error>> {
-        self.pending_inserts.push((key.to_vec(), value.clone()));
+        self.map.insert(key.to_vec(), value.clone());
         Ok(())
     }
 
@@ -613,10 +611,6 @@ impl Database for HashDB {
     }
 
     fn batch_write(&mut self) -> Result<(), Box<Error>> {
-        while !self.pending_inserts.is_empty() {
-            let entry = self.pending_inserts.remove(0);
-            self.map.insert(entry.0, entry.1);
-        }
         Ok(())
     }
 }
@@ -633,11 +627,11 @@ impl HashTree {
         }
     }
 
-    pub fn get(&self, root_hash: &[u8], keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
+    pub fn get(&self, root_hash: &[u8], keys: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
         self.tree.get(root_hash, keys)
     }
 
-    pub fn insert(&mut self, previous_root: Option<&Vec<u8>>, keys: Vec<&[u8]>, values: &[&Vec<u8>]) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&Vec<u8>>, keys: &[&Vec<u8>], values: &[&Vec<u8>]) -> BinaryMerkleTreeResult<Vec<u8>> {
         self.tree.insert(previous_root, keys, values)
     }
 
@@ -656,7 +650,7 @@ pub mod tests {
         let root_key = vec![0x01];
 
         let bmt = HashTree::new(160);
-        let items = bmt.get(&root_key, vec![&key[..]]).unwrap();
+        let items = bmt.get(&root_key, &mut vec![&key]).unwrap();
         let expected_items = vec![None];
         assert_eq!(items, expected_items);
     }
@@ -667,10 +661,10 @@ pub mod tests {
         let data = vec![0xFFu8];
         let values = vec![data.as_ref()];
         let mut bmt = HashTree::new(160);
-        let root_hash = bmt.insert(None, vec![key.as_ref()], &values).unwrap();
+        let root_hash = bmt.insert(None, &vec![key.as_ref()], &values).unwrap();
 
         let nonexistent_key = vec![0xAB];
-        let items = bmt.get(&root_hash, vec![&nonexistent_key[..]]).unwrap();
+        let items = bmt.get(&root_hash, &mut vec![&nonexistent_key]).unwrap();
         let expected_items = vec![None];
         assert_eq!(items, expected_items);
     }
@@ -683,19 +677,13 @@ pub mod tests {
             keys.push(vec![i << 5]);
             values.push(vec![i]);
         }
-        let mut get_keys = Vec::with_capacity(8);
-        let mut get_data = Vec::with_capacity(8);
-        for i in 0..8 {
-            let key = &keys[i][..];
-            get_keys.push(key);
-            let data = &values[i];
-            get_data.push(data);
-        }
+        let mut get_keys = keys.iter().collect::<Vec<_>>();
+        let get_data = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, get_keys.clone(), &get_data).unwrap();
+        let root_hash = bmt.insert(None, &get_keys, &get_data).unwrap();
 
-        let items = bmt.get(&root_hash, get_keys).unwrap();
+        let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
         for value in &values {
             expected_items.push(Some(value.clone()));

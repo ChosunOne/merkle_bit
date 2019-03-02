@@ -8,6 +8,7 @@ ex. ```cargo build --features "use_bincode"```
 * Add YAML support through "use_yaml" feature
 * Add Pickle support through "use_pickle" feature
 * Add RON support through "use_ron" feature
+* Fixed issue with getting values when supplied keys were not all in the tree
 
 
 # 1.2.1
