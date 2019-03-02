@@ -631,7 +631,7 @@ impl HashTree {
         self.tree.get(root_hash, keys)
     }
 
-    pub fn insert(&mut self, previous_root: Option<&Vec<u8>>, keys: &[&Vec<u8>], values: &[&Vec<u8>]) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&Vec<u8>>, keys: &mut [&Vec<u8>], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
         self.tree.insert(previous_root, keys, values)
     }
 
@@ -659,9 +659,9 @@ pub mod tests {
     fn it_fails_to_get_a_nonexistent_item_from_hash_tree() {
         let key = vec![0xAAu8];
         let data = vec![0xFFu8];
-        let values = vec![data.as_ref()];
+        let mut values = vec![data.as_ref()];
         let mut bmt = HashTree::new(160);
-        let root_hash = bmt.insert(None, &vec![key.as_ref()], &values).unwrap();
+        let root_hash = bmt.insert(None, &mut vec![&key], &mut values).unwrap();
 
         let nonexistent_key = vec![0xAB];
         let items = bmt.get(&root_hash, &mut vec![&nonexistent_key]).unwrap();
@@ -678,10 +678,10 @@ pub mod tests {
             values.push(vec![i]);
         }
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let get_data = values.iter().collect::<Vec<_>>();
+        let mut get_data = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, &get_keys, &get_data).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut get_data).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];

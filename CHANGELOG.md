@@ -9,7 +9,8 @@ ex. ```cargo build --features "use_bincode"```
 * Add Pickle support through "use_pickle" feature
 * Add RON support through "use_ron" feature
 * Fixed issue with getting values when supplied keys were not all in the tree
-
+* Inputs to get and insert no longer need to be sorted (sorting is done internally)
+* Fixed issue when using stored split index values on inserts.
 
 # 1.2.1
 * Add serde support for default tree implementation

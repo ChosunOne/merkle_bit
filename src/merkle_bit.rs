@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::error::Error;
 use std::fmt::Debug;
-use std::cmp::Ordering;
+use std::cmp::{min, Ordering};
 use std::marker::PhantomData;
 
 #[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
@@ -304,7 +304,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
     }
 
     /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
-    pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: &[&Vec<u8>], values: &[&ValueType]) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: &mut [&Vec<u8>], values: &mut Vec<&ValueType>) -> BinaryMerkleTreeResult<Vec<u8>> {
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Keys and values have different lengths")));
         }
@@ -313,7 +313,24 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             return Err(Box::new(Exception::new("Keys or values are empty")));
         }
 
-        let nodes = self.insert_leaves(keys, &values)?;
+        {
+            // Sort keys and values
+            let mut value_map = HashMap::new();
+            for i in 0..keys.len() {
+                value_map.insert(keys[i], values[i]);
+            }
+
+            keys.sort();
+            values.clear();
+
+            for key in keys.iter() {
+                if let Some(v) = value_map.get(key) {
+                    values.push(*v);
+                }
+            }
+        }
+
+        let nodes = self.insert_leaves(keys, &&values[..])?;
 
         let mut tree_refs = Vec::with_capacity(keys.len());
         for i in 0..keys.len() {
@@ -323,7 +340,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
         if let Some(n) = previous_root {
             // Nodes that form the merkle proof for the new tree
-            let mut proof_nodes: Vec<TreeRef> = Vec::new();
+            let mut proof_nodes = Vec::with_capacity(keys.len());
 
             let root_node;
             if let Some(m) = self.db.get_node(n.as_ref())? {
@@ -443,12 +460,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
-                        let other_key;
-                        if let Some(k) = branch.get_key() {
-                            other_key = k.to_vec();
-                        } else {
-                            other_key = self.get_proof_key(Some(branch.get_one()), None)?;
-                        }
+                        let other_key= self.get_proof_key(Some(branch.get_one()), None)?;
                         assert!(!other_key.is_empty());
                         let count;
                         match one_node.get_variant()? {
@@ -469,12 +481,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
-                        let other_key;
-                        if let Some(k) = branch.get_key() {
-                            other_key = k.to_vec();
-                        } else {
-                            other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
-                        }
+                        let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
                         assert!(!other_key.is_empty());
                         let count;
                         match zero_node.get_variant()? {
@@ -599,6 +606,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         for i in 0..tree_refs.len() - 1 {
             let start_len = split_indices.len();
             assert!(!tree_refs[i].key.is_empty());
+            assert!(!tree_refs[i + 1].key.is_empty());
+            assert_ne!(tree_refs[i].key, tree_refs[i + 1].key);
             for j in 0..tree_refs[i].key.len() * 8 {
                 let left_branch = choose_branch(&tree_refs[i].key, j);
                 let right_branch = choose_branch(&tree_refs[i + 1].key, j);
@@ -608,7 +617,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     break;
                 } else if j == tree_refs[i].key.len() * 8 - 1 {
                     // The keys are the same and don't diverge
-                    println!("Offending keys: {:?},  {:?}", tree_refs[i].key, tree_refs[i + 1].key);
                     return Err(Box::new(Exception::new("Attempted to insert item with duplicate keys")));
                 }
             }
@@ -652,7 +660,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             let count = tree_ref.count + next_tree_ref.count;
             branch.set_count(count);
             branch.set_split_index(max_tree_ref[1] as u32);
-            branch.set_key(&tree_ref.key);
+            branch.set_key(min(&tree_ref.key, &next_tree_ref.key));
 
             let mut branch_node = NodeType::new();
             branch_node.set_branch(branch);
@@ -672,15 +680,15 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             match n.get_variant()? {
                 NodeVariant::Branch(b) => {
                     if let Some(k) = b.get_key() {
-                        return Ok(k.to_vec())
+                        return Ok(k.to_vec());
                     } else {
-                        return Err(Box::new(Exception::new("Given node does not have a key")))
+                        return Err(Box::new(Exception::new("Given node does not have a key")));
                     }
-                },
+                }
                 NodeVariant::Leaf(l) => {
-                    return Ok(l.get_key().to_vec())
-                },
-                NodeVariant::Data(_) => {return Err(Box::new(Exception::new("Corrupt merkle tree")))}
+                    return Ok(l.get_key().to_vec());
+                }
+                NodeVariant::Data(_) => { return Err(Box::new(Exception::new("Corrupt merkle tree"))); }
             }
         }
 
@@ -688,7 +696,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         if let Some(h) = root_hash {
             child_location = h.to_vec();
         } else {
-            return Err(Box::new(Exception::new("root_hash and node must not both be None")))
+            return Err(Box::new(Exception::new("root_hash and node must not both be None")));
         }
 
         let mut key;
@@ -706,7 +714,10 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 let node = n;
                 match node.get_variant()? {
                     NodeVariant::Branch(m) => {
-                        child_location = m.get_zero().to_owned()
+                        child_location = m.get_zero().to_owned();
+                        if let Some(k) = m.get_key() {
+                            return Ok(k.to_vec())
+                        }
                     }
                     NodeVariant::Leaf(m) => {
                         key = m.get_key().to_vec();
@@ -948,7 +959,7 @@ pub mod tests {
         let value = vec![0xFFu8];
 
         let mut bmt = HashTree::new(160);
-        let root = bmt.insert(None, &vec![&key], &vec![&value]).unwrap();
+        let root = bmt.insert(None, &mut vec![&key], &mut vec![&value]).unwrap();
         let result = bmt.get(&root, &mut vec![&key]).unwrap();
         assert_eq!(result, vec![Some(vec![0xFFu8])]);
     }
@@ -970,7 +981,7 @@ pub mod tests {
         let value = vec![0xFFu8];
 
         let mut bmt = HashTree::new(160);
-        let root = bmt.insert(None, &vec![&key], &vec![&value]).unwrap();
+        let root = bmt.insert(None, &mut vec![&key], &mut vec![&value]).unwrap();
 
         let nonexistent_key = vec![0xAB];
         let items = bmt.get(&root, &mut vec![&nonexistent_key]).unwrap();
@@ -989,8 +1000,8 @@ pub mod tests {
         let mut get_keys = keys.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let insert_values = values.iter().collect::<Vec<_>>();
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1009,10 +1020,10 @@ pub mod tests {
             values.push(vec![i]);
         }
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let insert_values = values.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
         let mut bmt = HashTree::new(3);
 
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
         for value in values {
@@ -1032,10 +1043,10 @@ pub mod tests {
         }
 
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let insert_values = values.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(8);
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1056,10 +1067,10 @@ pub mod tests {
         }
 
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let insert_values = values.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(8);
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1071,7 +1082,7 @@ pub mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_balanced_tree() {
-        let num_leaves = 65_536;
+        let num_leaves = 8196;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
@@ -1080,10 +1091,10 @@ pub mod tests {
         }
 
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let insert_values = values.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1095,7 +1106,7 @@ pub mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_unbalanced_tree() {
-        let num_leaves = 65_535;
+        let num_leaves = 8195;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
@@ -1104,10 +1115,10 @@ pub mod tests {
         }
 
         let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let insert_values = values.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &get_keys, &insert_values).unwrap();
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values).unwrap();
 
         let items = bmt.get(&root_hash, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1139,11 +1150,10 @@ pub mod tests {
         let pop_value_i = vec![0x03u8];
         let pop_value_o = vec![0x04u8];
 
-        let populated_values = vec![&pop_value_d, &pop_value_e, &pop_value_i, &pop_value_o];
+        let mut populated_values = vec![&pop_value_d, &pop_value_e, &pop_value_i, &pop_value_o];
 
         let mut bmt = HashTree::new(5);
-        let root_node = bmt.insert(None, &populated_keys, &populated_values).unwrap();
-        println!("retrieved values: {:?}", bmt.get(&root_node, &mut populated_keys).unwrap());
+        let root_node = bmt.insert(None, &mut populated_keys, &mut populated_values).unwrap();
 
         let key_a = vec![0x00u8]; // 0000_0000     0 (Dec)
         let key_b = vec![0x40u8]; // 0100_0000    64 (Dec)
@@ -1187,7 +1197,7 @@ pub mod tests {
         let mut get_keys = keys.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_node = bmt.insert(None, &[&initial_key], &[&initial_value]).unwrap();
+        let root_node = bmt.insert(None, &mut [&initial_key], &mut vec![&initial_value]).unwrap();
 
         let items = bmt.get(&root_node, &mut get_keys).unwrap();
         let mut expected_items = vec![];
@@ -1208,7 +1218,7 @@ pub mod tests {
         let data = vec![0xBBu8];
 
         let mut bmt = HashTree::new(3);
-        let new_root_hash = bmt.insert(None, &vec![&key], &[data.as_ref()]).unwrap();
+        let new_root_hash = bmt.insert(None, &mut vec![&key], &mut vec![data.as_ref()]).unwrap();
         let items = bmt.get(&new_root_hash, &mut vec![&key]).unwrap();
         let expected_items = vec![Some(vec![0xBBu8])];
         assert_eq!(items, expected_items);
@@ -1225,10 +1235,10 @@ pub mod tests {
             vec![0x02u8],
             vec![0x03u8]
         ];
-        let data = data_values.iter().collect::<Vec<_>>();
+        let mut data = data_values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         let expected_items = vec![Some(vec![0x02u8]), Some(vec![0x03u8])];
         assert_eq!(items, expected_items);
@@ -1245,10 +1255,10 @@ pub mod tests {
             vec![0x02u8],
             vec![0x03u8]
         ];
-        let data = data_values.iter().collect::<Vec<_>>();
+        let mut data = data_values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         let expected_items = vec![Some(vec![0x02u8]), Some(vec![0x03u8])];
         assert_eq!(items, expected_items);
@@ -1262,10 +1272,10 @@ pub mod tests {
             vec![0xCCu8]]; // 1100_1100
         let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = vec![vec![0xDDu8], vec![0xEEu8], vec![0xFFu8]];
-        let data = data_values.iter().collect::<Vec<_>>();
+        let mut data = data_values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         let expected_items = vec![Some(vec![0xDDu8]), Some(vec![0xEEu8]), Some(vec![0xFFu8])];
         assert_eq!(items, expected_items);
@@ -1279,17 +1289,13 @@ pub mod tests {
         let prepare = prepare_inserts(32, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1302,17 +1308,13 @@ pub mod tests {
         let prepare = prepare_inserts(31, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1325,17 +1327,13 @@ pub mod tests {
         let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1348,17 +1346,14 @@ pub mod tests {
         let prepare = prepare_inserts(255, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
+
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1371,17 +1366,13 @@ pub mod tests {
         let prepare = prepare_inserts(4096, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1394,17 +1385,13 @@ pub mod tests {
         let prepare = prepare_inserts(4095, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let expected_items = prepare.2;
 
         let mut bmt = HashTree::new(16);
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(items, expected_items);
     }
@@ -1418,12 +1405,47 @@ pub mod tests {
         let second_data = vec![0xDDu8];
 
         let mut bmt = HashTree::new(3);
-        let new_root_hash = bmt.insert(None, &vec![first_key.as_ref()], &[first_data.as_ref()]).unwrap();
-        let second_root_hash = bmt.insert(Some(&new_root_hash), &vec![second_key.as_ref()], &[second_data.as_ref()]).unwrap();
+        let new_root_hash = bmt.insert(None, &mut vec![first_key.as_ref()], &mut vec![first_data.as_ref()]).unwrap();
+        let second_root_hash = bmt.insert(Some(&new_root_hash), &mut vec![second_key.as_ref()], &mut vec![second_data.as_ref()]).unwrap();
 
         let items = bmt.get(&second_root_hash, &mut vec![first_key.as_ref(), second_key.as_ref()]).unwrap();
         let expected_items = vec![Some(vec![0xBBu8]), Some(vec![0xDDu8])];
         assert_eq!(items, expected_items);
+    }
+
+    #[test]
+    fn it_inserts_multiple_leaf_nodes_into_a_small_tree_with_existing_items() {
+        let seed = [0x4d, 0x1b, 0xf8, 0xad, 0x2d, 0x5d, 0x2e, 0xcb, 0x59, 0x75, 0xc4, 0xb9,
+                              0x4d, 0xf9, 0xab, 0x5e, 0xf5, 0x12, 0xd4, 0x5c, 0x3d, 0xa0, 0x73, 0x4b,
+                              0x65, 0x5e, 0xc3, 0x82, 0xcb, 0x6c, 0xc0, 0x66 ];
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_inserts = 2;
+        let prepare_initial = prepare_inserts(num_inserts, &mut rng);
+        let initial_key_values = prepare_initial.0;
+        let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
+        let initial_data_values = prepare_initial.1;
+        let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
+
+        let mut bmt = HashTree::new(160);
+        let first_root_hash = bmt.insert(None, &mut initial_keys, &mut initial_data).unwrap();
+
+        let prepare_added = prepare_inserts(num_inserts, &mut rng);
+        let added_key_values = prepare_added.0;
+        let mut added_keys = added_key_values.iter().collect::<Vec<_>>();
+        let added_data_values = prepare_added.1;
+        let mut added_data = added_data_values.iter().collect::<Vec<_>>();
+
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut added_keys, &mut added_data).unwrap();
+
+        let first_items = bmt.get(&first_root_hash, &mut initial_keys).unwrap();
+        let second_items = bmt.get(&second_root_hash, &mut added_keys).unwrap();
+
+        let expected_initial_items = prepare_initial.2;
+        let expected_added_items = prepare_added.2;
+
+        assert_eq!(first_items, expected_initial_items);
+        assert_eq!(second_items, expected_added_items);
     }
 
     #[test]
@@ -1435,18 +1457,18 @@ pub mod tests {
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
-        let initial_data = initial_data_values.iter().collect::<Vec<_>>();
+        let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(160);
-        let first_root_hash = bmt.insert(None, &initial_keys, &initial_data).unwrap();
+        let first_root_hash = bmt.insert(None, &mut initial_keys, &mut initial_data).unwrap();
 
         let prepare_added = prepare_inserts(4096, &mut rng);
         let added_key_values = prepare_added.0;
         let mut added_keys = added_key_values.iter().collect::<Vec<_>>();
         let added_data_values = prepare_added.1;
-        let added_data = added_data_values.iter().collect::<Vec<_>>();
+        let mut added_data = added_data_values.iter().collect::<Vec<_>>();
 
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &added_keys, &added_data).unwrap();
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut added_keys, &mut added_data).unwrap();
 
         let first_items = bmt.get(&first_root_hash, &mut initial_keys).unwrap();
         let second_items = bmt.get(&second_root_hash, &mut added_keys).unwrap();
@@ -1465,8 +1487,8 @@ pub mod tests {
         let second_value = vec![0xCCu8];
 
         let mut bmt = HashTree::new(3);
-        let first_root_hash = bmt.insert(None, &vec![key.as_ref()], &[first_value.as_ref()]).unwrap();
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &vec![key.as_ref()], &[second_value.as_ref()]).unwrap();
+        let first_root_hash = bmt.insert(None, &mut vec![key.as_ref()], &mut vec![first_value.as_ref()]).unwrap();
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut vec![key.as_ref()], &mut vec![second_value.as_ref()]).unwrap();
 
         let first_item = bmt.get(&first_root_hash, &mut vec![key.as_ref()]).unwrap();
         let expected_first_item = vec![Some(first_value.clone())];
@@ -1487,7 +1509,7 @@ pub mod tests {
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
-        let initial_data = initial_data_values.iter().collect::<Vec<_>>();
+        let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
 
         let mut updated_data_values = vec![];
         let mut updated_data = vec![];
@@ -1503,8 +1525,8 @@ pub mod tests {
         }
 
         let mut bmt = HashTree::new(160);
-        let first_root_hash = bmt.insert(None, &initial_keys, &initial_data).unwrap();
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &initial_keys, &updated_data).unwrap();
+        let first_root_hash = bmt.insert(None, &mut initial_keys, &mut initial_data).unwrap();
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut initial_keys, &mut updated_data).unwrap();
 
         let initial_items = bmt.get(&first_root_hash, &mut initial_keys).unwrap();
         let updated_items = bmt.get(&second_root_hash, &mut initial_keys).unwrap();
@@ -1527,7 +1549,7 @@ pub mod tests {
         let data = vec![0x01];
 
         let mut bmt = HashTree::new(160);
-        let root_hash = bmt.insert(None, &vec![key.as_ref()], &[data.as_ref()]).unwrap();
+        let root_hash = bmt.insert(None, &mut vec![key.as_ref()], &mut vec![data.as_ref()]).unwrap();
 
         let inserted_data = bmt.get(&root_hash, &mut vec![key.as_ref()]).unwrap();
         let expected_inserted_data = vec![Some(vec![0x01u8])];
@@ -1551,9 +1573,9 @@ pub mod tests {
         let key_values = prepare.0;
         let data_values = prepare.1;
         let mut keys = key_values.iter().collect::<Vec<_>>();
-        let data = data_values.iter().collect::<Vec<_>>();
+        let mut data = data_values.iter().collect::<Vec<_>>();
 
-        let root_hash = bmt.insert(None, &keys, &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let expected_inserted_items = prepare.2;
         let inserted_items = bmt.get(&root_hash, &mut keys).unwrap();
         assert_eq!(inserted_items, expected_inserted_items);
@@ -1573,12 +1595,12 @@ pub mod tests {
         let first_data = vec![0x01u8];
 
         let mut bmt = HashTree::new(160);
-        let first_root_hash = bmt.insert(None, &vec![first_key.as_ref()], &[first_data.as_ref()]).unwrap();
+        let first_root_hash = bmt.insert(None, &mut vec![first_key.as_ref()], &mut vec![first_data.as_ref()]).unwrap();
 
         let second_key = vec![0x02u8];
         let second_data = vec![0x03u8];
 
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &vec![second_key.as_ref()], &[second_data.as_ref()]).unwrap();
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut vec![second_key.as_ref()], &mut vec![second_data.as_ref()]).unwrap();
         bmt.remove(&first_root_hash).unwrap();
 
         let retrieved_items = bmt.get(&second_root_hash, &mut vec![first_key.as_ref(), second_key.as_ref()]).unwrap();
@@ -1598,14 +1620,14 @@ pub mod tests {
         let third_data = vec![0x06u8];
         let fourth_data = vec![0x07u8];
 
-        let first_keys = vec![first_key.as_ref(), second_key.as_ref()];
-        let first_entries = &[first_data.as_ref(), second_data.as_ref()];
+        let mut first_keys = vec![first_key.as_ref(), second_key.as_ref()];
+        let mut first_entries = vec![first_data.as_ref(), second_data.as_ref()];
         let mut bmt = HashTree::new(160);
-        let first_root_hash = bmt.insert(None, &first_keys, first_entries).unwrap();
+        let first_root_hash = bmt.insert(None, &mut first_keys, &mut first_entries).unwrap();
 
-        let second_keys = vec![third_key.as_ref(), fourth_key.as_ref()];
-        let second_entries = &[third_data.as_ref(), fourth_data.as_ref()];
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &second_keys, second_entries).unwrap();
+        let mut second_keys = vec![third_key.as_ref(), fourth_key.as_ref()];
+        let mut second_entries = vec![third_data.as_ref(), fourth_data.as_ref()];
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut second_keys, &mut second_entries).unwrap();
         bmt.remove(&first_root_hash).unwrap();
 
         let items = bmt.get(&second_root_hash, &mut vec![first_key.as_ref(), second_key.as_ref(), third_key.as_ref(), fourth_key.as_ref()]).unwrap();
@@ -1621,19 +1643,19 @@ pub mod tests {
         let prepare_initial = prepare_inserts(16, &mut rng);
         let initial_key_values = prepare_initial.0;
         let initial_data_values = prepare_initial.1;
-        let initial_keys = initial_key_values.iter().collect::<Vec<_>>();
-        let initial_data = initial_data_values.iter().collect::<Vec<_>>();
+        let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
+        let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
 
         let mut bmt = HashTree::new(160);
-        let first_root_hash = bmt.insert(None, &initial_keys, &initial_data).unwrap();
+        let first_root_hash = bmt.insert(None, &mut initial_keys, &mut initial_data).unwrap();
 
         let prepare_added = prepare_inserts(16, &mut rng);
         let added_key_values = prepare_added.0;
         let added_data_values = prepare_added.1;
-        let added_keys = added_key_values.iter().collect::<Vec<_>>();
-        let added_data = added_data_values.iter().collect::<Vec<_>>();
+        let mut added_keys = added_key_values.iter().collect::<Vec<_>>();
+        let mut added_data = added_data_values.iter().collect::<Vec<_>>();
 
-        let second_root_hash = bmt.insert(Some(&first_root_hash), &added_keys, &added_data).unwrap();
+        let second_root_hash = bmt.insert(Some(&first_root_hash), &mut added_keys, &mut added_data).unwrap();
 
         let combined_size = initial_key_values.len() + added_key_values.len();
         let mut combined_keys = Vec::with_capacity(combined_size);
@@ -1691,10 +1713,10 @@ pub mod tests {
         let key_values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x10u8], vec![0x20u8]];
         let mut keys = key_values.iter().collect::<Vec<_>>();
         let values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x03u8], vec![0x04u8]];
-        let data = values.iter().collect::<Vec<_>>();
+        let mut data = values.iter().collect::<Vec<_>>();
 
-        let first_root = bmt.insert(None, &keys[0..2].to_vec(), &data[0..2]).unwrap();
-        let second_root = bmt.insert(Some(&first_root), &keys[2..].to_vec(), &data[2..]).unwrap();
+        let first_root = bmt.insert(None, &mut keys[0..2].to_vec(), &mut data[0..2].to_vec()).unwrap();
+        let second_root = bmt.insert(Some(&first_root), &mut keys[2..].to_vec(), &mut data[2..].to_vec()).unwrap();
 
         let items = bmt.get(&second_root, &mut keys).unwrap();
         let mut expected_items = Vec::with_capacity(values.len());
@@ -1712,10 +1734,10 @@ pub mod tests {
         let key_values = vec![vec![0x10u8], vec![0x11u8], vec![0x00u8], vec![0x01u8], vec![0x02u8]];
         let mut keys = key_values.iter().collect::<Vec<_>>();
         let values = vec![vec![0x00u8], vec![0x01u8], vec![0x02u8], vec![0x03u8], vec![0x04u8]];
-        let data = values.iter().collect::<Vec<_>>();
+        let mut data = values.iter().collect::<Vec<_>>();
 
-        let first_root = bmt.insert(None, &keys[0..2].to_vec(), &data[0..2]).unwrap();
-        let second_root = bmt.insert(Some(&first_root), &keys[2..].to_vec(), &data[2..]).unwrap();
+        let first_root = bmt.insert(None, &mut keys[0..2].to_vec(), &mut data[0..2].to_vec()).unwrap();
+        let second_root = bmt.insert(Some(&first_root), &mut keys[2..].to_vec(), &mut data[2..].to_vec()).unwrap();
 
         keys.sort();
 
@@ -1740,8 +1762,8 @@ pub mod tests {
         let key = vec![0x00u8];
         let data = vec![0x00u8];
 
-        let first_root = bmt.insert(None, &vec![key.as_ref()], &[data.as_ref()]).unwrap();
-        let second_root = bmt.insert(Some(&first_root), &vec![key.as_ref()], &[data.as_ref()]).unwrap();
+        let first_root = bmt.insert(None, &mut vec![key.as_ref()], &mut vec![data.as_ref()]).unwrap();
+        let second_root = bmt.insert(Some(&first_root), &mut vec![key.as_ref()], &mut vec![data.as_ref()]).unwrap();
         bmt.remove(&first_root).unwrap();
         let item = bmt.get(&second_root, &mut vec![key.as_ref()]).unwrap();
         let expected_item = vec![Some(vec![0x00u8])];
@@ -1788,7 +1810,7 @@ pub mod tests {
             data_groups.push(expected_data_values.clone());
 
             let mut keys = key_values.iter().collect::<Vec<_>>();
-            let data = data_values.iter().collect::<Vec<_>>();
+            let mut data = data_values.iter().collect::<Vec<_>>();
 
             let previous_state_root = &state_roots[i].clone();
             let previous_root;
@@ -1797,7 +1819,7 @@ pub mod tests {
                 None => previous_root = None
             }
 
-            let new_root = bmt.insert(previous_root, &keys, &data).unwrap();
+            let new_root = bmt.insert(previous_root, &mut keys, &mut data).unwrap();
             state_roots.push(Some(new_root));
 
             let retrieved_items = bmt.get(&state_roots[i + 1].clone().unwrap(), &mut keys).unwrap();
