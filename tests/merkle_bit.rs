@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(feature = "default_tree")]
+#[cfg(any(feature = "default_tree"))]
 pub mod integration_tests {
     extern crate rocksdb;
 
@@ -7,12 +7,10 @@ pub mod integration_tests {
     use std::error::Error;
     use std::fs::remove_dir_all;
 
-    use blake2_rfc::blake2b::{Blake2b, Blake2bResult};
     use rocksdb::{DB, WriteBatch};
     use starling::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
-    use starling::tree::{TreeBranch, TreeData, TreeLeaf, TreeNode};
-    use starling::traits::{Database, Decode, Encode, Hasher};
-    use std::cmp::Ordering;
+    use starling::tree::{TreeBranch, TreeData, TreeLeaf, TreeNode, TreeHasher, TreeHashResult};
+    use starling::traits::{Database, Decode, Encode};
 
     #[test]
     fn it_works_with_a_real_database() {
@@ -22,10 +20,10 @@ pub mod integration_tests {
         let path = PathBuf::from("db");
         {
             let key = vec![0xAAu8];
-            let values = vec![data.as_ref()];
+            let mut values = vec![data.as_ref()];
             let mut tree = RocksTree::open(&path);
             let root;
-            match tree.insert(None, vec![key.as_ref()], &values) {
+            match tree.insert(None, &mut [&key], &mut values) {
                 Ok(r) => root = r,
                 Err(e) => {
                     drop(tree);
@@ -33,7 +31,7 @@ pub mod integration_tests {
                     panic!("{:?}", e.description());
                 }
             }
-            match tree.get(&root, vec![&key[..]]) {
+            match tree.get(&root, &mut vec![&key]) {
                 Ok(v) => retrieved_value = v,
                 Err(e) => {
                     drop(tree);
@@ -41,8 +39,22 @@ pub mod integration_tests {
                     panic!("{:?}", e.description());
                 }
             }
-            tree.remove(&root).unwrap();
-            removed_retrieved_value = tree.get(&root, vec![&key[..]]).unwrap();
+            match tree.remove(&root) {
+                Ok(_) => {},
+                Err(e) => {
+                    drop(tree);
+                    remove_dir_all(&path).unwrap();
+                    panic!("{:?}", e.description());
+                }
+            }
+            match tree.get(&root, &mut vec![&key]) {
+                Ok(v) => removed_retrieved_value = v,
+                Err(e) => {
+                    drop(tree);
+                    remove_dir_all(&path).unwrap();
+                    panic!("{:?}", e.description());
+                }
+            }
         }
         remove_dir_all(&path).unwrap();
         assert_eq!(retrieved_value, vec![Some(data)]);
@@ -100,40 +112,6 @@ pub mod integration_tests {
         }
     }
 
-    struct Blake2bHasher(Blake2b);
-    #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-    struct Blake2bHashResult(Blake2bResult);
-
-    impl Hasher for Blake2bHasher {
-        type HashType = Blake2bHasher;
-        type HashResultType = Blake2bHashResult;
-
-        fn new(size: usize) -> Self::HashType {
-            Blake2bHasher(Blake2b::new(size))
-        }
-
-        fn update(&mut self, data: &[u8]) {
-            self.0.update(data);
-        }
-
-        fn finalize(self) -> Self::HashResultType {
-            Blake2bHashResult(self.0.finalize())
-        }
-    }
-
-    impl PartialOrd for Blake2bHashResult {
-        fn partial_cmp(&self, other: &Blake2bHashResult) -> Option<Ordering> {
-            Some(self.0.as_bytes().cmp(&other.0.as_bytes()))
-        }
-    }
-
-    impl AsRef<[u8]> for Blake2bHashResult {
-        fn as_ref(&self) -> &[u8] {
-            &self.0.as_bytes()
-        }
-    }
-
-
     struct RocksTree {
         tree: MerkleBIT<
             RocksDB,
@@ -141,8 +119,8 @@ pub mod integration_tests {
             TreeLeaf,
             TreeData,
             TreeNode,
-            Blake2bHasher,
-            Blake2bHashResult,
+            TreeHasher,
+            TreeHashResult,
             Vec<u8>>
     }
 
@@ -155,11 +133,11 @@ pub mod integration_tests {
             }
         }
 
-        pub fn get(&self, root_hash: &[u8], keys: Vec<&[u8]>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
+        pub fn get(&self, root_hash: &[u8], keys: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
             self.tree.get(root_hash, keys)
         }
 
-        pub fn insert(&mut self, previous_root: Option<&Blake2bHashResult>, keys: Vec<&[u8]>, values: &[&Vec<u8>]) -> BinaryMerkleTreeResult<Vec<u8>> {
+        pub fn insert(&mut self, previous_root: Option<&[u8]>, keys: &mut [&Vec<u8>], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
             self.tree.insert(previous_root, keys, values)
         }
 

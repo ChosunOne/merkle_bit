@@ -304,7 +304,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
     }
 
     /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
-    pub fn insert(&mut self, previous_root: Option<&HashResultType>, keys: &mut [&Vec<u8>], values: &mut Vec<&ValueType>) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&[u8]>, keys: &mut [&Vec<u8>], values: &mut Vec<&ValueType>) -> BinaryMerkleTreeResult<Vec<u8>> {
         if keys.len() != values.len() {
             return Err(Box::new(Exception::new("Keys and values have different lengths")));
         }
@@ -460,7 +460,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                         cell_queue.insert(0, new_cell);
                     } else {
-                        let other_key= self.get_proof_key(Some(branch.get_one()), None)?;
+                        let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
                         assert!(!other_key.is_empty());
                         let count;
                         match one_node.get_variant()? {
@@ -716,7 +716,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     NodeVariant::Branch(m) => {
                         child_location = m.get_zero().to_owned();
                         if let Some(k) = m.get_key() {
-                            return Ok(k.to_vec())
+                            return Ok(k.to_vec());
                         }
                     }
                     NodeVariant::Leaf(m) => {
@@ -1082,7 +1082,10 @@ pub mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_balanced_tree() {
-        let num_leaves = 8196;
+        #[cfg(not(any(feature = "use_groestl")))]
+            let num_leaves = 8196;
+        #[cfg(feature = "use_groestl")]
+            let num_leaves = 1024;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
@@ -1106,7 +1109,10 @@ pub mod tests {
 
     #[test]
     fn it_gets_items_from_a_large_unbalanced_tree() {
-        let num_leaves = 8195;
+        #[cfg(not(any(feature = "use_groestl")))]
+            let num_leaves = 8195;
+        #[cfg(feature = "use_groestl")]
+            let num_leaves = 1023;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
@@ -1363,7 +1369,10 @@ pub mod tests {
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         let prepare = prepare_inserts(4096, &mut rng);
+        #[cfg(feature = "use_groestl")]
+        let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
         let mut keys = key_values.iter().collect::<Vec<_>>();
@@ -1382,7 +1391,10 @@ pub mod tests {
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         let prepare = prepare_inserts(4095, &mut rng);
+        #[cfg(feature = "use_groestl")]
+        let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
         let mut keys = key_values.iter().collect::<Vec<_>>();
@@ -1416,8 +1428,8 @@ pub mod tests {
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_a_small_tree_with_existing_items() {
         let seed = [0x4d, 0x1b, 0xf8, 0xad, 0x2d, 0x5d, 0x2e, 0xcb, 0x59, 0x75, 0xc4, 0xb9,
-                              0x4d, 0xf9, 0xab, 0x5e, 0xf5, 0x12, 0xd4, 0x5c, 0x3d, 0xa0, 0x73, 0x4b,
-                              0x65, 0x5e, 0xc3, 0x82, 0xcb, 0x6c, 0xc0, 0x66 ];
+            0x4d, 0xf9, 0xab, 0x5e, 0xf5, 0x12, 0xd4, 0x5c, 0x3d, 0xa0, 0x73, 0x4b,
+            0x65, 0x5e, 0xc3, 0x82, 0xcb, 0x6c, 0xc0, 0x66];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         let num_inserts = 2;
@@ -1453,7 +1465,11 @@ pub mod tests {
         let seed = [0xCAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let prepare_initial = prepare_inserts(4096, &mut rng);
+        #[cfg(not(any(feature = "use_groestl")))]
+        let num_inserts = 4096;
+        #[cfg(feature = "use_groestl")]
+        let num_inserts = 256;
+        let prepare_initial = prepare_inserts(num_inserts, &mut rng);
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
@@ -1462,7 +1478,7 @@ pub mod tests {
         let mut bmt = HashTree::new(160);
         let first_root_hash = bmt.insert(None, &mut initial_keys, &mut initial_data).unwrap();
 
-        let prepare_added = prepare_inserts(4096, &mut rng);
+        let prepare_added = prepare_inserts(num_inserts, &mut rng);
         let added_key_values = prepare_added.0;
         let mut added_keys = added_key_values.iter().collect::<Vec<_>>();
         let added_data_values = prepare_added.1;
@@ -1505,7 +1521,11 @@ pub mod tests {
         let seed = [0xEEu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         let prepare_initial = prepare_inserts(4096, &mut rng);
+        #[cfg(feature = "use_groestl")]
+        let prepare_initial = prepare_inserts(256, &mut rng);
+
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
@@ -1567,7 +1587,10 @@ pub mod tests {
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         let prepare = prepare_inserts(4096, &mut rng);
+        #[cfg(feature = "use_groestl")]
+        let prepare = prepare_inserts(256, &mut rng);
 
         let mut bmt = HashTree::new(160);
         let key_values = prepare.0;
@@ -1703,7 +1726,10 @@ pub mod tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt = HashTree::new(160);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         iterate_inserts(8, 100, &mut rng, &mut bmt);
+        #[cfg(feature = "use_groestl")]
+        iterate_inserts(8, 10, &mut rng, &mut bmt);
     }
 
     #[test]
@@ -1752,7 +1778,10 @@ pub mod tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt = HashTree::new(160);
 
+        #[cfg(not(any(feature = "use_groestl")))]
         iterate_removals(8, 100, 1, &mut rng, &mut bmt);
+        #[cfg(feature = "use_groestl")]
+        iterate_removals(8, 10, 1, &mut rng, &mut bmt);
     }
 
     #[test]
@@ -1815,7 +1844,7 @@ pub mod tests {
             let previous_state_root = &state_roots[i].clone();
             let previous_root;
             match previous_state_root {
-                Some(r) => previous_root = Some(r),
+                Some(r) => previous_root = Some(r.as_slice()),
                 None => previous_root = None
             }
 
