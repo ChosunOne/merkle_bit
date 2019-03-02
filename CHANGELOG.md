@@ -17,6 +17,7 @@ ex. ```cargo build --features "use_bincode"```
 * Add SHA-2 (SHA256) support through ```use_sha2``` feature
 * Add SHA-3 support through ```use_sha3``` feature
 * Add Keccak256 support through ```use_keccak``` feature
+* Added benchmarking via ```cargo bench```
 
 # 1.2.1
 * Add serde support for default tree implementation
