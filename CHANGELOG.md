@@ -1,16 +1,22 @@
 # 2.0.0
-* Separate serde from "default_tree" feature, now use "use_serde" to take advantage of 
+* Separate serde from ```default_tree``` feature, now use ```use_serde``` to take advantage of 
 serde for serialization, though a number of serde schemes are implemented as their own features (see below).
-* Separate bincode from "default_tree".  To use bincode with the default tree, you only need to use the "use_bincode" feature
+* Separate bincode from ```default_tree```.  To use bincode with the default tree, you only need to use the "use_bincode" feature
 ex. ```cargo build --features "use_bincode"```
-* Add JSON support through "use_json" feature
-* Add CBOR support through "use_cbor" feature
-* Add YAML support through "use_yaml" feature
-* Add Pickle support through "use_pickle" feature
-* Add RON support through "use_ron" feature
+* Add JSON support through ```use_json``` feature
+* Add CBOR support through ```use_cbor``` feature
+* Add YAML support through ```use_yaml``` feature
+* Add Pickle support through ```use_pickle``` feature
+* Add RON support through ```use_ron``` feature
 * Fixed issue with getting values when supplied keys were not all in the tree
 * Inputs to get and insert no longer need to be sorted (sorting is done internally)
 * Fixed issue when using stored split index values on inserts.
+* You can now use different hashing schemes with the different serialization features.
+* Add Blake2b support through ```use_blake2b``` feature
+* Add Groestl support through ```use_groestl``` feature
+* Add SHA-2 (SHA256) support through ```use_sha2``` feature
+* Add SHA-3 support through ```use_sha3``` feature
+* Add Keccak256 support through ```use_keccak``` feature
 
 # 1.2.1
 * Add serde support for default tree implementation

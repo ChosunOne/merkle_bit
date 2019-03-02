@@ -61,6 +61,11 @@ script:
   - cargo test --features="use_yaml" --verbose --all
   - cargo test --features="use_pickle" --verbose --all
   - cargo test --features="use_ron" --verbose --all
+  - cargo test --features="use_bincode use_blake2b" --verbose --all
+  - cargo test --features="use_bincode use_groestl" --verbose --all
+  - cargo test --features="use_bincode use_sha2" --verbose --all
+  - cargo test --features="use_bincode use_sha3" --verbose --all
+  - cargo test --features="use_bincode use_keccak" --verbose --all
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy

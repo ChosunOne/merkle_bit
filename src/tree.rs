@@ -1,28 +1,57 @@
-use std::collections::hash_map::{DefaultHasher, HashMap};
+use std::collections::hash_map::HashMap;
 use std::error::Error;
-use std::hash::Hasher;
 use std::path::PathBuf;
+
+#[cfg(not(any(feature = "use_blake2b", feature = "use_groestl", feature = "use_sha2", feature = "use_sha3", feature = "use_keccak")))]
+use std::hash::Hasher;
+
+#[cfg(feature = "use_blake2b")]
+use std::cmp::Ordering;
 
 #[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use serde::{Serialize, Deserialize};
 
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
-
 #[cfg(feature = "use_json")]
 use serde_json;
-
 #[cfg(feature = "use_cbor")]
 use serde_cbor;
-
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
-
 #[cfg(feature = "use_pickle")]
 use serde_pickle;
-
 #[cfg(feature = "use_ron")]
 use ron;
+
+#[cfg(feature = "use_blake2b")]
+use blake2_rfc;
+#[cfg(feature = "use_groestl")]
+use groestl::{Digest, Groestl256};
+#[cfg(feature = "use_sha2")]
+use openssl::sha::Sha256;
+#[cfg(any(feature = "use_keccak", feature = "use_sha3"))]
+use tiny_keccak::Keccak;
+
+#[cfg(not(any(feature = "use_blake2b", feature = "use_groestl", feature = "use_sha2", feature = "use_sha3", feature = "use_keccak")))]
+use std::collections::hash_map::DefaultHasher;
+
+#[cfg(not(any(feature = "use_blake2b", feature = "use_groestl", feature = "use_sha2", feature = "use_sha3", feature = "use_keccak")))]
+pub type TreeHasher = DefaultHasher;
+#[cfg(not(any(feature = "use_blake2b")))]
+pub type TreeHashResult = Vec<u8>;
+
+#[cfg(feature = "use_blake2b")] pub type TreeHasher = Blake2bHasher;
+#[cfg(feature = "use_blake2b")] pub type TreeHashResult = Blake2bHashResult;
+
+#[cfg(feature = "use_groestl")] pub type TreeHasher = GroestlHasher;
+
+#[cfg(feature = "use_sha2")] pub type TreeHasher = Sha256Hasher;
+
+#[cfg(feature = "use_sha3")] pub type TreeHasher = Sha3Hasher;
+
+#[cfg(feature = "use_keccak")] pub type TreeHasher = KeccakHasher;
+
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, NodeVariant};
 use crate::traits::*;
@@ -220,7 +249,7 @@ impl Leaf for TreeLeaf {
     fn set_data(&mut self, data: &[u8]) { Self::set_data(self, data.to_vec()) }
 }
 
-#[cfg(feature="use_bincode")]
+#[cfg(feature = "use_bincode")]
 impl Encode for TreeLeaf {
     fn encode(&self) -> Result<Vec<u8>, Box<Error>> {
         Ok(serialize(self)?)
@@ -564,6 +593,7 @@ impl Node<TreeBranch, TreeLeaf, TreeData, Vec<u8>> for TreeNode {
     fn set_data(&mut self, data: TreeData) { Self::set_data(self, data) }
 }
 
+#[cfg(not(any(feature = "use_blake2b", feature = "use_groestl", feature = "use_sha2", feature = "use_sha3", feature = "use_keccak")))]
 impl crate::traits::Hasher for DefaultHasher {
     type HashType = Self;
     type HashResultType = Vec<u8>;
@@ -571,6 +601,113 @@ impl crate::traits::Hasher for DefaultHasher {
     fn new(_size: usize) -> Self { Self::new() }
     fn update(&mut self, data: &[u8]) { Self::write(self, data) }
     fn finalize(self) -> Self::HashResultType { Self::finish(&self).to_le_bytes().to_vec() }
+}
+
+#[cfg(feature = "use_blake2b")]
+#[derive(Clone)]
+pub struct Blake2bHasher(blake2_rfc::blake2b::Blake2b);
+
+#[cfg(feature = "use_blake2b")]
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Blake2bHashResult(blake2_rfc::blake2b::Blake2bResult);
+
+#[cfg(feature = "use_blake2b")]
+impl PartialOrd for Blake2bHashResult {
+    fn partial_cmp(&self, other: &Blake2bHashResult) -> Option<Ordering> {
+        Some(self.0.as_ref().cmp(&other.0.as_ref()))
+    }
+}
+
+#[cfg(feature = "use_blake2b")]
+impl AsRef<[u8]> for Blake2bHashResult {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+#[cfg(feature = "use_blake2b")]
+impl crate::traits::Hasher for Blake2bHasher {
+    type HashType = Self;
+    type HashResultType = Blake2bHashResult;
+
+    fn new(size: usize) -> Self {
+        let hasher = blake2_rfc::blake2b::Blake2b::new(size);
+        Self(hasher)
+    }
+    fn update(&mut self, data: &[u8]) { self.0.update(data); }
+    fn finalize(self) -> Self::HashResultType { Blake2bHashResult(self.0.finalize()) }
+}
+
+#[cfg(feature = "use_groestl")]
+pub struct GroestlHasher(Groestl256);
+
+#[cfg(feature = "use_groestl")]
+impl crate::traits::Hasher for GroestlHasher {
+    type HashType = Self;
+    type HashResultType = Vec<u8>;
+
+    fn new(_size: usize) -> Self {
+        let hasher = Groestl256::new();
+        Self(hasher)
+    }
+    fn update(&mut self, data: &[u8]) { self.0.input(data); }
+    fn finalize(self) -> Self::HashResultType { self.0.result().to_vec() }
+}
+
+#[cfg(feature = "use_sha2")]
+pub struct Sha256Hasher(Sha256);
+
+#[cfg(feature = "use_sha2")]
+impl crate::traits::Hasher for Sha256Hasher {
+    type HashType = Self;
+    type HashResultType = Vec<u8>;
+
+    fn new(_size: usize) -> Self {
+        let hasher = Sha256::new();
+        Self(hasher)
+    }
+    fn update(&mut self, data: &[u8]) { self.0.update(data) }
+    fn finalize(self) -> Self::HashResultType { self.0.finish().to_vec() }
+}
+
+#[cfg(feature = "use_sha3")]
+pub struct Sha3Hasher(Keccak);
+
+#[cfg(feature = "use_sha3")]
+impl crate::traits::Hasher for Sha3Hasher {
+    type HashType = Self;
+    type HashResultType = Vec<u8>;
+
+    fn new(_size: usize) -> Self {
+        let hasher = Keccak::new_sha3_256();
+        Self(hasher)
+    }
+    fn update(&mut self, data: &[u8]) { self.0.update(data); }
+    fn finalize(self) -> Self::HashResultType {
+        let mut res = vec![0; 32];
+        self.0.finalize(&mut res);
+        res
+    }
+}
+
+#[cfg(feature = "use_keccak")]
+pub struct KeccakHasher(Keccak);
+
+#[cfg(feature = "use_keccak")]
+impl crate::traits::Hasher for KeccakHasher {
+    type HashType = Self;
+    type HashResultType = Vec<u8>;
+
+    fn new(_size: usize) -> Self {
+        let hasher = Keccak::new_keccak256();
+        Self(hasher)
+    }
+    fn update(&mut self, data: &[u8]) { self.0.update(data); }
+    fn finalize(self) -> Self::HashResultType {
+        let mut res = vec![0u8; 32];
+        self.0.finalize(&mut res);
+        res
+    }
 }
 
 struct HashDB {
@@ -616,7 +753,7 @@ impl Database for HashDB {
 }
 
 pub struct HashTree {
-    tree: MerkleBIT<HashDB, TreeBranch, TreeLeaf, TreeData, TreeNode, DefaultHasher, Vec<u8>, Vec<u8>>
+    tree: MerkleBIT<HashDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, TreeHashResult, Vec<u8>>
 }
 
 impl HashTree {
@@ -631,63 +768,11 @@ impl HashTree {
         self.tree.get(root_hash, keys)
     }
 
-    pub fn insert(&mut self, previous_root: Option<&Vec<u8>>, keys: &mut [&Vec<u8>], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&[u8]>, keys: &mut [&Vec<u8>], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
         self.tree.insert(previous_root, keys, values)
     }
 
     pub fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
-    }
-}
-
-#[cfg(test)]
-pub mod tests {
-    use super::*;
-
-    #[test]
-    fn it_fails_to_get_from_empty_hash_tree() {
-        let key = vec![0x00];
-        let root_key = vec![0x01];
-
-        let bmt = HashTree::new(160);
-        let items = bmt.get(&root_key, &mut vec![&key]).unwrap();
-        let expected_items = vec![None];
-        assert_eq!(items, expected_items);
-    }
-
-    #[test]
-    fn it_fails_to_get_a_nonexistent_item_from_hash_tree() {
-        let key = vec![0xAAu8];
-        let data = vec![0xFFu8];
-        let mut values = vec![data.as_ref()];
-        let mut bmt = HashTree::new(160);
-        let root_hash = bmt.insert(None, &mut vec![&key], &mut values).unwrap();
-
-        let nonexistent_key = vec![0xAB];
-        let items = bmt.get(&root_hash, &mut vec![&nonexistent_key]).unwrap();
-        let expected_items = vec![None];
-        assert_eq!(items, expected_items);
-    }
-
-    #[test]
-    fn it_gets_items_from_a_small_balanced_hash_tree() {
-        let mut keys = Vec::with_capacity(8);
-        let mut values = Vec::with_capacity(8);
-        for i in 0..8 {
-            keys.push(vec![i << 5]);
-            values.push(vec![i]);
-        }
-        let mut get_keys = keys.iter().collect::<Vec<_>>();
-        let mut get_data = values.iter().collect::<Vec<_>>();
-
-        let mut bmt = HashTree::new(3);
-        let root_hash = bmt.insert(None, &mut get_keys, &mut get_data).unwrap();
-
-        let items = bmt.get(&root_hash, &mut get_keys).unwrap();
-        let mut expected_items = vec![];
-        for value in &values {
-            expected_items.push(Some(value.clone()));
-        }
-        assert_eq!(items, expected_items);
     }
 }
