@@ -48,3 +48,7 @@ use_groestl = ["default_tree", "groestl"]
 use_sha2 = ["default_tree", "openssl"]
 use_sha3 = ["default_tree", "tiny-keccak"]
 use_keccak = ["default_tree", "tiny-keccak"]
+
+[[bench]]
+name = "merkle_bit_benches"
+harness = false
