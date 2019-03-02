@@ -35,7 +35,7 @@ For larger numbers of items to store in the tree, it is recommended to connect t
 Database trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
 
 You can take advantage of many of serde's serializing and deserializing data schemes 
-prior to putting it into a database via the features of this crate.
+prior to putting it into a database via the features of this crate.  Additionally, there are several supported hashing schemes you can use via features in the crate.
 
 To use the full power of the Merkle-BIT structure, you should customize the structures stored in the tree to match your needs.  
 ```rust
