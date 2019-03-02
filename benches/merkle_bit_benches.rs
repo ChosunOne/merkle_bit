@@ -26,7 +26,7 @@ fn empty_tree_insert_benchmark(c: &mut Criterion){
         }
         let db = MockDB::new(HashMap::new());
         let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, HasherContainer, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
-        b.iter(|| bmt.insert(None, keys[0..*index].to_vec(), &data[0..*index]))
+        b.iter(|| bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec()))
     },vec![1,10,100]);
 }
 /** Benchmarks 1, 10, and 100 inserts into a tree with existing root */
@@ -46,7 +46,7 @@ fn existing_tree_insert_benchmark(c: &mut Criterion) {
             keys.push(key_values[i].as_ref());
         }
         let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, HasherContainer, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
-        let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys.clone(), &mut data).unwrap();
              let second = prepare_inserts(100, &mut rng);
              let mut second_data = vec![];
              let mut second_keys =vec![];
@@ -56,7 +56,7 @@ fn existing_tree_insert_benchmark(c: &mut Criterion) {
             second_data.push(data_2[i].as_ref());
             second_keys.push(keys_2[i].as_ref());
         }
-            b.iter(|| bmt.insert(Some(&root_hash),second_keys[0..*index].to_vec(),&second_data[0..*index]))
+            b.iter(|| bmt.insert(Some(&root_hash),&mut second_keys[0..*index].to_vec(),&mut second_data[0..*index].to_vec()))
         },vec![1,10,100]);
 }
 /** Benchmarks retrieving 4096 keys from a tree with 4096 keys */
@@ -75,14 +75,14 @@ fn get_from_tree_benchmark(c: &mut Criterion) {
         }
         let db = MockDB::new(HashMap::new());
         let mut bmt: MerkleBIT<MockDB, ProtoBranch, ProtoLeaf, ProtoData, ProtoMerkleNode, HasherContainer, Vec<u8>, Vec<u8>> = MerkleBIT::from_db(db, 16).unwrap();
-        let root_hash = bmt.insert(None, keys.clone(), &data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys.clone(), &mut data).unwrap();
         c.bench_function("Get from BMT Benchmark", move|b|{
             let keys_ = key_values.clone();
             let mut keys_to_get = vec![];
             for i in 0..keys_.len() {
             keys_to_get.push(keys_[i].as_ref());
         }
-            b.iter(|| bmt.get(&root_hash,keys_to_get.clone()))
+            b.iter(|| bmt.get(&root_hash,&mut keys_to_get.clone()))
         });
 }
 
