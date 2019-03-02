@@ -15,6 +15,7 @@ bincode = "1.1.2"
 rand = "0.6.5"
 rocksdb = "0.11.0"
 serde = {version = "1.0.88", features = ["derive"]}
+criterion = "0.2.1"
 afl = "0.4.3"
 
 [dependencies]
