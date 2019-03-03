@@ -3,6 +3,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::cmp::{min, Ordering};
 use std::marker::PhantomData;
+use std::collections::VecDeque;
 
 #[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use serde::{Serialize, Deserialize};
@@ -225,14 +226,19 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
         let mut leaf_map = HashMap::new();
 
-        let mut cell_queue = Vec::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+        let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
 
         let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(&keys, Some(root_node), 0);
 
-        cell_queue.insert(0, root_cell);
+        cell_queue.push_front(root_cell);
 
         while !cell_queue.is_empty() {
-            let tree_cell = cell_queue.remove(0);
+            let tree_cell;
+            if let Some(c) = cell_queue.pop_front() {
+                tree_cell = c;
+            } else {
+                return Err(Box::new(Exception::new("Empty cell queue")))
+            }
 
             if tree_cell.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")));
@@ -264,18 +270,18 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         let one_node = o;
                         if !split.ones.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
-                            cell_queue.insert(0, new_cell);
+                            cell_queue.push_front(new_cell);
                         }
                     } else {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, None, tree_cell.depth);
-                        cell_queue.insert(0, new_cell);
+                        cell_queue.push_front(new_cell);
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
                         if !split.zeros.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
-                            cell_queue.insert(0, new_cell);
+                            cell_queue.push_front(new_cell);
                         }
                     }
                 }
@@ -360,12 +366,17 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 return Err(Box::new(Exception::new("Could not find previous root")));
             }
 
-            let mut cell_queue: Vec<TreeCell<NodeType>> = Vec::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+            let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
             let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(&keys, Some(root_node), 0);
-            cell_queue.push(root_cell);
+            cell_queue.push_front(root_cell);
 
             while !cell_queue.is_empty() {
-                let tree_cell = cell_queue.remove(0);
+                let tree_cell;
+                if let Some(c) = cell_queue.pop_front() {
+                    tree_cell = c;
+                } else {
+                    return Err(Box::new(Exception::new("Empty cell queue")))
+                }
 
                 if tree_cell.depth > self.depth {
                     return Err(Box::new(Exception::new("Depth of merkle tree exceeded")));
@@ -463,7 +474,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     let mut one_node = o;
                     if !split.ones.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
-                        cell_queue.insert(0, new_cell);
+                        cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
                         assert!(!other_key.is_empty());
@@ -484,7 +495,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     let mut zero_node = z;
                     if !split.zeros.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
-                        cell_queue.insert(0, new_cell);
+                        cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
                         assert!(!other_key.is_empty());
