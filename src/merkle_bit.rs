@@ -254,17 +254,16 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
             match node.get_variant()? {
                 NodeVariant::Branch(n) => {
-                    let key_and_index;
-                    if let Some(_) = n.get_key() {
-                        key_and_index = self.calc_min_split_index(&tree_cell.keys, None, Some(&node))?;
+                    let key_and_index= if n.get_key().is_some() {
+                        self.calc_min_split_index(&tree_cell.keys, None, Some(&node))?
                     } else {
                         let mut hasher = HasherType::new(32);
                         hasher.update(b"b");
                         hasher.update(n.get_zero());
                         hasher.update(n.get_one());
                         let location = hasher.finalize();
-                        key_and_index = self.calc_min_split_index(&tree_cell.keys, Some(location.as_ref()), None)?;
-                    }
+                        self.calc_min_split_index(&tree_cell.keys, Some(location.as_ref()), None)?
+                    };
                     let branch_key = key_and_index.0;
                     let min_split_index = key_and_index.1;
                     let descendants = Self::check_descendants(tree_cell.keys, &n, &branch_key, min_split_index);
