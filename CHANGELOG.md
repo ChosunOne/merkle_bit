@@ -1,3 +1,5 @@
+# 2.0.2
+* Minor internal optimization
 # 2.0.0
 * Separate serde from ```default_tree``` feature, now use ```use_serde``` to take advantage of 
 serde for serialization, though a number of serde schemes are implemented as their own features (see below).
