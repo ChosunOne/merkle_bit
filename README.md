@@ -65,10 +65,10 @@ To use the full power of the Merkle-BIT structure, you should customize the stru
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: Vec<u8> = mbit.insert(None, &[key.as_ref()], &[value.as_ref()])?;
+        let root: Vec<u8> = mbit.insert(None, &mut [key.as_ref()], &mut [value.as_ref()])?;
         
         // Retrieving the inserted value
-        let inserted_values: Vec<Option<ValueType>> = mbit.get(root.as_ref(), &[key.as_ref()])?;
+        let inserted_values: Vec<Option<ValueType>> = mbit.get(root.as_ref(), &mut [key.as_ref()])?;
         
         // Removing a tree root
         mbit.remove(root.as_ref())?;
