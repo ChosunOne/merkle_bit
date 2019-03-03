@@ -759,8 +759,9 @@ pub struct HashTree {
 impl HashTree {
     pub fn new(depth: usize) -> Self {
         let path = PathBuf::new();
+        let tree = MerkleBIT::new(&path, depth).expect("Creating a HashTree should not fail");
         Self {
-            tree: MerkleBIT::new(&path, depth).unwrap()
+            tree
         }
     }
 

@@ -13,7 +13,7 @@ pub mod integration_tests {
     use starling::traits::{Database, Decode, Encode};
 
     #[test]
-    fn it_works_with_a_real_database() {
+    fn it_works_with_a_real_database() -> BinaryMerkleTreeResult<()> {
         let retrieved_value;
         let removed_retrieved_value;
         let data = vec![0xFFu8];
@@ -27,7 +27,7 @@ pub mod integration_tests {
                 Ok(r) => root = r,
                 Err(e) => {
                     drop(tree);
-                    remove_dir_all(&path).unwrap();
+                    remove_dir_all(&path)?;
                     panic!("{:?}", e.description());
                 }
             }
@@ -35,7 +35,7 @@ pub mod integration_tests {
                 Ok(v) => retrieved_value = v,
                 Err(e) => {
                     drop(tree);
-                    remove_dir_all(&path).unwrap();
+                    remove_dir_all(&path)?;
                     panic!("{:?}", e.description());
                 }
             }
@@ -43,7 +43,7 @@ pub mod integration_tests {
                 Ok(_) => {},
                 Err(e) => {
                     drop(tree);
-                    remove_dir_all(&path).unwrap();
+                    remove_dir_all(&path)?;
                     panic!("{:?}", e.description());
                 }
             }
@@ -51,14 +51,15 @@ pub mod integration_tests {
                 Ok(v) => removed_retrieved_value = v,
                 Err(e) => {
                     drop(tree);
-                    remove_dir_all(&path).unwrap();
+                    remove_dir_all(&path)?;
                     panic!("{:?}", e.description());
                 }
             }
         }
-        remove_dir_all(&path).unwrap();
+        remove_dir_all(&path)?;
         assert_eq!(retrieved_value, vec![Some(data)]);
         assert_eq!(removed_retrieved_value, vec![None]);
+        Ok(())
     }
 
     struct RocksDB {
