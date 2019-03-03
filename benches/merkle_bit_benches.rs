@@ -13,7 +13,7 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion){
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let prepare = prepare_inserts(100, &mut rng);
+        let prepare = prepare_inserts(1000, &mut rng);
         let key_values = prepare.0;
         let mut keys = vec![];
         let data_values = prepare.1;
@@ -24,7 +24,7 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion){
         }
         let mut bmt = HashTree::new(160);
         b.iter(|| bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec()))
-    },vec![1,10,100]);
+    },vec![1, 10, 100]);
 }
 
 /** Benchmarks 1, 10, and 100 inserts into a tree with existing root */
@@ -44,7 +44,7 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
         }
         let mut bmt = HashTree::new( 16);
         let root_hash = bmt.insert(None, &mut keys.clone(), &mut data).unwrap();
-        let second = prepare_inserts(100, &mut rng);
+        let second = prepare_inserts(1000, &mut rng);
         let mut second_data = vec![];
         let mut second_keys =vec![];
         let keys_2 = second.0;
@@ -54,7 +54,7 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
             second_keys.push(keys_2[i].as_ref());
         }
         b.iter(|| bmt.insert(Some(&root_hash),&mut second_keys[0..*index].to_vec(),&mut second_data[0..*index].to_vec()))
-    },vec![1,10,100]);
+    },vec![1, 10, 100]);
 }
 
 /** Benchmarks retrieving 4096 keys from a tree with 4096 keys */

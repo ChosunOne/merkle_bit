@@ -286,7 +286,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
                     if let Some(d) = self.db.get_node(n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant()? {
-                            leaf_map.insert(n.get_key().to_vec(), data.get_value().to_vec());
+                            leaf_map.insert(n.get_key().to_owned(), data.get_value().to_owned());
                         } else {
                             return Err(Box::new(Exception::new("Corrupt merkle tree")));
                         }
