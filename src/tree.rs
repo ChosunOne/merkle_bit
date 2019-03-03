@@ -764,11 +764,11 @@ impl HashTree {
         }
     }
 
-    pub fn get(&self, root_hash: &[u8], keys: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
+    pub fn get(&self, root_hash: &[u8], keys: &mut [&[u8]]) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {
         self.tree.get(root_hash, keys)
     }
 
-    pub fn insert(&mut self, previous_root: Option<&[u8]>, keys: &mut [&Vec<u8>], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
+    pub fn insert(&mut self, previous_root: Option<&[u8]>, keys: &mut [&[u8]], values: &mut Vec<&Vec<u8>>) -> BinaryMerkleTreeResult<Vec<u8>> {
         self.tree.insert(previous_root, keys, values)
     }
 
