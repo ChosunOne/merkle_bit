@@ -6,3 +6,4 @@ Cargo.lock
 
 core
 *.gcda
+*.gcno
