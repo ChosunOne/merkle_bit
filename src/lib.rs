@@ -14,9 +14,13 @@
 
 #[cfg(feature = "use_hashbrown")] extern crate hashbrown;
 
+#[cfg(feature = "use_rocksdb")] extern crate rocksdb;
+
 pub mod merkle_bit;
 pub mod traits;
 pub mod hash_tree;
 pub mod tree;
 pub mod tree_hasher;
 pub mod tree_db;
+
+#[cfg(feature = "use_rocksdb")] pub mod rocks_tree;

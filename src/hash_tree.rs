@@ -15,12 +15,19 @@ pub struct HashTree {
 }
 
 impl HashTree {
-    pub fn new(depth: usize) -> Self {
+    pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
         let path = PathBuf::new();
-        let tree = MerkleBIT::new(&path, depth).expect("Creating a HashTree should not fail");
-        Self {
+        let tree = MerkleBIT::new(&path, depth)?;
+        Ok(Self {
             tree
-        }
+        })
+    }
+
+    pub fn open(_path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
+        let tree = MerkleBIT::new(&_path, depth)?;
+        Ok(Self {
+            tree
+        })
     }
 
     pub fn get(&self, root_hash: &[u8], keys: &mut [&[u8]]) -> BinaryMerkleTreeResult<Vec<Option<Vec<u8>>>> {

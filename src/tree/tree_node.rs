@@ -8,7 +8,6 @@ use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_data::TreeData;
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use crate::traits::{Decode, Encode};
 
 #[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
@@ -148,7 +147,8 @@ impl Decode for TreeNode {
     }
 }
 
-impl Node<TreeBranch, TreeLeaf, TreeData, Vec<u8>> for TreeNode {
+impl<ValueType> Node<TreeBranch, TreeLeaf, TreeData, ValueType> for TreeNode
+    where ValueType: Encode + Decode {
     fn new() -> Self { Self::new() }
 
     fn get_references(&self) -> u64 { Self::get_references(&self) }

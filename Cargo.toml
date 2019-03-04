@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "2.1.0-nightly.0"
+version = "2.1.0-nightly.1"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -13,7 +13,6 @@ edition = "2018"
 [dev-dependencies]
 bincode = "1.1.2"
 rand = "0.6.5"
-rocksdb = "0.11.0"
 serde = { version = "1.0.89", features = ["derive"] }
 criterion = "0.2.10"
 
@@ -30,6 +29,7 @@ groestl = { version = "0.8.0", optional = true }
 openssl = { version = "0.10.19", optional = true }
 tiny-keccak = { version = "1.4.2", optional = true }
 hashbrown = { version = "0.1.8", optional = true }
+rocksdb = { version = "0.11.0", optional = true }
 
 [features]
 default = []
@@ -50,6 +50,8 @@ use_sha3 = ["default_tree", "tiny-keccak"]
 use_keccak = ["default_tree", "tiny-keccak"]
 
 use_hashbrown = ["default_tree", "hashbrown"]
+
+use_rocksdb = ["default_tree", "rocksdb"]
 
 [[bench]]
 name = "merkle_bit_benches"
