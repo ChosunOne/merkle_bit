@@ -4,6 +4,7 @@ use std::fmt::Debug;
 use std::cmp::{min, Ordering};
 use std::marker::PhantomData;
 use std::collections::VecDeque;
+use std::iter::FromIterator;
 
 #[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use serde::{Serialize, Deserialize};
@@ -523,11 +524,11 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
             tree_refs.append(&mut proof_nodes);
 
-            let new_root = self.create_tree(&mut tree_refs)?;
+            let new_root = self.create_tree(tree_refs)?;
             return Ok(new_root);
         } else {
             // There is no tree, just build one with the keys and values
-            let new_root = self.create_tree(&mut tree_refs)?;
+            let new_root = self.create_tree(tree_refs)?;
             return Ok(new_root);
         }
     }
@@ -634,22 +635,24 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         Ok(nodes)
     }
 
-    fn create_tree(&mut self, tree_refs: &mut Vec<TreeRef>) -> BinaryMerkleTreeResult<Vec<u8>> {
+    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<Vec<u8>> {
         tree_refs.sort();
-        let mut split_indices = Vec::with_capacity(tree_refs.len() - 1);
-        for i in 0..tree_refs.len() - 1 {
+        let mut tree_ref_queue: VecDeque<TreeRef> = VecDeque::from_iter(tree_refs);
+
+        let mut split_indices = Vec::with_capacity(tree_ref_queue.len() - 1);
+        for i in 0..tree_ref_queue.len() - 1 {
             let start_len = split_indices.len();
-            assert!(!tree_refs[i].key.is_empty());
-            assert!(!tree_refs[i + 1].key.is_empty());
-            assert_ne!(tree_refs[i].key, tree_refs[i + 1].key);
-            for j in 0..tree_refs[i].key.len() * 8 {
-                let left_branch = choose_branch(&tree_refs[i].key, j);
-                let right_branch = choose_branch(&tree_refs[i + 1].key, j);
+            assert!(!tree_ref_queue[i].key.is_empty());
+            assert!(!tree_ref_queue[i + 1].key.is_empty());
+            assert_ne!(tree_ref_queue[i].key, tree_ref_queue[i + 1].key);
+            for j in 0..tree_ref_queue[i].key.len() * 8 {
+                let left_branch = choose_branch(&tree_ref_queue[i].key, j);
+                let right_branch = choose_branch(&tree_ref_queue[i + 1].key, j);
 
                 if left_branch != right_branch {
                     split_indices.push(vec![i, j]);
                     break;
-                } else if j == tree_refs[i].key.len() * 8 - 1 {
+                } else if j == tree_ref_queue[i].key.len() * 8 - 1 {
                     // The keys are the same and don't diverge
                     return Err(Box::new(Exception::new("Attempted to insert item with duplicate keys")));
                 }
@@ -657,17 +660,23 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
             assert_eq!(split_indices.len(), start_len + 1);
         }
-        assert_eq!(split_indices.len(), tree_refs.len() - 1);
+        assert_eq!(split_indices.len(), tree_ref_queue.len() - 1);
 
         split_indices.sort_by(|a, b| {
             a[1].cmp(&b[1]).reverse()
         });
 
-        while !tree_refs.is_empty() {
-            let start_len = tree_refs.len();
-            if tree_refs.len() == 1 {
+        while !tree_ref_queue.is_empty() {
+            let start_len = tree_ref_queue.len();
+            if tree_ref_queue.len() == 1 {
                 self.db.batch_write()?;
-                return Ok(tree_refs.remove(0).location.to_vec());
+                let root;
+                if let Some(r) = tree_ref_queue.pop_front() {
+                    root = r.location.to_vec();
+                } else {
+                    return Err(Box::new(Exception::new("Empty tree ref queue")))
+                }
+                return Ok(root);
             }
 
             let max_tree_ref = split_indices.remove(0);
@@ -679,9 +688,19 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 }
             }
 
-            let tree_ref = tree_refs.remove(max_index);
+            let tree_ref;
+            if let Some(r) = tree_ref_queue.remove(max_index) {
+                tree_ref = r;
+            } else {
+                return Err(Box::new(Exception::new("Empty tree ref queue")))
+            }
 
-            let next_tree_ref = tree_refs.remove(max_index);
+            let next_tree_ref;
+            if let Some(r) = tree_ref_queue.remove(max_index) {
+                next_tree_ref = r;
+            } else {
+                return Err(Box::new(Exception::new("Empty tree ref queue")))
+            }
             let mut branch_hasher = HasherType::new(32);
             branch_hasher.update(b"b");
             branch_hasher.update(tree_ref.location.as_ref());
@@ -702,8 +721,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
             self.db.insert(branch_node_location.as_ref(), &branch_node)?;
             let new_tree_ref = TreeRef::new(tree_ref.key, branch_node_location.as_ref().to_vec(), count);
-            tree_refs.insert(max_index, new_tree_ref);
-            assert_eq!(tree_refs.len(), start_len - 1);
+            tree_ref_queue.insert(max_index, new_tree_ref);
+            assert_eq!(tree_ref_queue.len(), start_len - 1);
         }
 
         Err(Box::new(Exception::new("Corrupt merkle tree")))
