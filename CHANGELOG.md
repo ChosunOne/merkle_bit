@@ -4,6 +4,8 @@ Until then, you can expect around a 10% boost to performance by using the hashbr
 * Internal refactoring.  Would-be contributors should have a much easier time parsing the existing tree structure.
 * **NOTE**:  There are a few minor breaking API changes in this release, but only if you are implementing your own tree structure.  
 Only the location of some structures have changed, not the function signatures.
+* From this build on, the Git structure will change.  It will follow analogous to the current Rust structure, with a stable, beta, and nightly build. 
+This should allow for more structured commits. 
 # 2.0.2
 * Minor internal optimization
 # 2.0.0
