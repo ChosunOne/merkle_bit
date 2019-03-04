@@ -9,7 +9,7 @@ pub mod integration_tests {
 
     use rocksdb::{DB, WriteBatch};
     use starling::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
-    use starling::hash_tree::{TreeHasher, TreeHashResult};
+    use starling::tree_hasher::{TreeHasher, TreeHashResult};
     use starling::tree::tree_branch::TreeBranch;
     use starling::tree::tree_leaf::TreeLeaf;
     use starling::tree::tree_data::TreeData;
