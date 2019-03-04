@@ -10,7 +10,11 @@ use std::iter::FromIterator;
 use serde::{Serialize, Deserialize};
 
 use crate::traits::{Encode, Exception, Decode, Branch, Data, Hasher, Database, Node, Leaf};
+
+#[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
+#[cfg(feature = "use_hashbrown")]
+use hashbrown::HashMap;
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Box<Error>>;
