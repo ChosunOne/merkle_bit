@@ -12,6 +12,8 @@
 #[cfg(feature = "use_sha3")] extern crate tiny_keccak;
 #[cfg(feature = "use_keccak")] extern crate tiny_keccak;
 
+#[cfg(feature = "use_hashbrown")] extern crate hashbrown;
+
 pub mod merkle_bit;
 pub mod traits;
 pub mod hash_tree;

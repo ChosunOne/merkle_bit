@@ -4,14 +4,14 @@ use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_node::TreeNode;
-use crate::tree_db::hashmap::HashDB;
+use crate::tree_db::HashTreeDB;
 use crate::tree_hasher::TreeHasher;
 use crate::tree_hasher::TreeHashResult;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 
 pub struct HashTree {
-    tree: MerkleBIT<HashDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, TreeHashResult, Vec<u8>>
+    tree: MerkleBIT<HashTreeDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, TreeHashResult, Vec<u8>>
 }
 
 impl HashTree {

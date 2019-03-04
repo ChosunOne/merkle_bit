@@ -1,9 +1,10 @@
-use std::collections::hash_map::HashMap;
 use std::error::Error;
 use std::path::PathBuf;
 
 use crate::traits::Database;
 use crate::tree::tree_node::TreeNode;
+
+use hashbrown::HashMap;
 
 pub struct HashDB {
     map: HashMap<Vec<u8>, TreeNode>

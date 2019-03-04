@@ -1,3 +1,9 @@
+# 2.1.0
+* Added ```use_hashbrown``` feature to use the hashbrown crate for HashTree.  This feature will be deprecated once hasbrown is included in the standard library and replaces the existing HashMap.
+Until then, you can expect around a 10% boost to performance by using the hashbrown feature.
+* Internal refactoring.  Would-be contributors should have a much easier time parsing the existing tree structure.
+* **NOTE**:  There are a few minor breaking API changes in this release, but only if you are implementing your own tree structure.  
+Only the location of some structures have changed, not the function signatures.
 # 2.0.2
 * Minor internal optimization
 # 2.0.0
@@ -25,8 +31,6 @@ ex. ```cargo build --features "use_bincode"```
 ## Development Improvements
 * Added benchmarking via ```cargo bench```
 * Added fuzzing via ```cargo +nightly fuzz <fuzz_target_name>```.  Requires installation of ```cargo-fuzz``` and ```nightly``` toolchain.
-
-
 # 1.2.1
 * Add serde support for default tree implementation
 * You can now use the "default_tree" feature for a tree structure relying on serde and
