@@ -14,4 +14,5 @@
 
 pub mod merkle_bit;
 pub mod traits;
+pub mod hash_tree;
 pub mod tree;

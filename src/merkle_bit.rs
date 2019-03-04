@@ -848,7 +848,7 @@ pub mod tests {
 
     use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
-    use crate::tree::HashTree;
+    use crate::hash_tree::HashTree;
 
     #[test]
     fn it_chooses_the_right_branch_easy() {

@@ -5,7 +5,7 @@ use criterion::Criterion;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
-use starling::tree::HashTree;
+use starling::hash_tree::HashTree;
 
 /** Benchmarks 1, 10 , and 100 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion){

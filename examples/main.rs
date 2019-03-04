@@ -1,7 +1,7 @@
 extern crate starling;
 
 fn main() {
-    let mut tree = starling::tree::HashTree::new(16);
+    let mut tree = starling::hash_tree::HashTree::new(16);
 
     let key = vec![0x00];
     let value = vec![0x00];
