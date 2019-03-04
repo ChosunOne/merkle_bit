@@ -11,9 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dev-dependencies]
-bincode = "1.1.2"
 rand = "0.6.5"
-serde = { version = "1.0.89", features = ["derive"] }
 criterion = "0.2.10"
 
 [dependencies]
