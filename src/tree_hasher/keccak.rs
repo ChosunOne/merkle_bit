@@ -1,10 +1,7 @@
-#[cfg(feature = "use_keccak")]
 use tiny_keccak::Keccak;
 
-#[cfg(feature = "use_keccak")]
 pub struct KeccakHasher(Keccak);
 
-#[cfg(feature = "use_keccak")]
 impl crate::traits::Hasher for KeccakHasher {
     type HashType = Self;
     type HashResultType = Vec<u8>;

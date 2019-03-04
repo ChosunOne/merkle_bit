@@ -1,10 +1,7 @@
-#[cfg(feature = "use_sha2")]
 use openssl::sha::Sha256;
 
-#[cfg(feature = "use_sha2")]
 pub struct Sha256Hasher(Sha256);
 
-#[cfg(feature = "use_sha2")]
 impl crate::traits::Hasher for Sha256Hasher {
     type HashType = Self;
     type HashResultType = Vec<u8>;

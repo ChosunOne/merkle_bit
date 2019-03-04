@@ -1,10 +1,7 @@
-#[cfg(feature = "use_sha3")]
 use tiny_keccak::Keccak;
 
-#[cfg(feature = "use_sha3")]
 pub struct Sha3Hasher(Keccak);
 
-#[cfg(feature = "use_sha3")]
 impl crate::traits::Hasher for Sha3Hasher {
     type HashType = Self;
     type HashResultType = Vec<u8>;
