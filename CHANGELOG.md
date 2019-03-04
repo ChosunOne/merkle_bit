@@ -1,11 +1,22 @@
 # 2.1.0
-* Added ```use_hashbrown``` feature to use the hashbrown crate for HashTree.  This feature will be deprecated once hasbrown is included in the standard library and replaces the existing HashMap.
-Until then, you can expect around a 10% boost to performance by using the hashbrown feature.
-* Internal refactoring.  Would-be contributors should have a much easier time parsing the existing tree structure.
-* **NOTE**:  There are a few minor breaking API changes in this release, but only if you are implementing your own tree structure.  
-Only the location of some structures have changed, not the function signatures.
+## Multiple Database Support
+* You can now use some popular databases in addition to the existing serialization schemes (or with your own)!
+* Add RocksDB support via the ```use_rocksdb``` feature 
+## Structural Changes
+* Many files have been split up into multiple other modules.  
 * From this build on, the Git structure will change.  It will follow analogous to the current Rust structure, with a stable, beta, and nightly build. 
 This should allow for more structured commits. 
+* Many "unit" tests were really just integration tests, and as such have been moved to the proper area.  This has the bonus 
+of allowing you to run the testing suite on more database types.
+## Other Changes
+* Improve overall performance by about 10% by removing a clone.
+* Added ```use_hashbrown``` feature to use the hashbrown crate for HashTree.  This feature will be deprecated once hasbrown is included in the standard library and replaces the existing HashMap.
+Until then, you can expect around a 10% boost to performance by using the hashbrown feature with the HashTree (and a smaller amount on other structures).
+* Internal refactoring.  Would-be contributors should have a much easier time parsing the existing tree structure.
+* **NOTE**:  There are a few minor breaking API changes in this release:
+    * Some locations have changed with respect to the code restructuring.
+    * ```HashTree::new``` now returns a ```Result```
+    * ```HashTree::open``` has been added to fall in line with the API of the other databases.  It also returns a ```Result```.
 # 2.0.2
 * Minor internal optimization
 # 2.0.0

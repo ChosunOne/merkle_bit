@@ -48,7 +48,7 @@ pub trait Node<BranchType, LeafType, DataType, ValueType>
           ValueType: Decode + Encode {
     fn new() -> Self;
     fn get_references(&self) -> u64;
-    fn get_variant(&self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
+    fn get_variant(self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
     fn set_references(&mut self, references: u64);
     fn set_branch(&mut self, branch: BranchType);
     fn set_leaf(&mut self, leaf: LeafType);

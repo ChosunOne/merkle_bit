@@ -260,7 +260,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             match node.get_variant()? {
                 NodeVariant::Branch(n) => {
                     let key_and_index = if n.get_key().is_some() {
-                        self.calc_min_split_index(&tree_cell.keys, None, Some(&node))?
+                        self.calc_min_split_index(&tree_cell.keys, None, Some(&n))?
                     } else {
                         let mut hasher = HasherType::new(32);
                         hasher.update(b"b");
@@ -402,6 +402,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 }
 
                 let branch;
+                let mut refs = node.get_references();
                 match node.get_variant()? {
                     NodeVariant::Branch(n) => {
                         branch = n
@@ -473,9 +474,11 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
                     if descendants.is_empty() {
                         let tree_ref = TreeRef::new(branch_key, location.as_ref().to_vec(), branch.get_count());
-                        let refs = node.get_references() + 1;
-                        node.set_references(refs);
-                        self.db.insert(location.as_ref(), &node)?;
+                        refs += 1;
+                        let mut new_node = NodeType::new();
+                        new_node.set_references(refs);
+                        new_node.set_branch(branch);
+                        self.db.insert(location.as_ref(), &new_node)?;
                         proof_nodes.push(tree_ref);
                         continue;
                     }
@@ -483,44 +486,58 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
                 split = split_pairs(descendants, branch.get_split_index() as usize);
                 if let Some(o) = self.db.get_node(branch.get_one())? {
-                    let mut one_node = o;
+                    let one_node = o;
                     if !split.ones.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
-                        assert!(!other_key.is_empty());
+                        debug_assert!(!other_key.is_empty());
                         let count;
+                        let refs = one_node.get_references() + 1;
+                        let mut new_one_node = NodeType::new();
                         match one_node.get_variant()? {
-                            NodeVariant::Branch(b) => count = b.get_count(),
-                            NodeVariant::Leaf(_) => count = 1,
+                            NodeVariant::Branch(b) => {
+                                count = b.get_count();
+                                new_one_node.set_branch(b);
+                            },
+                            NodeVariant::Leaf(l) => {
+                                count = 1;
+                                new_one_node.set_leaf(l);
+                            },
                             NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
                         let tree_ref = TreeRef::new(other_key, branch.get_one().to_vec(), count);
-                        let refs = one_node.get_references() + 1;
-                        one_node.set_references(refs);
-                        self.db.insert(branch.get_one(), &one_node)?;
+                        new_one_node.set_references(refs);
+                        self.db.insert(branch.get_one(), &new_one_node)?;
                         proof_nodes.push(tree_ref);
                     }
                 }
                 if let Some(z) = self.db.get_node(branch.get_zero())? {
-                    let mut zero_node = z;
+                    let zero_node = z;
                     if !split.zeros.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
-                        assert!(!other_key.is_empty());
+                        debug_assert!(!other_key.is_empty());
                         let count;
+                        let refs = zero_node.get_references() + 1;
+                        let mut new_zero_node = NodeType::new();
                         match zero_node.get_variant()? {
-                            NodeVariant::Branch(b) => count = b.get_count(),
-                            NodeVariant::Leaf(_) => count = 1,
+                            NodeVariant::Branch(b) => {
+                                count = b.get_count();
+                                new_zero_node.set_branch(b);
+                            },
+                            NodeVariant::Leaf(l) => {
+                                count = 1;
+                                new_zero_node.set_leaf(l);
+                            },
                             NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                         }
                         let tree_ref = TreeRef::new(other_key, branch.get_zero().to_vec(), count);
-                        let refs = zero_node.get_references() + 1;
-                        zero_node.set_references(refs);
-                        self.db.insert(branch.get_zero(), &zero_node)?;
+                        new_zero_node.set_references(refs);
+                        self.db.insert(branch.get_zero(), &new_zero_node)?;
                         proof_nodes.push(tree_ref);
                     }
                 }
@@ -569,9 +586,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         &keys[start..end]
     }
 
-    fn calc_min_split_index(&self, keys: &[&[u8]], location: Option<&[u8]>, node: Option<&NodeType>) -> BinaryMerkleTreeResult<(Vec<u8>, usize)> {
+    fn calc_min_split_index(&self, keys: &[&[u8]], location: Option<&[u8]>, branch: Option<&BranchType>) -> BinaryMerkleTreeResult<(Vec<u8>, usize)> {
         let mut min_split_index = keys[0].len() * 8;
-        let branch_key = self.get_proof_key(location, node)?;
+        let branch_key = self.get_proof_key(location, branch)?;
         let mut all_keys = keys.to_owned();
         all_keys.push(branch_key.as_ref());
         for i in 0..all_keys.len() - 1 {
@@ -646,9 +663,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         let mut split_indices = Vec::with_capacity(tree_ref_queue.len() - 1);
         for i in 0..tree_ref_queue.len() - 1 {
             let start_len = split_indices.len();
-            assert!(!tree_ref_queue[i].key.is_empty());
-            assert!(!tree_ref_queue[i + 1].key.is_empty());
-            assert_ne!(tree_ref_queue[i].key, tree_ref_queue[i + 1].key);
+            debug_assert!(!tree_ref_queue[i].key.is_empty());
+            debug_assert!(!tree_ref_queue[i + 1].key.is_empty());
+            debug_assert_ne!(tree_ref_queue[i].key, tree_ref_queue[i + 1].key);
             for j in 0..tree_ref_queue[i].key.len() * 8 {
                 let left_branch = choose_branch(&tree_ref_queue[i].key, j);
                 let right_branch = choose_branch(&tree_ref_queue[i + 1].key, j);
@@ -662,9 +679,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 }
             }
 
-            assert_eq!(split_indices.len(), start_len + 1);
+            debug_assert_eq!(split_indices.len(), start_len + 1);
         }
-        assert_eq!(split_indices.len(), tree_ref_queue.len() - 1);
+        debug_assert_eq!(split_indices.len(), tree_ref_queue.len() - 1);
 
         split_indices.sort_by(|a, b| {
             a[1].cmp(&b[1]).reverse()
@@ -678,7 +695,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 if let Some(r) = tree_ref_queue.pop_front() {
                     root = r.location.to_vec();
                 } else {
-                    return Err(Box::new(Exception::new("Empty tree ref queue")))
+                    return Err(Box::new(Exception::new("Empty tree ref queue")));
                 }
                 return Ok(root);
             }
@@ -696,14 +713,14 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             if let Some(r) = tree_ref_queue.remove(max_index) {
                 tree_ref = r;
             } else {
-                return Err(Box::new(Exception::new("Empty tree ref queue")))
+                return Err(Box::new(Exception::new("Empty tree ref queue")));
             }
 
             let next_tree_ref;
             if let Some(r) = tree_ref_queue.remove(max_index) {
                 next_tree_ref = r;
             } else {
-                return Err(Box::new(Exception::new("Empty tree ref queue")))
+                return Err(Box::new(Exception::new("Empty tree ref queue")));
             }
             let mut branch_hasher = HasherType::new(32);
             branch_hasher.update(b"b");
@@ -726,26 +743,18 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             self.db.insert(branch_node_location.as_ref(), &branch_node)?;
             let new_tree_ref = TreeRef::new(tree_ref.key, branch_node_location.as_ref().to_vec(), count);
             tree_ref_queue.insert(max_index, new_tree_ref);
-            assert_eq!(tree_ref_queue.len(), start_len - 1);
+            debug_assert_eq!(tree_ref_queue.len(), start_len - 1);
         }
 
         Err(Box::new(Exception::new("Corrupt merkle tree")))
     }
 
-    fn get_proof_key(&self, root_hash: Option<&[u8]>, node: Option<&NodeType>) -> BinaryMerkleTreeResult<Vec<u8>> {
-        if let Some(n) = node {
-            match n.get_variant()? {
-                NodeVariant::Branch(b) => {
-                    if let Some(k) = b.get_key() {
-                        return Ok(k.to_vec());
-                    } else {
-                        return Err(Box::new(Exception::new("Given node does not have a key")));
-                    }
-                }
-                NodeVariant::Leaf(l) => {
-                    return Ok(l.get_key().to_vec());
-                }
-                NodeVariant::Data(_) => { return Err(Box::new(Exception::new("Corrupt merkle tree"))); }
+    fn get_proof_key(&self, root_hash: Option<&[u8]>, branch: Option<&BranchType>) -> BinaryMerkleTreeResult<Vec<u8>> {
+        if let Some(b) = branch {
+            if let Some(k) = b.get_key() {
+                return Ok(k.to_vec());
+            } else {
+                return Err(Box::new(Exception::new("Given node does not have a key")));
             }
         }
 
@@ -809,6 +818,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 refs -= 1;
             }
 
+            let mut new_node = NodeType::new();
             match node.get_variant()? {
                 NodeVariant::Branch(b) => {
                     if refs == 0 {
@@ -819,6 +829,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         self.db.remove(&node_location)?;
                         continue;
                     }
+                    new_node.set_branch(b);
                 }
                 NodeVariant::Leaf(l) => {
                     if refs == 0 {
@@ -827,17 +838,19 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         self.db.remove(&node_location)?;
                         continue;
                     }
+                    new_node.set_leaf(l);
                 }
-                NodeVariant::Data(_) => {
+                NodeVariant::Data(d) => {
                     if refs == 0 {
                         self.db.remove(&node_location)?;
                         continue;
                     }
+                    new_node.set_data(d)
                 }
             }
 
-            node.set_references(refs);
-            self.db.insert(&node_location, &node)?;
+            new_node.set_references(refs);
+            self.db.insert(&node_location, &new_node)?;
         }
 
         Ok(())
@@ -846,7 +859,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
 #[cfg(test)]
 pub mod tests {
-
     use super::*;
 
     #[test]

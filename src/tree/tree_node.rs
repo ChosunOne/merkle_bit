@@ -152,16 +152,11 @@ impl<ValueType> Node<TreeBranch, TreeLeaf, TreeData, ValueType> for TreeNode
     fn new() -> Self { Self::new() }
 
     fn get_references(&self) -> u64 { Self::get_references(&self) }
-    fn get_variant(&self) -> BinaryMerkleTreeResult<NodeVariant<TreeBranch, TreeLeaf, TreeData>> {
-        match self.node {
-            Some(ref node_type) => {
-                match node_type {
-                    NodeVariant::Branch(branch) => Ok(NodeVariant::Branch(branch.clone())),
-                    NodeVariant::Data(data) => Ok(NodeVariant::Data(data.clone())),
-                    NodeVariant::Leaf(leaf) => Ok(NodeVariant::Leaf(leaf.clone()))
-                }
-            }
-            None => Err(Box::new(Exception::new("Failed to distinguish node type")))
+    fn get_variant(self) -> BinaryMerkleTreeResult<NodeVariant<TreeBranch, TreeLeaf, TreeData>> {
+        if let Some(variant) = self.node {
+            Ok(variant)
+        } else {
+            return Err(Box::new(Exception::new("Failed to distinguish node type")))
         }
     }
 
