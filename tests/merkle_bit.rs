@@ -1,5 +1,5 @@
 #[cfg(test)]
-#[cfg(any(feature = "default_tree"))]
+#[cfg(all(feature = "default_tree", feature = "use_serialization"))]
 pub mod integration_tests {
     extern crate rocksdb;
 
