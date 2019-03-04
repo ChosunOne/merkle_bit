@@ -7,6 +7,7 @@ use criterion::Criterion;
 use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
 
+#[cfg(any(feature = "use_rocksdb"))]
 use std::fs::remove_dir_all;
 
 #[cfg(not(any(feature = "use_rocksdb")))]
@@ -39,11 +40,12 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
         }
         let mut bmt = Tree::open(&path, 16).unwrap();
         b.iter(|| {
-            bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec());
+            bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec()).unwrap();
         });
     }, vec![1, 10, 100]);
+    #[cfg(any(feature = "use_rocksdb"))]
     let path = PathBuf::from("db");
-    #[cfg(feature = "use_rocksdb")]
+    #[cfg(any(feature = "use_rocksdb"))]
         remove_dir_all(&path).unwrap();
 }
 
@@ -76,11 +78,12 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
             second_keys.push(keys_2[i].as_ref());
         }
         b.iter(|| {
-            bmt.insert(Some(&root_hash), &mut second_keys[0..*index].to_vec(), &mut second_data[0..*index].to_vec());
+            bmt.insert(Some(&root_hash), &mut second_keys[0..*index].to_vec(), &mut second_data[0..*index].to_vec()).unwrap();
         })
     }, vec![1, 10, 100]);
+    #[cfg(any(feature = "use_rocksdb"))]
     let path = PathBuf::from("db");
-    #[cfg(feature = "use_rocksdb")]
+    #[cfg(any(feature = "use_rocksdb"))]
         remove_dir_all(&path).unwrap();
 }
 
@@ -108,10 +111,10 @@ fn get_from_hash_tree_benchmark(c: &mut Criterion) {
             keys_to_get.push(keys_[i].as_ref());
         }
         b.iter(|| {
-            bmt.get(&root_hash, &mut keys_to_get.clone());
+            bmt.get(&root_hash, &mut keys_to_get.clone()).unwrap();
         })
     });
-    #[cfg(feature = "use_rocksdb")]
+    #[cfg(any(feature = "use_rocksdb"))]
     remove_dir_all(&path).unwrap();
 }
 
