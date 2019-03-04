@@ -24,7 +24,8 @@ pub mod integration_tests {
         let retrieved_value;
         let removed_retrieved_value;
         let data = vec![0xFFu8];
-        let path = PathBuf::from("db");
+        let seed = [0x00u8; 32];
+        let path = generate_path(seed);
         {
             let key = vec![0xAAu8];
             let mut values = vec![data.as_ref()];
@@ -71,7 +72,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_an_item_out_of_a_simple_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x01u8; 32];
+        let path = generate_path(seed);
         let key = vec![0xAAu8];
         let value = vec![0xFFu8];
 
@@ -85,7 +87,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_fails_to_get_from_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x02u8; 32];
+        let path = generate_path(seed);
         let key = vec![0x00u8];
         let root_key = vec![0x01u8];
 
@@ -99,7 +102,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_fails_to_get_a_nonexistent_item() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x03u8; 32];
+        let path = generate_path(seed);
         let key = vec![0xAAu8];
         let value = vec![0xFFu8];
 
@@ -116,7 +120,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_small_balanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x04u8; 32];
+        let path = generate_path(seed);
         let mut keys = Vec::with_capacity(8);
         let mut values = Vec::with_capacity(8);
         for i in 0..8 {
@@ -141,7 +146,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_small_unbalanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x05u8; 32];
+        let path = generate_path(seed);
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(7);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(7);
         for i in 0..7 {
@@ -165,7 +171,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_medium_balanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x06u8; 32];
+        let path = generate_path(seed);
 
         let num_leaves = 256;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -178,7 +185,7 @@ pub mod integration_tests {
         let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
 
-        let mut bmt = Tree::new(8)?;
+        let mut bmt = Tree::open(&path, 8)?;
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
@@ -193,7 +200,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_medium_unbalanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x07u8; 32];
+        let path = generate_path(seed);
         let num_leaves = 255;
         let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -220,7 +228,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_large_balanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x08u8; 32];
+        let path = generate_path(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
             let num_leaves = 8196;
@@ -252,7 +261,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_large_unbalanced_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x09u8; 32];
+        let path = generate_path(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
             let num_leaves = 8195;
@@ -283,7 +293,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_gets_items_from_a_complex_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x10u8; 32];
+        let path = generate_path(seed);
 
         // Tree description
         // Node (Letter)
@@ -343,7 +354,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_returns_the_same_number_of_values_as_keys() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x11u8; 32];
+        let path = generate_path(seed);
 
         let initial_key = vec![0x00u8];
         let initial_value = vec![0xFFu8];
@@ -375,7 +387,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_two_leaf_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x12u8; 32];
+        let path = generate_path(seed);
 
         let key_values = vec![
             vec![0x00u8],
@@ -399,7 +412,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_two_leaf_nodes_into_empty_tree_with_first_bit_split() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x13u8; 32];
+        let path = generate_path(seed);
 
         let key_values = vec![
             vec![0x00u8],
@@ -423,7 +437,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_leaf_node_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x14u8; 32];
+        let path = generate_path(seed);
 
         let key = vec![0xAAu8];
         let data = vec![0xBBu8];
@@ -439,7 +454,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x15u8; 32];
+        let path = generate_path(seed);
 
         let key_values = vec![
             vec![0xAAu8],  // 1010_1010
@@ -460,7 +476,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_small_even_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x016u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xAAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -483,7 +500,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_small_odd_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x17u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -506,7 +524,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_medium_even_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x18u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -529,7 +548,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_medium_odd_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x19u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -553,7 +573,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_large_even_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x20u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -579,7 +600,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_large_odd_amount_of_nodes_into_empty_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x21u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -605,7 +627,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_a_leaf_node_into_a_tree_with_one_item() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x22u8; 32];
+        let path = generate_path(seed);
 
         let first_key = vec![0xAAu8];
         let first_data = vec![0xBBu8];
@@ -626,7 +649,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_a_small_tree_with_existing_items() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x23u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0x4d, 0x1b, 0xf8, 0xad, 0x2d, 0x5d, 0x2e, 0xcb, 0x59, 0x75, 0xc4, 0xb9,
             0x4d, 0xf9, 0xab, 0x5e, 0xf5, 0x12, 0xd4, 0x5c, 0x3d, 0xa0, 0x73, 0x4b,
@@ -665,7 +689,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_multiple_leaf_nodes_into_a_tree_with_existing_items() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x24u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xCAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -705,7 +730,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_updates_an_existing_entry() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x25u8; 32];
+        let path = generate_path(seed);
 
         let key = vec![0xAAu8];
         let first_value = vec![0xBBu8];
@@ -729,7 +755,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_updates_multiple_existing_entries() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x26u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xEEu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -773,7 +800,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_does_not_panic_when_removing_a_nonexistent_node() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x27u8; 32];
+        let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
         let missing_root_hash = vec![0x00u8];
@@ -784,7 +812,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_removes_a_node() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x28u8; 32];
+        let path = generate_path(seed);
 
         let key = vec![0x00];
         let data = vec![0x01];
@@ -807,7 +836,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_removes_an_entire_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x29u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBBu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -841,7 +871,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_removes_an_old_root() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x30u8; 32];
+        let path = generate_path(seed);
 
         let first_key = vec![0x00u8];
         let first_data = vec![0x01u8];
@@ -864,7 +895,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_removes_a_small_old_tree() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x31u8; 32];
+        let path = generate_path(seed);
 
         let first_key = vec![0x00u8];
         let second_key = vec![0x01u8];
@@ -895,7 +927,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_removes_an_old_large_root() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x32u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xBAu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -961,7 +994,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_iterates_over_multiple_inserts_correctly() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x33u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xEFu8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -978,7 +1012,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_not_descendants() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x34u8; 32];
+        let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
 
@@ -1003,7 +1038,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_inserts_with_compressed_nodes_that_are_descendants() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x35u8; 32];
+        let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
 
@@ -1026,7 +1062,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_correctly_iterates_removals() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x36u8; 32];
+        let path = generate_path(seed);
 
         let seed = [0xA8u8; 32];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -1042,7 +1079,8 @@ pub mod integration_tests {
 
     #[test]
     fn it_correctly_increments_a_leaf_reference_count() -> BinaryMerkleTreeResult<()> {
-        let path = PathBuf::from("db");
+        let seed = [0x37u8; 32];
+        let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
 
@@ -1057,6 +1095,13 @@ pub mod integration_tests {
         assert_eq!(item, expected_item);
         tear_down(&path);
         Ok(())
+    }
+
+    fn generate_path(seed: [u8; 32]) -> PathBuf {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+        let mut suffix = rng.gen_range(1000, 10000);
+        let path_string = format!("Test_DB_{}", suffix);
+        PathBuf::from(path_string)
     }
 
     fn tear_down(_path: &PathBuf) {
@@ -1092,7 +1137,7 @@ pub mod integration_tests {
     fn iterate_inserts(entries_per_insert: usize,
                        iterations: usize,
                        rng: &mut StdRng,
-                       bmt: &mut HashTree) -> BinaryMerkleTreeResult<(Vec<Option<Vec<u8>>>, Vec<Vec<Vec<u8>>>, Vec<Vec<Option<Vec<u8>>>>)> {
+                       bmt: &mut Tree) -> BinaryMerkleTreeResult<(Vec<Option<Vec<u8>>>, Vec<Vec<Vec<u8>>>, Vec<Vec<Option<Vec<u8>>>>)> {
         let mut state_roots: Vec<Option<Vec<u8>>> = Vec::with_capacity(iterations);
         let mut key_groups = Vec::with_capacity(iterations);
         let mut data_groups = Vec::with_capacity(iterations);
@@ -1140,7 +1185,7 @@ pub mod integration_tests {
                         iterations: usize,
                         removal_frequency: usize,
                         rng: &mut StdRng,
-                        bmt: &mut HashTree) -> BinaryMerkleTreeResult<()> {
+                        bmt: &mut Tree) -> BinaryMerkleTreeResult<()> {
         let inserts = iterate_inserts(entries_per_insert, iterations, rng, bmt)?;
         let state_roots = inserts.0;
         let key_groups = inserts.1;
