@@ -8,10 +8,11 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
 
 ```rust
     extern crate starling;
+    use std::error::Error;
     use starling::tree::HashTree;
     
-    fn main() {
-        let tree = HashTree::new(8);
+    fn main() -> Result<OK(), Error> {
+        let tree = HashTree::new(8)?;
         
         // Keys must be slices of u8 arrays or vectors
         let mut key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
@@ -21,12 +22,13 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
         let value: Vec<u8> = vec![0xDDu8];
         
         // Inserting an element changes the root node
-        let root = tree.insert(None, &mut [key.as_ref()], &mut [value.as_ref()]).unwrap();
+        let root = tree.insert(None, &mut [key.as_ref()], &mut [value.as_ref()])?;
         
-        let retrieved_value = tree.get(root.as_ref(), &mut [key.as_ref()]).unwrap();
+        let retrieved_value = tree.get(root.as_ref(), &mut [key.as_ref()])?;
         
         // Removing a root only deletes elements that are referenced only by that root
-        tree.remove(root.as_ref()).unwrap();
+        tree.remove(root.as_ref())?;
+        Ok(())
     }
 ```
 
@@ -35,18 +37,55 @@ This structure can be used for small amounts of data, but all the data in the tr
 For larger numbers of items to store in the tree, it is recommended to connect the structure to a database by implementing the 
 Database trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
 
-You can take advantage of many of serde's serializing and deserializing data schemes 
-prior to putting it into a database via the features of this crate.  Additionally, there are several supported hashing schemes you can use via features in the crate.
+## Features
+Starling supports a number of serialization and hashing schemes for use in the tree, which should be selected based on 
+your performance and application needs.
+
+Currently integrated serialization schemes include:
+* ```bincode```
+* ```serde-json```
+* ```serde-cbor```
+* ```serde-yaml```
+* ```serde-pickle```
+* ```ron```
+
+It should be noted that any serialization scheme will work with starling, provided you implement the ```Encode``` and ```Decode``` traits for the node types.
+
+Currently integrated tree hashing schemes include:
+* ```blake2_rfc```
+* ```groestl```
+* ```SHA2``` via ```openssl```
+* ```SHA3``` via ```tiny-keccak```
+* ```Keccak``` via ```tiny-keccak```
+
+You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme.
+
+You can also use RocksDB to handle storing and loading from disk.
+You can use the ```RocksTreee``` with a serialization scheme via the ```--features="use_rocksdb use_bincode"``` command line flags 
+or by enabling the features in your Cargo.toml manifest.
+
+Some enabled features must be used in combination, or you must implement the required traits yourself (E.g. using the 
+```use_rocksdb``` feature alone will generate a compiler error, you must also select a serialization scheme, such as ```use_bincode``` or implement it for your data).
+
+Finally, you can take advantage of the ```use_hashbrown``` feature to use the crate which will soon replace the existing ```HashMap```,
+providing up to 10% performance gains.  This feature will be deprecated once ```hashbrown``` is incorporated into the standard library.
+
+## Full Customization
 
 To use the full power of the Merkle-BIT structure, you should customize the structures stored in the tree to match your needs.  
+If you provide your own implementation of the traits for each component of the tree structure, the tree can utilize them over the default implementation.
 ```rust
     extern crate starling;
     use starling::merkle_bit::MerkleBIT;
     use std::path::PathBuf;
+    use std::error::Error;
     
-    fn main() {
+    fn main() -> Result<Ok, Error> {
         // A path to a database to be opened
         let path = PathBuf::new("some path");
+        
+        // Your own database library
+        let db = YourDB::open(&path);
         
         // These type annotations are required to specialize the Merkle BIT
         // Check the documentation for the required trait bounds for each of these types.
@@ -57,7 +96,7 @@ To use the full power of the Merkle-BIT structure, you should customize the stru
                              NodeType, 
                              HasherType, 
                              HashResultType, 
-                             ValueType>::new(path, 8);
+                             ValueType>::from_db(db, depth);
                              
         // Keys must be slices of u8 arrays or vectors
         let key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
@@ -73,7 +112,7 @@ To use the full power of the Merkle-BIT structure, you should customize the stru
         
         // Removing a tree root
         mbit.remove(root.as_ref())?;
-        
+        Ok(())
     }
 ```
 
