@@ -587,23 +587,38 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
     }
 
     fn calc_min_split_index(&self, keys: &[&[u8]], location: Option<&[u8]>, branch: Option<&BranchType>) -> BinaryMerkleTreeResult<(Vec<u8>, usize)> {
-        let mut min_split_index = keys[0].len() * 8;
-        let branch_key = self.get_proof_key(location, branch)?;
-        let mut all_keys = keys.to_owned();
-        all_keys.push(branch_key.as_ref());
-        for i in 0..all_keys.len() - 1 {
-            for j in 0..all_keys[0].len() * 8 {
-                let left = choose_branch(all_keys[i], j);
-                let right = choose_branch(all_keys[i + 1], j);
-                if left != right {
-                    if j < min_split_index {
-                        min_split_index = j;
-                    }
-                    break;
-                }
-            }
+        let mut min_key;
+        if let Some(m) = keys.iter().min() {
+            min_key = *m;
+        } else {
+            return Err(Box::new(Exception::new("No keys to calculate minimum split index")));
         }
-        Ok((branch_key, min_split_index))
+
+        let mut max_key;
+        if let Some(m) = keys.iter().max() {
+            max_key = *m;
+        } else {
+            return Err(Box::new(Exception::new("No keys to calculate minimum split index")));
+        }
+
+        let branch_key = self.get_proof_key(location, branch)?;
+
+        if &branch_key[..] < min_key {
+            min_key = &branch_key;
+        } else if &branch_key[..] > max_key {
+            max_key = &branch_key;
+        }
+
+        let mut split_bit = min_key.len() * 8;
+        for i in 0..min_key.len() {
+            if min_key[i] == max_key[i] {
+                continue;
+            }
+            let xor_key = min_key[i] ^ max_key[i];
+            split_bit = i * 8 + (7 - (xor_key as f32).log2().floor() as usize);
+            break;
+        }
+        Ok((branch_key, split_bit))
     }
 
     fn insert_leaves(&mut self, keys: &[&[u8]], values: &&[&ValueType]) -> BinaryMerkleTreeResult<Vec<HashResultType>> {
