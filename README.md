@@ -11,14 +11,13 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
     use std::error::Error;
     use starling::tree::HashTree;
     
-    fn main() -> Result<OK(), Error> {
+    fn main() -> Result<Ok(), Error> {
         let tree = HashTree::new(8)?;
         
         // Keys must be slices of u8 arrays or vectors
         let mut key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
         
-        // The HashTree only deals with byte vectors,
-        // you must serialize your object prior to putting it into the HashTree
+        // Value to be put into the tree
         let value: Vec<u8> = vec![0xDDu8];
         
         // Inserting an element changes the root node
@@ -61,7 +60,7 @@ Currently integrated tree hashing schemes include:
 You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme.
 
 You can also use RocksDB to handle storing and loading from disk.
-You can use the ```RocksTreee``` with a serialization scheme via the ```--features="use_rocksdb use_bincode"``` command line flags 
+You can use the ```RocksTree``` with a serialization scheme via the ```--features="use_rocksdb use_bincode"``` command line flags 
 or by enabling the features in your Cargo.toml manifest.
 
 Some enabled features must be used in combination, or you must implement the required traits yourself (E.g. using the 
