@@ -662,33 +662,30 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
         let mut split_indices = Vec::with_capacity(tree_ref_queue.len() - 1);
         for i in 0..tree_ref_queue.len() - 1 {
-            let start_len = split_indices.len();
-            debug_assert!(!tree_ref_queue[i].key.is_empty());
-            debug_assert!(!tree_ref_queue[i + 1].key.is_empty());
-            debug_assert_ne!(tree_ref_queue[i].key, tree_ref_queue[i + 1].key);
-            for j in 0..tree_ref_queue[i].key.len() * 8 {
-                let left_branch = choose_branch(&tree_ref_queue[i].key, j);
-                let right_branch = choose_branch(&tree_ref_queue[i + 1].key, j);
-
-                if left_branch != right_branch {
-                    split_indices.push(vec![i, j]);
-                    break;
-                } else if j == tree_ref_queue[i].key.len() * 8 - 1 {
+            for j in 0..tree_ref_queue[i].key.len() {
+                if j == tree_ref_queue[i].key.len() - 1 && &tree_ref_queue[i].key[j] == &tree_ref_queue[i + 1].key[j] {
                     // The keys are the same and don't diverge
                     return Err(Box::new(Exception::new("Attempted to insert item with duplicate keys")));
                 }
-            }
+                // Skip bytes until we find a difference
+                if &tree_ref_queue[i].key[j] == &tree_ref_queue[i + 1].key[j] {
+                    continue;
+                }
 
-            debug_assert_eq!(split_indices.len(), start_len + 1);
+                // Find the bit index of the first difference
+                let xor_key = &tree_ref_queue[i].key[j] ^ &tree_ref_queue[i + 1].key[j];
+                let split_bit = j * 8 + (7 - ((xor_key as f32).log2().floor()) as usize);
+
+                split_indices.push([i, split_bit]);
+                break;
+            }
         }
-        debug_assert_eq!(split_indices.len(), tree_ref_queue.len() - 1);
 
         split_indices.sort_by(|a, b| {
             a[1].cmp(&b[1]).reverse()
         });
 
         while !tree_ref_queue.is_empty() {
-            let start_len = tree_ref_queue.len();
             if tree_ref_queue.len() == 1 {
                 self.db.batch_write()?;
                 let root;
@@ -743,7 +740,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             self.db.insert(branch_node_location.as_ref(), &branch_node)?;
             let new_tree_ref = TreeRef::new(tree_ref.key, branch_node_location.as_ref().to_vec(), count);
             tree_ref_queue.insert(max_index, new_tree_ref);
-            debug_assert_eq!(tree_ref_queue.len(), start_len - 1);
         }
 
         Err(Box::new(Exception::new("Corrupt merkle tree")))
