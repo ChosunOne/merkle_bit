@@ -6,7 +6,7 @@ description = "This tree structure is a binary merkle tree with branch compressi
 repository = "https://github.com/ChosunOne/merkle_bit"
 keywords = ["binary", "merkle", "tree", "patricia"]
 categories = ["data-structures", "memory-management"]
-license = "MIT"
+license = "MIT OR Apache-2.0"
 readme = "README.md"
 edition = "2018"
 
