@@ -492,7 +492,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
-                        debug_assert!(!other_key.is_empty());
                         let count;
                         let refs = one_node.get_references() + 1;
                         let mut new_one_node = NodeType::new();
@@ -520,7 +519,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
-                        debug_assert!(!other_key.is_empty());
                         let count;
                         let refs = zero_node.get_references() + 1;
                         let mut new_zero_node = NodeType::new();
