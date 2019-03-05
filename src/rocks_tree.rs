@@ -26,7 +26,14 @@ impl<ValueType> RocksTree<ValueType>
     where ValueType: Encode + Decode {
     pub fn open(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = RocksDB::open(path)?;
-        let tree = MerkleBIT::from_db(db, depth).unwrap();
+        let tree = MerkleBIT::from_db(db, depth)?;
+        Ok(RocksTree {
+            tree
+        })
+    }
+
+    pub fn from_db(db: RocksDB, depth: usize) -> BinaryMerkleTreeResult<Self> {
+        let tree = MerkleBIT::from_db(db, depth)?;
         Ok(RocksTree {
             tree
         })

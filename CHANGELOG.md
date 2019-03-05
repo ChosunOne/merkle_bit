@@ -1,6 +1,7 @@
 # 2.1.0
-## Multiple Database Support
-* You can now use some popular databases in addition to the existing serialization schemes (or with your own)!
+## Database Support
+* The code has been restructured to make using some popular databases in addition to the existing serialization schemes (or with your own) much easier.  
+Please see the ```rocks_tree.rs``` and ```rocksdb.rs``` files for an example on how to integrate your database with the existing tree.
 * Add RocksDB support via the ```use_rocksdb``` feature 
 ## Structural Changes
 * Many files have been split up into multiple other modules.  
