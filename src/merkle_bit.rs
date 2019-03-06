@@ -1,6 +1,5 @@
 use std::path::PathBuf;
 use std::error::Error;
-use std::fmt::Debug;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
 use std::collections::{BinaryHeap, VecDeque};
@@ -33,20 +32,9 @@ pub enum NodeVariant<BranchType, LeafType, DataType>
     Data(DataType),
 }
 
-#[derive(Debug, PartialEq)]
-enum BranchSplit {
-    Zero,
-    One,
-}
-
-struct SplitPairs<'a> {
-    zeros: &'a [&'a [u8]],
-    ones: &'a [&'a [u8]],
-}
-
 struct TreeCell<'a, NodeType> {
     keys: &'a [&'a [u8]],
-    node: Option<NodeType>,
+    node: NodeType,
     depth: usize,
 }
 
@@ -63,17 +51,8 @@ impl Ord for TreeRef {
     }
 }
 
-impl<'a> SplitPairs<'a> {
-    pub fn new(zeros: &'a [&'a [u8]], ones: &'a [&'a [u8]]) -> SplitPairs<'a> {
-        SplitPairs {
-            zeros,
-            ones,
-        }
-    }
-}
-
 impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
-    pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: Option<NodeType>, depth: usize) -> TreeCell<'a, NodeType>
+    pub fn new<BranchType, LeafType, DataType>(keys: &'a [&'a [u8]], node: NodeType, depth: usize) -> TreeCell<'a, NodeType>
         where BranchType: Branch,
               LeafType: Leaf,
               DataType: Data {
@@ -95,28 +74,24 @@ impl TreeRef {
     }
 }
 
-fn choose_branch(key: &[u8], bit: usize) -> BranchSplit {
+fn choose_zero(key: &[u8], bit: usize) -> bool {
     let index = bit / 8;
     let shift = bit % 8;
     let extracted_bit = (key[index] >> (7 - shift)) & 1;
-    if extracted_bit == 0 {
-        BranchSplit::Zero
-    } else {
-        BranchSplit::One
-    }
+    extracted_bit == 0
 }
 
-fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8]], bit: usize) -> SplitPairs {
+fn split_pairs<'a>(sorted_pairs: &'a[&'a[u8]], bit: usize) -> (&'a[&'a[u8]], &'a[&'a[u8]]) {
     if sorted_pairs.is_empty() {
-        return SplitPairs::new(&sorted_pairs[0..0], &sorted_pairs[0..0]);
+        return (&sorted_pairs[0..0], &sorted_pairs[0..0]);
     }
 
-    if let BranchSplit::Zero = choose_branch(sorted_pairs[sorted_pairs.len() - 1], bit) {
-        return SplitPairs::new(&sorted_pairs[0..sorted_pairs.len()], &sorted_pairs[0..0]);
+    if choose_zero(sorted_pairs[sorted_pairs.len() - 1], bit) {
+        return (&sorted_pairs[0..sorted_pairs.len()], &sorted_pairs[0..0]);
     }
 
-    if let BranchSplit::One = choose_branch(sorted_pairs[0], bit) {
-        return SplitPairs::new(&sorted_pairs[0..0], &sorted_pairs[0..sorted_pairs.len()]);
+    if !choose_zero(sorted_pairs[0], bit) {
+        return (&sorted_pairs[0..0], &sorted_pairs[0..sorted_pairs.len()]);
     }
 
     let mut min = 0;
@@ -124,15 +99,14 @@ fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8]], bit: usize) -> SplitPairs {
 
     while max - min > 1 {
         let bisect = (max - min) / 2 + min;
-        match choose_branch(sorted_pairs[bisect], bit) {
-            BranchSplit::Zero => min = bisect,
-            BranchSplit::One => max = bisect
+        if choose_zero(sorted_pairs[bisect], bit) {
+            min = bisect;
+        } else {
+            max = bisect;
         }
     }
 
-    let split = sorted_pairs.split_at(max);
-
-    SplitPairs::new(split.0, split.1)
+    sorted_pairs.split_at(max)
 }
 
 /// Binary searches this sorted slice with a comparator function.
@@ -174,14 +148,13 @@ fn binary_search<T, F>(list: &VecDeque<T>, comparator: F) -> Result<usize, usize
 /// # Properties
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
-pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
     where DatabaseType: Database<NodeType=NodeType>,
           BranchType: Branch,
           LeafType: Leaf + Clone,
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType, ValueType>,
           HasherType: Hasher,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
           ValueType: Decode + Encode {
     db: DatabaseType,
     depth: usize,
@@ -190,19 +163,17 @@ pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, Has
     data: PhantomData<*const DataType>,
     node: PhantomData<*const NodeType>,
     hasher: PhantomData<*const HasherType>,
-    hash_result: PhantomData<*const HashResultType>,
     value: PhantomData<*const ValueType>,
 }
 
-impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
-MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, HashResultType, ValueType>
+impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
     where DatabaseType: Database<NodeType=NodeType>,
           BranchType: Branch,
           LeafType: Leaf + Clone,
           DataType: Data,
           NodeType: Node<BranchType, LeafType, DataType, ValueType>,
-          HasherType: Hasher<HashType=HasherType, HashResultType=HashResultType>,
-          HashResultType: AsRef<[u8]> + Clone + Eq + Debug + PartialOrd,
+          HasherType: Hasher<HashType=HasherType>,
           ValueType: Decode + Encode {
     /// Create a new MerkleBIT from a saved database
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -215,7 +186,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             data: PhantomData,
             node: PhantomData,
             hasher: PhantomData,
-            hash_result: PhantomData,
             value: PhantomData,
         })
     }
@@ -230,7 +200,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             data: PhantomData,
             node: PhantomData,
             hasher: PhantomData,
-            hash_result: PhantomData,
             value: PhantomData,
         })
     }
@@ -261,7 +230,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
         let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
 
-        let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(&keys, Some(root_node), 0);
+        let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
 
         cell_queue.push_front(root_cell);
 
@@ -269,21 +238,13 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             let tree_cell;
             if let Some(c) = cell_queue.pop_front() {
                 tree_cell = c;
-            } else {
-                return Err(Box::new(Exception::new("Empty cell queue")));
-            }
+            } else { unreachable!(); }
 
             if tree_cell.depth > self.depth {
                 return Err(Box::new(Exception::new("Depth of merkle tree exceeded")));
             }
 
-            let node;
-            match tree_cell.node {
-                Some(n) => node = n,
-                None => {
-                    continue;
-                }
-            }
+            let node = tree_cell.node;
 
             match node.get_variant()? {
                 NodeVariant::Branch(n) => {
@@ -295,7 +256,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         hasher.update(n.get_zero());
                         hasher.update(n.get_one());
                         let location = hasher.finalize();
-                        self.calc_min_split_index(&tree_cell.keys, Some(location.as_ref()), None)?
+                        self.calc_min_split_index(&tree_cell.keys, Some(&location), None)?
                     };
                     let branch_key = key_and_index.0;
                     let min_split_index = key_and_index.1;
@@ -309,28 +270,21 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(n.get_one())? {
                         let one_node = o;
-                        if !split.ones.is_empty() {
-                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
+                        if !split.1.is_empty() {
+                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.1, one_node, tree_cell.depth + 1);
                             cell_queue.push_front(new_cell);
                         }
-                    } else {
-                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, None, tree_cell.depth);
-                        cell_queue.push_front(new_cell);
                     }
 
                     if let Some(z) = self.db.get_node(n.get_zero())? {
                         let zero_node = z;
-                        if !split.zeros.is_empty() {
-                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
+                        if !split.0.is_empty() {
+                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.0, zero_node, tree_cell.depth + 1);
                             cell_queue.push_front(new_cell);
                         }
                     }
                 }
                 NodeVariant::Leaf(n) => {
-                    if tree_cell.keys.is_empty() {
-                        return Err(Box::new(Exception::new("No key with which to match the leaf key")));
-                    }
-
                     if let Some(d) = self.db.get_node(n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant()? {
                             leaf_map.insert(n.get_key().to_owned(), data.get_value().to_owned());
@@ -374,15 +328,15 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         {
             // Sort keys and values
             let mut value_map = HashMap::new();
-            for i in 0..keys.len() {
-                value_map.insert(keys[i], values[i]);
+            for (key, value) in keys.iter().zip(values.iter()) {
+                value_map.insert(*key, *value);
             }
 
             keys.sort();
 
-            for i in 0..keys.len() {
-                if let Some(v) = value_map.get(keys[i]) {
-                    values[i] = *v;
+            for (key, value) in keys.iter().zip(values.iter_mut()) {
+                if let Some(v) = value_map.get(key) {
+                    *value = *v;
                 }
             }
         }
@@ -390,8 +344,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         let nodes = self.insert_leaves(keys, &&values[..])?;
 
         let mut tree_refs = Vec::with_capacity(keys.len());
-        for i in 0..keys.len() {
-            let tree_ref = TreeRef::new(keys[i].to_vec(), nodes[i].as_ref().to_vec(), 1);
+        for (loc, key) in nodes.into_iter().zip(keys.iter()) {
+            let tree_ref = TreeRef::new(key.to_vec(), loc, 1);
             tree_refs.push(Rc::new(RefCell::new(tree_ref)));
         }
 
@@ -399,35 +353,28 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             // Nodes that form the merkle proof for the new tree
             let mut proof_nodes = Vec::with_capacity(keys.len());
 
-            let root_node;
-            if let Some(m) = self.db.get_node(n.as_ref())? {
-                root_node = m;
+            let root_node = if let Some(m) = self.db.get_node(n.as_ref())? {
+                m
             } else {
                 return Err(Box::new(Exception::new("Could not find previous root")));
-            }
+            };
 
             let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
-            let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(&keys, Some(root_node), 0);
+            let root_cell: TreeCell<NodeType> = TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
             cell_queue.push_front(root_cell);
 
             while !cell_queue.is_empty() {
-                let tree_cell;
-                if let Some(c) = cell_queue.pop_front() {
-                    tree_cell = c;
+                let tree_cell = if let Some(c) = cell_queue.pop_front() {
+                    c
                 } else {
-                    return Err(Box::new(Exception::new("Empty cell queue")));
-                }
+                    unreachable!();
+                };
 
                 if tree_cell.depth > self.depth {
                     return Err(Box::new(Exception::new("Depth of merkle tree exceeded")));
                 }
 
-                let mut node;
-                if let Some(n) = tree_cell.node {
-                    node = n;
-                } else {
-                    continue;
-                }
+                let node = tree_cell.node;
 
                 let branch;
                 let mut refs = node.get_references();
@@ -452,7 +399,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         for b in &tree_refs {
                             let b_key = &RefCell::borrow(b).key;
                             let b_location = &RefCell::borrow(b).location;
-                            if &b_key[..] == key && &b_location[..] == location.as_ref() {
+                            if &b_key[..] == key && b_location == &location {
                                 // This value is not being updated, just update its reference count
                                 old = true;
                                 break;
@@ -479,7 +426,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                             continue;
                         }
 
-                        let tree_ref = TreeRef::new(key.to_vec(), location.as_ref().to_vec(), 1);
+                        let tree_ref = TreeRef::new(key.to_vec(), location, 1);
                         proof_nodes.push(Rc::new(RefCell::new(tree_ref)));
                         continue;
                     }
@@ -503,12 +450,12 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     descendants = Self::check_descendants(&tree_cell.keys, &branch, &branch_key, min_split_index);
 
                     if descendants.is_empty() {
-                        let tree_ref = TreeRef::new(branch_key, location.as_ref().to_vec(), branch.get_count());
+                        let tree_ref = TreeRef::new(branch_key, location, branch.get_count());
                         refs += 1;
                         let mut new_node = NodeType::new();
                         new_node.set_references(refs);
                         new_node.set_branch(branch);
-                        self.db.insert(location.as_ref(), &new_node)?;
+                        self.db.insert(&tree_ref.location, &new_node)?;
                         proof_nodes.push(Rc::new(RefCell::new(tree_ref)));
                         continue;
                     }
@@ -517,8 +464,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 split = split_pairs(descendants, branch.get_split_index() as usize);
                 if let Some(o) = self.db.get_node(branch.get_one())? {
                     let one_node = o;
-                    if !split.ones.is_empty() {
-                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.ones, Some(one_node), tree_cell.depth + 1);
+                    if !split.1.is_empty() {
+                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.1, one_node, tree_cell.depth + 1);
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
@@ -544,8 +491,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 }
                 if let Some(z) = self.db.get_node(branch.get_zero())? {
                     let zero_node = z;
-                    if !split.zeros.is_empty() {
-                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.zeros, Some(zero_node), tree_cell.depth + 1);
+                    if !split.0.is_empty() {
+                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(split.0, zero_node, tree_cell.depth + 1);
                         cell_queue.push_front(new_cell);
                     } else {
                         let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
@@ -590,8 +537,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         for i in 0..keys.len() {
             let mut descendant = true;
             for j in min_split_index..branch.get_split_index() as usize {
-                let left = choose_branch(&branch_key, j);
-                let right = choose_branch(keys[i], j);
+                let left = choose_zero(&branch_key, j);
+                let right = choose_zero(keys[i], j);
                 if left != right {
                     descendant = false;
                     break;
@@ -649,8 +596,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         Ok((branch_key, split_bit))
     }
 
-    fn insert_leaves(&mut self, keys: &[&[u8]], values: &&[&ValueType]) -> BinaryMerkleTreeResult<Vec<HashResultType>> {
-        let mut nodes: Vec<HashResultType> = Vec::with_capacity(keys.len());
+    fn insert_leaves(&mut self, keys: &[&[u8]], values: &&[&ValueType]) -> BinaryMerkleTreeResult<Vec<Vec<u8>>> {
+        let mut nodes = Vec::with_capacity(keys.len());
         for i in 0..keys.len() {
             // Create data node
             let mut data = DataType::new();
@@ -750,8 +697,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             let split_index;
             {
                 let max_tree_ref =
-                    if let Some(s) = split_indices.pop() { s }
-                    else { return Err(Box::new(Exception::new("Failed to get split index"))); };
+                    if let Some(s) = split_indices.pop() { s } else { return Err(Box::new(Exception::new("Failed to get split index"))); };
                 max_index = match binary_search(&tree_ref_queue, |x| {
                     if Rc::ptr_eq(&x, &max_tree_ref.1) {
                         return Ordering::Equal;
@@ -816,7 +762,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             self.db.insert(branch_node_location.as_ref(), &branch_node)?;
             // Update reference of next_tree_ref in split_indices to point to the new_tree_ref
             next_tree_ref.borrow_mut().key = unwrapped_tree_ref.key;
-            next_tree_ref.borrow_mut().location = branch_node_location.as_ref().to_vec();
+            next_tree_ref.borrow_mut().location = branch_node_location.into();
             next_tree_ref.borrow_mut().count = count;
 
             tree_ref_queue.insert(max_index, Rc::clone(&next_tree_ref));
@@ -876,11 +822,15 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
 
     /// Remove all items with less than 1 reference under the given root.
     pub fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
-        let mut nodes = Vec::with_capacity(128);
-        nodes.push(root_hash.to_vec());
+        let mut nodes = VecDeque::with_capacity(128);
+        nodes.push_front(root_hash.to_vec());
 
         while !nodes.is_empty() {
-            let node_location = nodes.remove(0);
+            let node_location = if let Some(l) = nodes.pop_front() {
+                l
+            } else {
+                return Err(Box::new(Exception::new("Empty node queue")));
+            };
 
             let mut node;
             if let Some(n) = self.db.get_node(&node_location)? {
@@ -900,8 +850,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                     if refs == 0 {
                         let zero = b.get_zero();
                         let one = b.get_one();
-                        nodes.push(zero.to_vec());
-                        nodes.push(one.to_vec());
+                        nodes.push_back(zero.to_vec());
+                        nodes.push_back(one.to_vec());
                         self.db.remove(&node_location)?;
                         continue;
                     }
@@ -910,7 +860,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 NodeVariant::Leaf(l) => {
                     if refs == 0 {
                         let data = l.get_data();
-                        nodes.push(data.to_vec());
+                        nodes.push_back(data.to_vec());
                         self.db.remove(&node_location)?;
                         continue;
                     }
@@ -943,11 +893,11 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i < 4 {
-                expected_branch = BranchSplit::Zero;
+                expected_branch = true;
             } else {
-                expected_branch = BranchSplit::One;
+                expected_branch = false;
             }
-            let branch = choose_branch(&key, i);
+            let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -958,22 +908,22 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
-                expected_branch = BranchSplit::Zero;
+                expected_branch = true;
             } else {
-                expected_branch = BranchSplit::One;
+                expected_branch = false;
             }
-            let branch = choose_branch(&key, i);
+            let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
         let key = vec![0xAA];
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
-                expected_branch = BranchSplit::One;
+                expected_branch = false;
             } else {
-                expected_branch = BranchSplit::Zero;
+                expected_branch = true;
             }
-            let branch = choose_branch(&key, i);
+            let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -984,11 +934,11 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i == 1 || i == 2 || i == 4 {
-                expected_branch = BranchSplit::One;
+                expected_branch = false;
             } else {
-                expected_branch = BranchSplit::Zero;
+                expected_branch = true;
             }
-            let branch = choose_branch(&key, i);
+            let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
 
@@ -996,11 +946,11 @@ pub mod tests {
         for i in 0..8 {
             let expected_branch;
             if i == 0 || i == 2 || i == 4 || i == 6 || i == 7 {
-                expected_branch = BranchSplit::One;
+                expected_branch = false;
             } else {
-                expected_branch = BranchSplit::Zero;
+                expected_branch = true;
             }
-            let branch = choose_branch(&key, i);
+            let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -1017,10 +967,10 @@ pub mod tests {
         let keys = key_vec;
 
         let result = split_pairs(&keys, 0);
-        assert_eq!(result.zeros.len(), 10);
-        assert_eq!(result.ones.len(), 0);
-        for i in 0..result.zeros.len() {
-            assert_eq!(*result.zeros[i], [0x00u8]);
+        assert_eq!(result.0.len(), 10);
+        assert_eq!(result.1.len(), 0);
+        for i in 0..result.0.len() {
+            assert_eq!(*result.0[i], [0x00u8]);
         }
     }
 
@@ -1031,10 +981,10 @@ pub mod tests {
             &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..],
             &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
         let result = split_pairs(&keys, 0);
-        assert_eq!(result.zeros.len(), 0);
-        assert_eq!(result.ones.len(), 10);
-        for i in 0..result.ones.len() {
-            assert_eq!(*result.ones[i], [0xFFu8]);
+        assert_eq!(result.0.len(), 0);
+        assert_eq!(result.1.len(), 10);
+        for i in 0..result.1.len() {
+            assert_eq!(*result.1[i], [0xFFu8]);
         }
     }
 
@@ -1046,13 +996,13 @@ pub mod tests {
             &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
             &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
         let result = split_pairs(&keys, 0);
-        assert_eq!(result.zeros.len(), 5);
-        assert_eq!(result.ones.len(), 5);
-        for i in 0..result.zeros.len() {
-            assert_eq!(*result.zeros[i], [0x00u8]);
+        assert_eq!(result.0.len(), 5);
+        assert_eq!(result.1.len(), 5);
+        for i in 0..result.0.len() {
+            assert_eq!(*result.0[i], [0x00u8]);
         }
-        for i in 0..result.ones.len() {
-            assert_eq!(*result.ones[i], [0xFFu8]);
+        for i in 0..result.1.len() {
+            assert_eq!(*result.1[i], [0xFFu8]);
         }
     }
 
@@ -1064,13 +1014,13 @@ pub mod tests {
             &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..], &zero_key[..],
             &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
         let result = split_pairs(&keys, 0);
-        assert_eq!(result.zeros.len(), 6);
-        assert_eq!(result.ones.len(), 5);
-        for i in 0..result.zeros.len() {
-            assert_eq!(*result.zeros[i], [0x00u8]);
+        assert_eq!(result.0.len(), 6);
+        assert_eq!(result.1.len(), 5);
+        for i in 0..result.0.len() {
+            assert_eq!(*result.0[i], [0x00u8]);
         }
-        for i in 0..result.ones.len() {
-            assert_eq!(*result.ones[i], [0xFFu8]);
+        for i in 0..result.1.len() {
+            assert_eq!(*result.1[i], [0xFFu8]);
         }
     }
 
@@ -1083,13 +1033,13 @@ pub mod tests {
             &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..], &one_key[..]];
 
         let result = split_pairs(&keys, 0);
-        assert_eq!(result.zeros.len(), 5);
-        assert_eq!(result.ones.len(), 6);
-        for i in 0..result.zeros.len() {
-            assert_eq!(*result.zeros[i], [0x00u8]);
+        assert_eq!(result.0.len(), 5);
+        assert_eq!(result.1.len(), 6);
+        for i in 0..result.0.len() {
+            assert_eq!(*result.0[i], [0x00u8]);
         }
-        for i in 0..result.ones.len() {
-            assert_eq!(*result.ones[i], [0xFFu8]);
+        for i in 0..result.1.len() {
+            assert_eq!(*result.1[i], [0xFFu8]);
         }
     }
 }

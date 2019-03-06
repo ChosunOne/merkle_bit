@@ -4,12 +4,11 @@ pub struct GroestlHasher(Groestl256);
 
 impl crate::traits::Hasher for GroestlHasher {
     type HashType = Self;
-    type HashResultType = Vec<u8>;
 
     fn new(_size: usize) -> Self {
         let hasher = Groestl256::new();
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.input(data); }
-    fn finalize(self) -> Self::HashResultType { self.0.result().to_vec() }
+    fn finalize(self) -> Vec<u8> { self.0.result().into_iter().collect() }
 }

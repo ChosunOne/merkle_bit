@@ -7,13 +7,12 @@ use crate::tree::tree_data::TreeData;
 use crate::tree::tree_node::TreeNode;
 use crate::tree_db::HashTreeDB;
 use crate::tree_hasher::TreeHasher;
-use crate::tree_hasher::TreeHashResult;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 
 pub struct HashTree<ValueType>
     where ValueType: Encode + Decode {
-    tree: MerkleBIT<HashTreeDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, TreeHashResult, ValueType>
+    tree: MerkleBIT<HashTreeDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, ValueType>
 }
 
 impl<ValueType> HashTree<ValueType>

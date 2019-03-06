@@ -1,3 +1,6 @@
+# 2.2.0
+* Remove ```HashResultType``` from the tree in favor of using standard ```Vec<u8>```.
+* Add benchmark for ```remove```.
 # 2.1.3
 * Improve performance for larger inserts
 * Fix benchmarks to run on stable

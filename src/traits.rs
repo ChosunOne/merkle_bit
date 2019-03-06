@@ -7,10 +7,9 @@ use crate::merkle_bit::NodeVariant;
 
 pub trait Hasher {
     type HashType;
-    type HashResultType;
     fn new(size: usize) -> Self::HashType;
     fn update(&mut self, data: &[u8]);
-    fn finalize(self) -> Self::HashResultType;
+    fn finalize(self) -> Vec<u8>;
 }
 
 pub trait Branch {
