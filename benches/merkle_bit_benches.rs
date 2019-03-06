@@ -31,16 +31,12 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
 
         let prepare = prepare_inserts(1000, &mut rng);
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
         let mut bmt = Tree::open(&path, 16).unwrap();
         b.iter(|| {
-            bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec()).unwrap();
+            bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index]).unwrap();
         });
     }, vec![1, 10, 100, 200, 500, 1000]);
     #[cfg(any(feature = "use_rocksdb"))]
@@ -59,26 +55,18 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
 
         let prepare = prepare_inserts(4096, &mut rng);
         let key_values = prepare.0;
-        let mut keys = vec![];
+        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
         let data_values = prepare.1;
-        let mut data = vec![];
-        for i in 0..data_values.len() {
-            data.push(data_values[i].as_ref());
-            keys.push(key_values[i].as_ref());
-        }
+        let mut data = data_values.iter().collect::<Vec<_>>();
+
         let mut bmt = Tree::open(&path, 16).unwrap();
-        let root_hash = bmt.insert(None, &mut keys.clone(), &mut data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
         let second = prepare_inserts(1000, &mut rng);
-        let mut second_data = vec![];
-        let mut second_keys = vec![];
-        let keys_2 = second.0;
-        let data_2 = second.1;
-        for i in 0..data_2.len() {
-            second_data.push(data_2[i].as_ref());
-            second_keys.push(keys_2[i].as_ref());
-        }
+        let mut second_keys = second.0.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut second_data = second.1.iter().collect::<Vec<_>>();
+
         b.iter(|| {
-            bmt.insert(Some(&root_hash), &mut second_keys[0..*index].to_vec(), &mut second_data[0..*index].to_vec()).unwrap();
+            bmt.insert(Some(&root_hash), &mut second_keys[0..*index], &mut second_data[0..*index]).unwrap();
         })
     }, vec![1, 10, 100, 200, 500, 1000]);
     #[cfg(any(feature = "use_rocksdb"))]
@@ -95,15 +83,11 @@ fn get_from_hash_tree_benchmark(c: &mut Criterion) {
 
     let prepare = prepare_inserts(4096, &mut rng);
     let key_values = prepare.0;
-    let mut keys = vec![];
+    let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
     let data_values = prepare.1;
-    let mut data = vec![];
-    for i in 0..data_values.len() {
-        data.push(data_values[i].as_ref());
-        keys.push(key_values[i].as_ref());
-    }
+    let mut data = data_values.iter().collect::<Vec<_>>();
     let mut bmt = Tree::open(&path, 16).unwrap();
-    let root_hash = bmt.insert(None, &mut keys.clone(), &mut data).unwrap();
+    let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
     c.bench_function("Get from BMT Benchmark", move |b| {
         let keys_ = key_values.clone();
         let mut keys_to_get = vec![];
