@@ -3,7 +3,7 @@ use std::error::Error;
 use std::fmt::Debug;
 use std::cmp::Ordering;
 use std::marker::PhantomData;
-use std::collections::VecDeque;
+use std::collections::{BinaryHeap, VecDeque};
 use std::rc::Rc;
 use std::cell::RefCell;
 use std::iter::FromIterator;
@@ -706,7 +706,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
         tree_refs.sort();
         let mut tree_ref_queue: VecDeque<Rc<RefCell<TreeRef>>> = VecDeque::from_iter(tree_refs);
 
-        let mut split_indices = Vec::with_capacity(tree_ref_queue.len() - 1);
+        let mut split_indices = BinaryHeap::with_capacity(tree_ref_queue.len() - 1);
         let keylen = RefCell::borrow(&tree_ref_queue[0]).key.len();
         for i in 0..tree_ref_queue.len() - 1 {
             let left_key = &RefCell::borrow(&tree_ref_queue[i]).key;
@@ -725,16 +725,10 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                 let xor_key = left_key[j] ^ right_key[j];
                 let split_bit = j * 8 + (7 - ((xor_key as f32).log2().floor()) as usize);
 
-                split_indices.push((Rc::clone(&tree_ref_queue[i]), split_bit));
+                split_indices.push((split_bit, Rc::clone(&tree_ref_queue[i])));
                 break;
             }
         }
-
-        split_indices.sort_by(|a, b| {
-            a.1.cmp(&b.1).reverse()
-        });
-
-        let mut split_indices_queue = VecDeque::from_iter(split_indices);
 
         while !tree_ref_queue.is_empty() {
             if tree_ref_queue.len() == 1 {
@@ -756,13 +750,13 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
             let split_index;
             {
                 let max_tree_ref =
-                    if let Some(s) = split_indices_queue.pop_front() { s }
+                    if let Some(s) = split_indices.pop() { s }
                     else { return Err(Box::new(Exception::new("Failed to get split index"))); };
                 max_index = match binary_search(&tree_ref_queue, |x| {
-                    if Rc::ptr_eq(&x, &max_tree_ref.0) {
+                    if Rc::ptr_eq(&x, &max_tree_ref.1) {
                         return Ordering::Equal;
                     } else {
-                        RefCell::borrow(x).key.cmp(&RefCell::borrow(&max_tree_ref.0).key)
+                        RefCell::borrow(x).key.cmp(&RefCell::borrow(&max_tree_ref.1).key)
                     }
                 }) {
                     Ok(index) => {
@@ -772,7 +766,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Ha
                         return Err(Box::new(Exception::new("Failed to find tree ref")));
                     }
                 };
-                split_index = max_tree_ref.1 as u32;
+                split_index = max_tree_ref.0 as u32;
             }
 
             let mut branch = BranchType::new();
