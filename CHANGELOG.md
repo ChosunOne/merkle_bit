@@ -1,9 +1,11 @@
+# 2.1.3
+* Improve performance for larger inserts
+* Fix benchmarks to run on stable
 # 2.1.2
 * Allow ```Hashtree``` to accept any type implementing ```Encode``` and ```Decode```.
 # 2.1.1
 * Significant performance improvement for reads, as much as 30% over the last version.
 * Insert performance has been improved by as much as 10% in most cases.
-
 # 2.1.0
 ## Database Support
 * The code has been restructured to make using some popular databases in addition to the existing serialization schemes (or with your own) much easier.  
