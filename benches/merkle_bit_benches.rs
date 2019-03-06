@@ -17,7 +17,7 @@ use starling::hash_tree::HashTree;
 use starling::rocks_tree::RocksTree;
 
 #[cfg(not(any(feature = "use_rocksdb")))]
-type Tree = HashTree;
+type Tree = HashTree<Vec<u8>>;
 
 #[cfg(feature = "use_rocksdb")]
 type Tree = RocksTree<Vec<u8>>;
@@ -42,7 +42,7 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
         b.iter(|| {
             bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index].to_vec()).unwrap();
         });
-    }, vec![1, 10, 100]);
+    }, vec![1, 10, 100, 1000]);
     #[cfg(any(feature = "use_rocksdb"))]
     let path = PathBuf::from("db");
     #[cfg(any(feature = "use_rocksdb"))]
@@ -80,7 +80,7 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
         b.iter(|| {
             bmt.insert(Some(&root_hash), &mut second_keys[0..*index].to_vec(), &mut second_data[0..*index].to_vec()).unwrap();
         })
-    }, vec![1, 10, 100]);
+    }, vec![1, 10, 100, 1000]);
     #[cfg(any(feature = "use_rocksdb"))]
     let path = PathBuf::from("db");
     #[cfg(any(feature = "use_rocksdb"))]
