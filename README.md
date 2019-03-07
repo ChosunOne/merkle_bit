@@ -94,7 +94,6 @@ If you provide your own implementation of the traits for each component of the t
                              DataType, 
                              NodeType, 
                              HasherType, 
-                             HashResultType, 
                              ValueType>::from_db(db, depth);
                              
         // Keys must be slices of u8 arrays or vectors

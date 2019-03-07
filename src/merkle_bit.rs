@@ -143,7 +143,6 @@ fn binary_search<T, F>(list: &VecDeque<T>, comparator: F) -> Result<usize, usize
 /// * **DataType**: The type used for representing data nodes in the tree.  DataType must implement the Data trait.
 /// * **NodeType**: The type used for the outer node that can be either a branch, leaf, or data.  NodeType must implement the Node trait.
 /// * **HasherType**: The type of hasher to use for hashing locations on the tree.  HasherType must implement the Hasher trait.
-/// * **HashResultType**: The type of the result from Hasher.  HashResultTypes must be able to be referenced as a &[u8] slice, and must implement basic traits
 /// * **ValueType**: The type to return from a get.  ValueType must implement the Encode and Decode traits.
 /// # Properties
 /// * **db**: The database to store and retrieve values
@@ -767,8 +766,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
             tree_ref_queue.insert(max_index, Rc::clone(&next_tree_ref));
         }
-
-        Err(Box::new(Exception::new("Corrupt merkle tree")))
+        unreachable!();
     }
 
     fn get_proof_key(&self, root_hash: Option<&[u8]>, branch: Option<&BranchType>) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -780,9 +778,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             }
         }
 
-        let mut child_location;
+        let child_location;
         if let Some(h) = root_hash {
-            child_location = h.to_vec();
+            child_location = h;
         } else {
             return Err(Box::new(Exception::new("root_hash and node must not both be None")));
         }
@@ -791,21 +789,20 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
         let mut depth = 0;
 
+        let mut get_node = self.db.get_node(child_location)?;
+
         // DFS to find a key
-        loop {
+        while let Some(node) = get_node {
             if depth > self.depth {
                 // If a poor hasher is chosen, you can end up with circular paths through the tree.
                 // This check ensures that you are alerted of the possibility.
                 return Err(Box::new(Exception::new("Maximum proof key depth exceeded.  Ensure hasher does not generate collisions.")));
             }
-            if let Some(n) = self.db.get_node(child_location.as_ref())? {
-                let node = n;
+            let location;
                 match node.get_variant()? {
                     NodeVariant::Branch(m) => {
-                        child_location = m.get_zero().to_owned();
-                        if let Some(k) = m.get_key() {
-                            return Ok(k.to_vec());
-                        }
+                        location = m.get_zero();
+                        get_node = self.db.get_node(location)?;
                     }
                     NodeVariant::Leaf(m) => {
                         key = m.get_key().to_vec();
@@ -813,11 +810,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                     }
                     NodeVariant::Data(_) => return Err(Box::new(Exception::new("Corrupt merkle tree")))
                 }
-            } else {
-                return Err(Box::new(Exception::new("Corrupt merkle tree")));
-            }
             depth += 1;
         }
+        unreachable!();
     }
 
     /// Remove all items with less than 1 reference under the given root.
