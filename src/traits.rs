@@ -2,7 +2,6 @@ use std::error::Error;
 use std::path::PathBuf;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 
-use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::merkle_bit::NodeVariant;
 
 pub trait Hasher {
@@ -45,9 +44,9 @@ pub trait Node<BranchType, LeafType, DataType, ValueType>
           LeafType: Leaf,
           DataType: Data,
           ValueType: Decode + Encode {
-    fn new() -> Self;
+    fn new(node_variant: NodeVariant<BranchType, LeafType, DataType>) -> Self;
     fn get_references(&self) -> u64;
-    fn get_variant(self) -> BinaryMerkleTreeResult<NodeVariant<BranchType, LeafType, DataType>>;
+    fn get_variant(self) -> NodeVariant<BranchType, LeafType, DataType>;
     fn set_references(&mut self, references: u64);
     fn set_branch(&mut self, branch: BranchType);
     fn set_leaf(&mut self, leaf: LeafType);
@@ -104,4 +103,8 @@ impl Error for Exception {
     fn description(&self) -> &str {
         &self.details
     }
+}
+
+pub fn exception(details: &str) -> Box<Error> {
+    Box::new(Exception::new(details))
 }

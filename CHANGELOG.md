@@ -2,6 +2,7 @@
 * Remove ```HashResultType``` from the tree in favor of using standard ```Vec<u8>```.
 * Add benchmark for ```remove```.
 * Improve performance for custom trees that don't store keys in branches.
+* Require ```NodeType``` to have a ```NodeVariant``` on creation.
 # 2.1.3
 * Improve performance for larger inserts
 * Fix benchmarks to run on stable
