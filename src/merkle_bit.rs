@@ -438,7 +438,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 branch_hasher.update(branch.get_zero());
                 branch_hasher.update(branch.get_one());
                 let location = branch_hasher.finalize();
-                let key_and_index = self.calc_min_split_index(&tree_cell.keys, Some(location.as_ref()), None)?;
+
+                let key_and_index = self.calc_min_split_index(&tree_cell.keys, Some(location.as_ref()), Some(&branch))?;
                 let branch_key = key_and_index.0;
                 let min_split_index = key_and_index.1;
 
@@ -754,8 +755,6 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         if let Some(b) = branch {
             if let Some(k) = b.get_key() {
                 return Ok(k.to_vec());
-            } else {
-                return Err(exception("Given node does not have a key"));
             }
         }
 

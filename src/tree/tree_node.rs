@@ -1,4 +1,6 @@
+#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
 use crate::merkle_bit::BinaryMerkleTreeResult;
+
 use crate::merkle_bit::NodeVariant;
 use crate::traits::Node;
 use crate::tree::tree_branch::TreeBranch;
