@@ -135,32 +135,6 @@ fn binary_search<T, F>(list: &VecDeque<T>, comparator: F) -> Result<usize, usize
     if cmp == Ordering::Equal { Ok(base) } else { Err(base + (cmp == Ordering::Less) as usize) }
 }
 
-/// Binary searches this sorted slice with a comparator function.
-/// The comparator function should implement an order consistent with the sort order of the underlying slice,
-/// returning an order code that indicates whether its argument is Less, Equal or Greater the desired target.
-/// If the value is found then Result::Ok is returned, containing the index of the matching element.
-/// If there are multiple matches, then any one of the matches could be returned.
-/// If the value is not found then Result::Err is returned, containing the index where a matching element
-/// could be inserted while maintaining sorted order.
-fn binary_search<T, F>(list: &VecDeque<T>, comparator: F) -> Result<usize, usize>
-    where F: Fn(&T) -> Ordering {
-    let mut size = list.len();
-    if size == 0 {
-        return Err(0);
-    }
-
-    let mut base = 0usize;
-    while size > 1 {
-        let half = size / 2;
-        let mid = base + half;
-        let cmp = comparator(&list[mid]);
-        base = if cmp == Ordering::Greater { base } else { mid };
-        size -= half;
-    }
-    let cmp = comparator(&list[base]);
-    if cmp == Ordering::Equal { Ok(base) } else { Err(base + (cmp == Ordering::Less) as usize) }
-}
-
 /// The MerkleBIT structure relies on many specified types:
 /// # Required Type Annotations
 /// * **DatabaseType**: The type to use for database-like operations.  DatabaseType must implement the Database trait.
