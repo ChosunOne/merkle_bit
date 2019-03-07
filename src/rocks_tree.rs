@@ -7,7 +7,7 @@ use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_node::TreeNode;
-use crate::tree_hasher::{TreeHasher, TreeHashResult};
+use crate::tree_hasher::TreeHasher;
 
 pub struct RocksTree<ValueType>
     where ValueType: Encode + Decode {
@@ -18,7 +18,6 @@ pub struct RocksTree<ValueType>
         TreeData,
         TreeNode,
         TreeHasher,
-        TreeHashResult,
         ValueType>
 }
 
