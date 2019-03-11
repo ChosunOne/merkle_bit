@@ -21,12 +21,12 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
         let value: Vec<u8> = vec![0xDDu8];
         
         // Inserting an element changes the root node
-        let root = tree.insert(None, &mut [key.as_ref()], &mut [value.as_ref()])?;
+        let root = tree.insert(None, &mut [&key[..]], &mut [&value[..]])?;
         
-        let retrieved_value = tree.get(root.as_ref(), &mut [key.as_ref()])?;
+        let retrieved_value = tree.get(&root, &mut [&key[..]])?;
         
         // Removing a root only deletes elements that are referenced only by that root
-        tree.remove(root.as_ref())?;
+        tree.remove(&root)?;
         Ok(())
     }
 ```
@@ -94,7 +94,6 @@ If you provide your own implementation of the traits for each component of the t
                              DataType, 
                              NodeType, 
                              HasherType, 
-                             HashResultType, 
                              ValueType>::from_db(db, depth);
                              
         // Keys must be slices of u8 arrays or vectors
@@ -104,13 +103,13 @@ If you provide your own implementation of the traits for each component of the t
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: Vec<u8> = mbit.insert(None, &mut [key.as_ref()], &mut [value.as_ref()])?;
+        let root: Vec<u8> = mbit.insert(None, &mut [&key[..]], &mut [&value[..]])?;
         
         // Retrieving the inserted value
-        let inserted_values: Vec<Option<ValueType>> = mbit.get(root.as_ref(), &mut [key.as_ref()])?;
+        let inserted_values: Vec<Option<ValueType>> = mbit.get(&root, &mut [&key[..]])?;
         
         // Removing a tree root
-        mbit.remove(root.as_ref())?;
+        mbit.remove(&root)?;
         Ok(())
     }
 ```
@@ -129,3 +128,9 @@ at your option.
 Unless you explicitly state otherwise, any contribution intentionally submitted
 for inclusion in the work by you, as defined in the Apache-2.0 license, shall be dual licensed as above, without any
 additional terms or conditions.
+
+## Reporting
+The project is currently undergoing rapid development and it should be noted that minor releases may include breaking changes
+to the API.  These changes will be noted in the Changelog of each release, but if we broke something or forgot to mention 
+such a change, please [file an issue](https://github.com/ChosunOne/merkle_bit/issues/new/choose) or 
+[submit a pull request](https://github.com/ChosunOne/merkle_bit/compare) and we will review it at our earliest convenience.

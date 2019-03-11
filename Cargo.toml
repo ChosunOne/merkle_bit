@@ -1,12 +1,12 @@
 [package]
 name = "starling"
-version = "2.1.3"
+version = "2.2.0-nightly"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
 keywords = ["binary", "merkle", "tree", "patricia"]
 categories = ["data-structures", "memory-management"]
-license = "MIT OR Apache-2.0"
+license = "MIT/Apache-2.0"
 readme = "README.md"
 edition = "2018"
 
