@@ -577,9 +577,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
         let branch_key = self.get_proof_key(location, branch)?;
 
-        if &branch_key[..] < min_key {
+        if branch_key[..] < *min_key {
             min_key = &branch_key;
-        } else if &branch_key[..] > max_key {
+        } else if branch_key[..] > *max_key {
             max_key = &branch_key;
         }
 
@@ -589,7 +589,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 continue;
             }
             let xor_key = min_key[i] ^ max_key[i];
-            split_bit = i * 8 + (7 - (xor_key as f32).log2().floor() as usize);
+            split_bit = i * 8 + (7 - f32::from(xor_key).log2().floor() as usize);
             break;
         }
         Ok((branch_key, split_bit))
@@ -667,7 +667,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
                 // Find the bit index of the first difference
                 let xor_key = left_key[j] ^ right_key[j];
-                let split_bit = j * 8 + (7 - ((xor_key as f32).log2().floor()) as usize);
+                let split_bit = j * 8 + (7 - (f32::from(xor_key).log2().floor()) as usize);
 
                 split_indices.push((split_bit, Rc::clone(&tree_ref_queue[i])));
                 break;
@@ -699,7 +699,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
                 max_index = binary_search(&tree_ref_queue, |x| {
                     if Rc::ptr_eq(&x, &max_tree_ref.1) {
-                        return Ordering::Equal;
+                        Ordering::Equal
                     } else {
                         RefCell::borrow(x).key.cmp(&RefCell::borrow(&max_tree_ref.1).key)
                     }
@@ -726,7 +726,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
 
                 let branch_key_ref = &RefCell::borrow(&tree_ref).key;
-                count = &RefCell::borrow(&tree_ref).count + &RefCell::borrow(&next_tree_ref).count;
+                count = RefCell::borrow(&tree_ref).count + RefCell::borrow(&next_tree_ref).count;
                 branch.set_zero(&RefCell::borrow(&tree_ref).location.as_ref());
                 branch.set_one(&RefCell::borrow(&next_tree_ref).location.as_ref());
                 branch.set_count(count);
