@@ -524,12 +524,17 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         let mut start = 0;
         let mut end = 0;
         let mut found_start = false;
+        let branch_split_index = branch.get_split_index() as usize;
         for i in 0..keys.len() {
             let mut descendant = true;
-            for j in min_split_index..branch.get_split_index() as usize {
-                let left = choose_zero(&branch_key, j);
-                let right = choose_zero(keys[i], j);
-                if left != right {
+            for j in (min_split_index..branch_split_index).step_by(8) {
+                let byte = j / 8;
+                if branch_key[byte] == keys[i][byte] {
+                    continue;
+                }
+                let xor_key = branch_key[byte] ^ keys[i][byte];
+                let split_bit = byte * 8 + (7 - f32::from(xor_key).log2().floor() as usize);
+                if split_bit < branch_split_index {
                     descendant = false;
                     break;
                 }

@@ -21,12 +21,12 @@ pub mod integration_tests {
     #[test]
     #[cfg(feature = "use_serialization")]
     fn it_works_with_a_real_database() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x00u8; 32];
+        let path = generate_path(seed);
         let key = vec![0xAAu8];
         let retrieved_value;
         let removed_retrieved_value;
         let data = vec![0xFFu8];
-        let seed = [0x00u8; 32];
-        let path = generate_path(seed);
         {
             let mut values = vec![&data];
             let mut tree = Tree::open(&path, 160)?;
