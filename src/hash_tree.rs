@@ -1,5 +1,11 @@
 use std::path::PathBuf;
 
+#[cfg(not(any(feature = "use_hashbrown")))]
+use std::collections::HashMap;
+
+#[cfg(feature = "use_hashbrown")]
+use hashbrown::HashMap;
+
 use crate::traits::{Encode, Decode};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_leaf::TreeLeaf;
@@ -32,7 +38,7 @@ impl<ValueType> HashTree<ValueType>
         })
     }
 
-    pub fn get(&self, root_hash: &[u8], keys: &mut [&[u8]]) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
+    pub fn get<'a>(&self, root_hash: &[u8], keys: &mut [&'a [u8]]) -> BinaryMerkleTreeResult<HashMap<&'a [u8], Option<ValueType>>> {
         self.tree.get(root_hash, keys)
     }
 

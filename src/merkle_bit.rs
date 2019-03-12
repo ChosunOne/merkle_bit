@@ -203,10 +203,15 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         })
     }
 
-    /// Get items from the MerkleBIT.  Keys must be sorted.  Returns a list of Options which may include the corresponding values.
-    pub fn get(&self, root_hash: &[u8], keys: &mut [&[u8]]) -> BinaryMerkleTreeResult<Vec<Option<ValueType>>> {
+    /// Get items from the MerkleBIT.  Returns a map of Options which may include the corresponding values.
+    pub fn get<'a>(&self, root_hash: &[u8], keys: &mut [&'a [u8]]) -> BinaryMerkleTreeResult<HashMap<&'a [u8], Option<ValueType>>> {
+        let mut leaf_map = HashMap::new();
+        for key in keys.iter() {
+            leaf_map.insert(*key, None);
+        }
+
         if keys.is_empty() {
-            return Err(exception("Keys must not be empty"));
+            return Ok(leaf_map);
         }
         if keys[0].is_empty() {
             return Err(exception("Key size must be greater than 0"));
@@ -218,14 +223,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         if let Some(n) = self.db.get_node(root_hash)? {
             root_node = n;
         } else {
-            let mut values = Vec::with_capacity(keys.len());
-            for _ in 0..keys.len() {
-                values.push(None);
-            }
-            return Ok(values);
+            return Ok(leaf_map);
         }
-
-        let mut leaf_map = HashMap::new();
 
         let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
 
@@ -286,7 +285,10 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 NodeVariant::Leaf(n) => {
                     if let Some(d) = self.db.get_node(n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant() {
-                            leaf_map.insert(n.get_key().to_owned(), data.get_value().to_owned());
+                            let value = ValueType::decode(data.get_value())?;
+                            if let Ok(index) =  keys.binary_search(&n.get_key()) {
+                                leaf_map.insert(keys[index], Some(value));
+                            }
                         } else {
                             return Err(exception("Corrupt merkle tree"));
                         }
@@ -300,18 +302,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             }
         }
 
-        let mut values = Vec::with_capacity(keys.len());
-
-        for key in keys {
-            if let Some(v) = leaf_map.get(*key) {
-                let val = ValueType::decode(v)?;
-                values.push(Some(val));
-            } else {
-                values.push(None)
-            }
-        }
-
-        Ok(values)
+        Ok(leaf_map)
     }
 
     /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
