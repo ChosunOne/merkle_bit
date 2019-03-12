@@ -21,14 +21,14 @@ pub mod integration_tests {
     #[test]
     #[cfg(feature = "use_serialization")]
     fn it_works_with_a_real_database() -> BinaryMerkleTreeResult<()> {
+        let key = vec![0xAAu8];
         let retrieved_value;
         let removed_retrieved_value;
         let data = vec![0xFFu8];
         let seed = [0x00u8; 32];
         let path = generate_path(seed);
         {
-            let key = vec![0xAAu8];
-            let mut values = vec![data.as_ref()];
+            let mut values = vec![&data];
             let mut tree = Tree::open(&path, 160)?;
             let root;
             match tree.insert(None, &mut [&key], &mut values) {
@@ -65,8 +65,8 @@ pub mod integration_tests {
             }
         }
         tear_down(&path);
-        assert_eq!(retrieved_value, vec![Some(data)]);
-        assert_eq!(removed_retrieved_value, vec![None]);
+        assert_eq!(retrieved_value[&key[..]], Some(data));
+        assert_eq!(removed_retrieved_value[&key[..]], None);
         Ok(())
     }
 
