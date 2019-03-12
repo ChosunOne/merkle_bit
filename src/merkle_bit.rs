@@ -609,7 +609,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
             // Create leaf node
             let mut leaf = LeafType::new();
-            leaf.set_data(data_node_location.as_ref());
+            leaf.set_data(&data_node_location);
             leaf.set_key(keys[i]);
 
             let mut leaf_hasher = HasherType::new(32);
@@ -621,18 +621,18 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
             leaf_node.set_references(1);
 
-            if let Some(n) = self.db.get_node(data_node_location.as_ref())? {
+            if let Some(n) = self.db.get_node(&data_node_location)? {
                 let references = n.get_references() + 1;
                 data_node.set_references(references);
             }
 
-            if let Some(n) = self.db.get_node(leaf_node_location.as_ref())? {
+            if let Some(n) = self.db.get_node(&leaf_node_location)? {
                 let references = n.get_references() + 1;
                 leaf_node.set_references(references);
             }
 
-            self.db.insert(data_node_location.as_ref(), &data_node)?;
-            self.db.insert(leaf_node_location.as_ref(), &leaf_node)?;
+            self.db.insert(&data_node_location, &data_node)?;
+            self.db.insert(&leaf_node_location, &leaf_node)?;
 
             nodes.push(leaf_node_location);
         }
@@ -723,8 +723,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
                 let branch_key_ref = &RefCell::borrow(&tree_ref).key;
                 count = RefCell::borrow(&tree_ref).count + RefCell::borrow(&next_tree_ref).count;
-                branch.set_zero(&RefCell::borrow(&tree_ref).location.as_ref());
-                branch.set_one(&RefCell::borrow(&next_tree_ref).location.as_ref());
+                branch.set_zero(&RefCell::borrow(&tree_ref).location);
+                branch.set_one(&RefCell::borrow(&next_tree_ref).location);
                 branch.set_count(count);
                 branch.set_split_index(split_index);
                 branch.set_key(branch_key_ref);
@@ -736,7 +736,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
             branch_node.set_references(1);
 
-            self.db.insert(branch_node_location.as_ref(), &branch_node)?;
+            self.db.insert(&branch_node_location, &branch_node)?;
             // Update reference of next_tree_ref in split_indices to point to the new_tree_ref
             next_tree_ref.borrow_mut().key = unwrapped_tree_ref.key;
             next_tree_ref.borrow_mut().location = branch_node_location.into();
