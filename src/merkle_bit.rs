@@ -45,26 +45,81 @@ struct TreeRef {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum TreeRefWrapper {
-    Raw(Rc<RefCell<TreeRef>>),
-    Ref(Rc<RefCell<TreeRefWrapper>>)
+struct TreeRefWrapper {
+    raw: Option<Rc<RefCell<TreeRef>>>,
+    reference: Option<Rc<RefCell<TreeRefWrapper>>>
 }
 
 impl TreeRefWrapper {
-    pub fn new(tree_ref: TreeRef) -> Self {
-        TreeRefWrapper::Raw(Rc::new(RefCell::new(tree_ref)))
+    pub fn new(tree_ref: Rc<RefCell<TreeRef>>) -> Self {
+        Self {
+            raw: Some(tree_ref),
+            reference: None
+        }
     }
 
-    pub fn new_ref(other: Rc<RefCell<TreeRefWrapper>>) -> Self {
-        TreeRefWrapper::Ref(other)
+    pub fn set_reference(&mut self, other: Rc<RefCell<TreeRefWrapper>>) {
+        self.raw = None;
+        self.reference = Some(other);
     }
 
-    pub fn get_tree_ref(&self) -> Rc<RefCell<TreeRef>> {
-        match &self {
-            TreeRefWrapper::Raw(r) => Rc::clone(r),
-            TreeRefWrapper::Ref(r) => {
-                Rc::clone(&r.borrow().get_tree_ref())
-            }
+    pub fn get_tree_ref_key(&self) -> Vec<u8> {
+        if let Some(t) = &self.raw {
+            return t.borrow().key.clone()
+        }
+        if let Some(r) = &self.reference {
+            return r.borrow().get_tree_ref_key()
+        }
+        unreachable!();
+    }
+
+    pub fn get_tree_ref_location(&self) -> Vec<u8> {
+        if let Some(t) = &self.raw {
+            return t.borrow().location.clone()
+        }
+        if let Some(r) = &self.reference {
+            return r.borrow().get_tree_ref_location()
+        }
+        unreachable!();
+    }
+
+    pub fn get_tree_ref_count(&self) -> u64 {
+        if let Some(t) = &self.raw {
+            return t.borrow().count
+        }
+        if let Some(r) = &self.reference {
+            return r.borrow().get_tree_ref_count()
+        }
+        unreachable!();
+    }
+
+    pub fn set_tree_ref_key(&mut self, key: Vec<u8>) {
+        if let Some(t) = &mut self.raw {
+            t.borrow_mut().key = key;
+        } else if let Some(r) = &mut self.reference {
+            r.borrow_mut().set_tree_ref_key(key);
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn set_tree_ref_location(&mut self, location: Vec<u8>) {
+        if let Some(t) = &mut self.raw {
+            t.borrow_mut().location = location;
+        } else if let Some(r) = &mut self.reference {
+            r.borrow_mut().set_tree_ref_location(location);
+        } else {
+            unreachable!();
+        }
+    }
+
+    pub fn set_tree_ref_count(&mut self, count: u64) {
+        if let Some(t) = &mut self.raw {
+            t.borrow_mut().count = count;
+        } else if let Some(r) = &mut self.reference {
+            r.borrow_mut().set_tree_ref_count(count);
+        } else {
+            unreachable!();
         }
     }
 }
@@ -650,11 +705,13 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
         tree_refs.sort();
 
-        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_refs.len() - 1);
-        let keylen = tree_refs[0].key.len();
-        for i in 0..tree_refs.len() - 1 {
-            let left_key = &tree_refs[i].key;
-            let right_key = &tree_refs[i + 1].key;
+        let tree_rcs = tree_refs.into_iter().map(|x| Rc::new(RefCell::new(TreeRefWrapper::new(Rc::new(RefCell::new(x)))))).collect::<Vec<_>>();
+
+        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
+        let keylen = RefCell::borrow(&tree_rcs[0]).get_tree_ref_key().len();
+        for i in 0..tree_rcs.len() - 1 {
+            let left_key = &RefCell::borrow(&tree_rcs[i]).get_tree_ref_key();
+            let right_key = &RefCell::borrow(&tree_rcs[i + 1]).get_tree_ref_key();
 
             for j in 0..keylen {
                 if j == keylen - 1 && left_key[j] == right_key[j] {
@@ -670,24 +727,14 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 let xor_key = left_key[j] ^ right_key[j];
                 let split_bit = (j * 8) as usize + (7 - (f32::from(xor_key).log2().floor()) as usize);
 
-                tree_ref_queue.push((split_bit, Rc::new(RefCell::new(TreeRefWrapper::new(tree_refs[i].clone()))), Rc::new(RefCell::new(TreeRefWrapper::new(tree_refs[i + 1].clone())))));
+                tree_ref_queue.push((split_bit, Rc::clone(&tree_rcs[i]), Rc::clone(&tree_rcs[i + 1])));
                 break;
             }
         }
 
-        drop(tree_refs);
+        drop(tree_rcs);
 
         while !tree_ref_queue.is_empty() {
-            if tree_ref_queue.len() == 1 {
-                self.db.batch_write()?;
-                let root;
-                if let Some(c) = tree_ref_queue.pop() {
-                    root = c.1.borrow().get_tree_ref().borrow().location.clone();
-                } else {
-                    return Err(exception("2. Failed to return tree root"));
-                }
-                return Ok(root);
-            }
 
             let item = tree_ref_queue.pop().expect("Tree ref queue is empty");
             let split_index= item.0;
@@ -699,20 +746,25 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             let tree_ref_wrapper = item.1;
             let next_tree_ref_wrapper = item.2;
 
-            let tree_ref = tree_ref_wrapper.borrow().get_tree_ref();
-            let next_tree_ref = next_tree_ref_wrapper.borrow().get_tree_ref();
+            let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
+            let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
+            let tree_ref_count = tree_ref_wrapper.borrow().get_tree_ref_count();
+
+            let next_tree_ref_location = next_tree_ref_wrapper.borrow().get_tree_ref_location();
+            let next_tree_ref_count = next_tree_ref_wrapper.borrow().get_tree_ref_count();
+
             {
                 let mut branch_hasher = HasherType::new(32);
                 branch_hasher.update(b"b");
-                branch_hasher.update(RefCell::borrow(&tree_ref).location.as_ref());
-                branch_hasher.update(RefCell::borrow(&next_tree_ref).location.as_ref());
+                branch_hasher.update(&tree_ref_location.as_ref());
+                branch_hasher.update(&next_tree_ref_location.as_ref());
                 branch_node_location = branch_hasher.finalize();
 
 
-                let branch_key_ref = &RefCell::borrow(&tree_ref).key;
-                count = RefCell::borrow(&tree_ref).count + RefCell::borrow(&next_tree_ref).count;
-                branch.set_zero(&RefCell::borrow(&tree_ref).location);
-                branch.set_one(&RefCell::borrow(&next_tree_ref).location);
+                let branch_key_ref = &tree_ref_key;
+                count = &tree_ref_count + &next_tree_ref_count;
+                branch.set_zero(&tree_ref_location);
+                branch.set_one(&next_tree_ref_location);
                 branch.set_count(count);
                 branch.set_split_index(split_index as u32);
                 branch.set_key(branch_key_ref);
@@ -723,13 +775,17 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
             self.db.insert(&branch_node_location, &branch_node)?;
 
-            let new_key = RefCell::borrow(&tree_ref).key.clone();
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_key(tree_ref_key);
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_location(branch_node_location.clone());
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
 
-            next_tree_ref.borrow_mut().key = new_key;
-            next_tree_ref.borrow_mut().location = branch_node_location;
-            next_tree_ref.borrow_mut().count = count;
+            tree_ref_wrapper.borrow_mut().set_reference(next_tree_ref_wrapper);
 
-            *tree_ref_wrapper.borrow_mut() = TreeRefWrapper::new_ref(Rc::clone(&next_tree_ref_wrapper));
+            if tree_ref_queue.is_empty() {
+                self.db.batch_write()?;
+                let root = branch_node_location;
+                return Ok(root);
+            }
         }
         unreachable!();
     }
