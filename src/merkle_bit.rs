@@ -39,8 +39,8 @@ struct TreeCell<'a, NodeType> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
 struct TreeRef {
-    key: Vec<u8>,
-    location: Vec<u8>,
+    key: Rc<Vec<u8>>,
+    location: Rc<Vec<u8>>,
     count: u64,
 }
 
@@ -63,9 +63,9 @@ impl TreeRefWrapper {
         self.reference = Some(other);
     }
 
-    pub fn get_tree_ref_key(&self) -> Vec<u8> {
+    pub fn get_tree_ref_key(&self) -> Rc<Vec<u8>> {
         if let Some(t) = &self.raw {
-            return t.borrow().key.clone()
+            return Rc::clone(&t.borrow().key)
         }
         if let Some(r) = &self.reference {
             return r.borrow().get_tree_ref_key()
@@ -73,9 +73,9 @@ impl TreeRefWrapper {
         unreachable!();
     }
 
-    pub fn get_tree_ref_location(&self) -> Vec<u8> {
+    pub fn get_tree_ref_location(&self) -> Rc<Vec<u8>> {
         if let Some(t) = &self.raw {
-            return t.borrow().location.clone()
+            return Rc::clone(&t.borrow().location)
         }
         if let Some(r) = &self.reference {
             return r.borrow().get_tree_ref_location()
@@ -93,7 +93,7 @@ impl TreeRefWrapper {
         unreachable!();
     }
 
-    pub fn set_tree_ref_key(&mut self, key: Vec<u8>) {
+    pub fn set_tree_ref_key(&mut self, key: Rc<Vec<u8>>) {
         if let Some(t) = &mut self.raw {
             t.borrow_mut().key = key;
         } else if let Some(r) = &mut self.reference {
@@ -103,7 +103,7 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn set_tree_ref_location(&mut self, location: Vec<u8>) {
+    pub fn set_tree_ref_location(&mut self, location: Rc<Vec<u8>>) {
         if let Some(t) = &mut self.raw {
             t.borrow_mut().location = location;
         } else if let Some(r) = &mut self.reference {
@@ -146,8 +146,8 @@ impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
 impl TreeRef {
     pub fn new(key: Vec<u8>, location: Vec<u8>, count: u64) -> TreeRef {
         TreeRef {
-            key,
-            location,
+            key: Rc::new(key),
+            location: Rc::new(location),
             count,
         }
     }
@@ -442,7 +442,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                         for b in &tree_refs {
                             let b_key = &b.key;
                             let b_location = &b.location;
-                            if &b_key[..] == key && b_location == &location {
+                            if &b_key[..] == key && &b_location[..] == &location[..] {
                                 // This value is not being updated, just update its reference count
                                 old = true;
                                 break;
@@ -700,7 +700,11 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         if tree_refs.len() == 1 {
             self.db.batch_write()?;
             let node = tree_refs.remove(0);
-            return Ok(node.location);
+            if let Ok(v) = Rc::try_unwrap(node.location) {
+                return Ok(v)
+            } else {
+                return Err(exception("Failed to unwrap tree root"))
+            }
         }
 
         tree_refs.sort();
@@ -746,7 +750,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             let tree_ref_wrapper = item.1;
             let next_tree_ref_wrapper = item.2;
 
-            let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
+            let tree_ref_key = &tree_ref_wrapper.borrow().get_tree_ref_key();
             let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
             let tree_ref_count = tree_ref_wrapper.borrow().get_tree_ref_count();
 
@@ -758,16 +762,15 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 branch_hasher.update(b"b");
                 branch_hasher.update(&tree_ref_location.as_ref());
                 branch_hasher.update(&next_tree_ref_location.as_ref());
-                branch_node_location = branch_hasher.finalize();
+                branch_node_location = Rc::new(branch_hasher.finalize());
 
 
-                let branch_key_ref = &tree_ref_key;
                 count = &tree_ref_count + &next_tree_ref_count;
                 branch.set_zero(&tree_ref_location);
                 branch.set_one(&next_tree_ref_location);
                 branch.set_count(count);
                 branch.set_split_index(split_index as u32);
-                branch.set_key(branch_key_ref);
+                branch.set_key(tree_ref_key);
             }
 
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
@@ -775,8 +778,8 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
             self.db.insert(&branch_node_location, &branch_node)?;
 
-            next_tree_ref_wrapper.borrow_mut().set_tree_ref_key(tree_ref_key);
-            next_tree_ref_wrapper.borrow_mut().set_tree_ref_location(branch_node_location.clone());
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_key(Rc::clone(tree_ref_key));
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_location(Rc::clone(&branch_node_location));
             next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
 
             tree_ref_wrapper.borrow_mut().set_reference(next_tree_ref_wrapper);
@@ -784,7 +787,10 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             if tree_ref_queue.is_empty() {
                 self.db.batch_write()?;
                 let root = branch_node_location;
-                return Ok(root);
+                match Rc::try_unwrap(root) {
+                    Ok(v) => return Ok(v),
+                    Err(v) => return Ok((*v).clone())
+                }
             }
         }
         unreachable!();
