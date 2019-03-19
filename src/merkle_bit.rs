@@ -750,7 +750,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
             let tree_ref_wrapper = item.1;
             let next_tree_ref_wrapper = item.2;
 
-            let tree_ref_key = &tree_ref_wrapper.borrow().get_tree_ref_key();
+            let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
             let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
             let tree_ref_count = tree_ref_wrapper.borrow().get_tree_ref_count();
 
@@ -770,7 +770,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 branch.set_one(&next_tree_ref_location);
                 branch.set_count(count);
                 branch.set_split_index(split_index as u32);
-                branch.set_key(tree_ref_key);
+                branch.set_key(&tree_ref_key);
             }
 
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
@@ -778,7 +778,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
 
             self.db.insert(&branch_node_location, &branch_node)?;
 
-            next_tree_ref_wrapper.borrow_mut().set_tree_ref_key(Rc::clone(tree_ref_key));
+            next_tree_ref_wrapper.borrow_mut().set_tree_ref_key(Rc::clone(&tree_ref_key));
             next_tree_ref_wrapper.borrow_mut().set_tree_ref_location(Rc::clone(&branch_node_location));
             next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
 
