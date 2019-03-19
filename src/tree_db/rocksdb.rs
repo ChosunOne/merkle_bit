@@ -4,18 +4,18 @@ use std::path::PathBuf;
 use crate::traits::{Database, Decode, Encode};
 use crate::tree::tree_node::TreeNode;
 
-use rocksdb::{DB, WriteBatch};
+use rocksdb::{WriteBatch, DB};
 
 pub struct RocksDB {
     db: DB,
-    pending_inserts: Vec<(Vec<u8>, Vec<u8>)>
+    pending_inserts: Option<WriteBatch>,
 }
 
 impl RocksDB {
     pub fn new(db: DB) -> Self {
         Self {
             db,
-            pending_inserts: Vec::with_capacity(64)
+            pending_inserts: Some(WriteBatch::default()),
         }
     }
 }
@@ -38,7 +38,13 @@ impl Database for RocksDB {
 
     fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Box<Error>> {
         let serialized = value.encode()?;
-        self.pending_inserts.push((key.to_vec(), serialized));
+        if let Some(wb) = &mut self.pending_inserts {
+            wb.put(key, serialized)?;
+        } else {
+            let mut wb = WriteBatch::default();
+            wb.put(key, serialized)?;
+            self.pending_inserts = Some(wb);
+        }
         Ok(())
     }
 
@@ -47,12 +53,10 @@ impl Database for RocksDB {
     }
 
     fn batch_write(&mut self) -> Result<(), Box<Error>> {
-        let mut batch = WriteBatch::default();
-        for pair in &self.pending_inserts {
-            batch.put(&pair.0, &pair.1)?;
+        if let Some(wb) = self.pending_inserts.replace(WriteBatch::default()) {
+            self.db.write(wb)?;
         }
-        self.db.write(batch)?;
-        self.pending_inserts.clear();
+        self.pending_inserts = None;
         Ok(())
     }
 }
