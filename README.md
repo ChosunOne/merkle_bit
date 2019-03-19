@@ -106,7 +106,7 @@ If you provide your own implementation of the traits for each component of the t
         let root: Vec<u8> = mbit.insert(None, &mut [&key[..]], &mut [&value[..]])?;
         
         // Retrieving the inserted value
-        let inserted_values: Vec<Option<ValueType>> = mbit.get(&root, &mut [&key[..]])?;
+        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [&key[..]])?;
         
         // Removing a tree root
         mbit.remove(&root)?;
