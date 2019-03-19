@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "2.2.0"
+version = "2.3.0-beta"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -53,4 +53,8 @@ use_rocksdb = ["default_tree", "rocksdb"]
 
 [[bench]]
 name = "merkle_bit_benches"
+harness = false
+
+[[bench]]
+name = "big_benches"
 harness = false
