@@ -442,7 +442,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                         for b in &tree_refs {
                             let b_key = &b.key;
                             let b_location = &b.location;
-                            if &b_key[..] == key && &b_location[..] == &location[..] {
+                            if &b_key[..] == key && b_location[..] == location[..] {
                                 // This value is not being updated, just update its reference count
                                 old = true;
                                 break;
@@ -765,7 +765,7 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                 branch_node_location = Rc::new(branch_hasher.finalize());
 
 
-                count = &tree_ref_count + &next_tree_ref_count;
+                count = tree_ref_count + next_tree_ref_count;
                 branch.set_zero(&tree_ref_location);
                 branch.set_one(&next_tree_ref_location);
                 branch.set_count(count);
