@@ -2,7 +2,8 @@
 * Change return type of ```get``` to return a ```HashMap<&[u8], Option<ValueType>>``` instead of a ```Vec<Option<ValueType>>```.
 This should resolve ambiguity of the return values when the input key list is not sorted.
     * **NOTE:** This is a breaking change. 
-
+* Improve performance on inserting into non-empty trees for larger inserts.  There is a slight regression
+in performance for smaller inserts, but the changes allowed for roughly 20% speed increases on inserts with 1000 entries or more.  
 # 2.2.0
 * Remove ```HashResultType``` from the tree in favor of using standard ```Vec<u8>```.
 * Add benchmark for ```remove```.
