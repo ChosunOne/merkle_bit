@@ -1,29 +1,64 @@
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 
 use crate::traits::Leaf;
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
 use crate::traits::{Decode, Encode};
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
-use serde::{Serialize, Deserialize};
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
-#[cfg(feature = "use_json")]
-use serde_json;
-#[cfg(feature = "use_cbor")]
-use serde_cbor;
-#[cfg(feature = "use_yaml")]
-use serde_yaml;
-#[cfg(feature = "use_pickle")]
-use serde_pickle;
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_cbor")]
+use serde_cbor;
+#[cfg(feature = "use_json")]
+use serde_json;
+#[cfg(feature = "use_pickle")]
+use serde_pickle;
+#[cfg(feature = "use_yaml")]
+use serde_yaml;
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(
+        feature = "use_serde",
+        feature = "use_bincode",
+        feature = "use_json",
+        feature = "use_cbor",
+        feature = "use_yaml",
+        feature = "use_pickle",
+        feature = "use_ron"
+    ),
+    derive(Serialize, Deserialize)
+)]
 pub struct TreeLeaf {
     key: Vec<u8>,
     data: Vec<u8>,
@@ -38,10 +73,10 @@ impl TreeLeaf {
     }
 
     fn get_key(&self) -> &[u8] {
-        self.key.as_ref()
+        &self.key
     }
     fn get_data(&self) -> &[u8] {
-        self.data.as_ref()
+        &self.data
     }
 
     fn set_key(&mut self, key: Vec<u8>) {
@@ -53,13 +88,23 @@ impl TreeLeaf {
 }
 
 impl Leaf for TreeLeaf {
-    fn new() -> Self { Self::new() }
+    fn new() -> Self {
+        Self::new()
+    }
 
-    fn get_key(&self) -> &[u8] { Self::get_key(&self) }
-    fn get_data(&self) -> &[u8] { Self::get_data(&self) }
+    fn get_key(&self) -> &[u8] {
+        Self::get_key(&self)
+    }
+    fn get_data(&self) -> &[u8] {
+        Self::get_data(&self)
+    }
 
-    fn set_key(&mut self, key: &[u8]) { Self::set_key(self, key.to_vec()) }
-    fn set_data(&mut self, data: &[u8]) { Self::set_data(self, data.to_vec()) }
+    fn set_key(&mut self, key: &[u8]) {
+        Self::set_key(self, key.to_vec())
+    }
+    fn set_data(&mut self, data: &[u8]) {
+        Self::set_data(self, data.to_vec())
+    }
 }
 
 #[cfg(feature = "use_bincode")]

@@ -1,10 +1,16 @@
-use std::error::Error;
 use std::path::PathBuf;
 
-use crate::traits::{Database, Decode, Encode};
+use crate::traits::{Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
 
 use rocksdb::{WriteBatch, DB};
+use std::error::Error;
+
+impl From<rocksdb::Error> for Exception {
+    fn from(error: rocksdb::Error) -> Self {
+        Exception::new(error.description())
+    }
+}
 
 pub struct RocksDB {
     db: DB,
@@ -22,13 +28,13 @@ impl RocksDB {
 
 impl Database for RocksDB {
     type NodeType = TreeNode;
-    type EntryType = (Vec<u8>, Vec<u8>);
+    type EntryType = (usize, usize);
 
-    fn open(path: &PathBuf) -> Result<Self, Box<Error>> {
+    fn open(path: &PathBuf) -> Result<Self, Exception> {
         Ok(RocksDB::new(DB::open_default(path)?))
     }
 
-    fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Box<Error>> {
+    fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Exception> {
         if let Some(buffer) = self.db.get(key)? {
             Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
         } else {
@@ -36,7 +42,7 @@ impl Database for RocksDB {
         }
     }
 
-    fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Box<Error>> {
+    fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized)?;
@@ -48,11 +54,11 @@ impl Database for RocksDB {
         Ok(())
     }
 
-    fn remove(&mut self, key: &[u8]) -> Result<(), Box<Error>> {
+    fn remove(&mut self, key: &[u8]) -> Result<(), Exception> {
         Ok(self.db.delete(key)?)
     }
 
-    fn batch_write(&mut self) -> Result<(), Box<Error>> {
+    fn batch_write(&mut self) -> Result<(), Exception> {
         if let Some(wb) = self.pending_inserts.replace(WriteBatch::default()) {
             self.db.write(wb)?;
         }
