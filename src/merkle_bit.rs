@@ -80,7 +80,22 @@ impl TreeRefWrapper {
 
     pub fn set_reference(&mut self, other: Rc<RefCell<TreeRefWrapper>>) {
         self.raw = None;
-        self.reference = Some(other);
+        if other.borrow().raw.is_some() {
+            self.reference = Some(other);
+        } else {
+            self.reference = Some(other.borrow().get_reference());
+        }
+    }
+
+    pub fn get_reference(&self) -> Rc<RefCell<TreeRefWrapper>> {
+        if let Some(r) = &self.reference {
+            if r.borrow().raw.is_some() {
+                return Rc::clone(r);
+            } else {
+                return r.borrow().get_reference();
+            }
+        }
+        unreachable!();
     }
 
     pub fn get_tree_ref_key(&self) -> Rc<Vec<u8>> {

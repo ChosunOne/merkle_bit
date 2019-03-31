@@ -1,5 +1,6 @@
 #[cfg(test)]
 pub mod integration_tests {
+    #[cfg(any(feature = "use_serialization"))]
     use std::error::Error;
     use std::path::PathBuf;
 
