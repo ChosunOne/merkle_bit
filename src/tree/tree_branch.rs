@@ -1,28 +1,76 @@
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Branch;
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
-use crate::traits::{Decode, Encode};
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
+use crate::traits::{Decode, Encode, Exception};
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
-use serde::{Serialize, Deserialize};
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
+use serde::{Deserialize, Serialize};
+
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
+use std::error::Error;
 
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
-#[cfg(feature = "use_json")]
-use serde_json;
-#[cfg(feature = "use_cbor")]
-use serde_cbor;
-#[cfg(feature = "use_yaml")]
-use serde_yaml;
-#[cfg(feature = "use_pickle")]
-use serde_pickle;
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_cbor")]
+use serde_cbor;
+#[cfg(feature = "use_json")]
+use serde_json;
+#[cfg(feature = "use_pickle")]
+use serde_pickle;
+#[cfg(feature = "use_yaml")]
+use serde_yaml;
+#[cfg(feature = "use_json")]
+use std::string::FromUtf8Error;
 
 #[derive(Clone, Debug)]
-#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(
+        feature = "use_serde",
+        feature = "use_bincode",
+        feature = "use_json",
+        feature = "use_cbor",
+        feature = "use_yaml",
+        feature = "use_pickle",
+        feature = "use_ron"
+    ),
+    derive(Serialize, Deserialize)
+)]
 pub struct TreeBranch {
     count: u64,
     zero: Vec<u8>,
@@ -46,15 +94,17 @@ impl TreeBranch {
         self.count
     }
     fn get_zero(&self) -> &[u8] {
-        self.zero.as_ref()
+        &self.zero
     }
     fn get_one(&self) -> &[u8] {
-        self.one.as_ref()
+        &self.one
     }
     fn get_split_index(&self) -> u32 {
         self.split_index
     }
-    fn get_key(&self) -> Option<&[u8]> { Some(&self.key) }
+    fn get_key(&self) -> Option<&[u8]> {
+        Some(&self.key)
+    }
 
     fn set_count(&mut self, count: u64) {
         self.count = count;
@@ -68,29 +118,60 @@ impl TreeBranch {
     fn set_split_index(&mut self, split_index: u32) {
         self.split_index = split_index;
     }
-    fn set_key(&mut self, key: Vec<u8>) { self.key = key; }
+    fn set_key(&mut self, key: Vec<u8>) {
+        self.key = key;
+    }
 }
 
 impl Branch for TreeBranch {
-    fn new() -> Self { Self::new() }
+    fn new() -> Self {
+        Self::new()
+    }
 
-    fn get_count(&self) -> u64 { Self::get_count(&self) }
-    fn get_zero(&self) -> &[u8] { Self::get_zero(&self) }
-    fn get_one(&self) -> &[u8] { Self::get_one(&self) }
-    fn get_split_index(&self) -> u32 { Self::get_split_index(&self) }
-    fn get_key(&self) -> Option<&[u8]> { Self::get_key(&self) }
+    fn get_count(&self) -> u64 {
+        Self::get_count(&self)
+    }
+    fn get_zero(&self) -> &[u8] {
+        Self::get_zero(&self)
+    }
+    fn get_one(&self) -> &[u8] {
+        Self::get_one(&self)
+    }
+    fn get_split_index(&self) -> u32 {
+        Self::get_split_index(&self)
+    }
+    fn get_key(&self) -> Option<&[u8]> {
+        Self::get_key(&self)
+    }
 
-    fn set_count(&mut self, count: u64) { Self::set_count(self, count) }
-    fn set_zero(&mut self, zero: &[u8]) { Self::set_zero(self, zero.to_vec()) }
-    fn set_one(&mut self, one: &[u8]) { Self::set_one(self, one.to_vec()) }
-    fn set_split_index(&mut self, index: u32) { Self::set_split_index(self, index) }
-    fn set_key(&mut self, key: &[u8]) { Self::set_key(self, key.to_vec()) }
+    fn set_count(&mut self, count: u64) {
+        Self::set_count(self, count)
+    }
+    fn set_zero(&mut self, zero: &[u8]) {
+        Self::set_zero(self, zero.to_vec())
+    }
+    fn set_one(&mut self, one: &[u8]) {
+        Self::set_one(self, one.to_vec())
+    }
+    fn set_split_index(&mut self, index: u32) {
+        Self::set_split_index(self, index)
+    }
+    fn set_key(&mut self, key: &[u8]) {
+        Self::set_key(self, key.to_vec())
+    }
 }
 
 #[cfg(feature = "use_bincode")]
 impl Encode for TreeBranch {
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serialize(self)?)
+    }
+}
+
+#[cfg(feature = "use_bincode")]
+impl From<Box<bincode::ErrorKind>> for Exception {
+    fn from(error: Box<bincode::ErrorKind>) -> Self {
+        Exception::new(error.description())
     }
 }
 
@@ -102,10 +183,31 @@ impl Encode for TreeBranch {
     }
 }
 
+#[cfg(feature = "use_json")]
+impl From<serde_json::Error> for Exception {
+    fn from(error: serde_json::Error) -> Self {
+        Exception::new(error.description())
+    }
+}
+
+#[cfg(feature = "use_json")]
+impl From<FromUtf8Error> for Exception {
+    fn from(error: FromUtf8Error) -> Self {
+        Exception::new(error.description())
+    }
+}
+
 #[cfg(feature = "use_cbor")]
 impl Encode for TreeBranch {
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_cbor::to_vec(&self)?)
+    }
+}
+
+#[cfg(feature = "use_cbor")]
+impl From<serde_cbor::error::Error> for Exception {
+    fn from(error: serde_cbor::error::Error) -> Self {
+        Exception::new(error.description())
     }
 }
 
@@ -116,6 +218,13 @@ impl Encode for TreeBranch {
     }
 }
 
+#[cfg(feature = "use_yaml")]
+impl From<serde_yaml::Error> for Exception {
+    fn from(error: serde_yaml::Error) -> Self {
+        Exception::new(error.description())
+    }
+}
+
 #[cfg(feature = "use_pickle")]
 impl Encode for TreeBranch {
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -123,10 +232,31 @@ impl Encode for TreeBranch {
     }
 }
 
+#[cfg(feature = "use_pickle")]
+impl From<serde_pickle::Error> for Exception {
+    fn from(error: serde_pickle::Error) -> Self {
+        Exception::new(error.description())
+    }
+}
+
 #[cfg(feature = "use_ron")]
 impl Encode for TreeBranch {
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl From<ron::ser::Error> for Exception {
+    fn from(error: ron::ser::Error) -> Self {
+        Exception::new(error.description())
+    }
+}
+
+#[cfg(feature = "use_ron")]
+impl From<ron::de::Error> for Exception {
+    fn from(error: ron::de::Error) -> Self {
+        Exception::new(error.description())
     }
 }
 

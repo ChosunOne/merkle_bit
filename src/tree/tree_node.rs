@@ -1,32 +1,59 @@
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 
 use crate::merkle_bit::NodeVariant;
 use crate::traits::Node;
 use crate::tree::tree_branch::TreeBranch;
-use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_data::TreeData;
+use crate::tree::tree_leaf::TreeLeaf;
 
 use crate::traits::{Decode, Encode};
 
-#[cfg(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"))]
-use serde::{Serialize, Deserialize};
+#[cfg(any(
+    feature = "use_serde",
+    feature = "use_bincode",
+    feature = "use_json",
+    feature = "use_cbor",
+    feature = "use_yaml",
+    feature = "use_pickle",
+    feature = "use_ron"
+))]
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
-#[cfg(feature = "use_json")]
-use serde_json;
-#[cfg(feature = "use_cbor")]
-use serde_cbor;
-#[cfg(feature = "use_yaml")]
-use serde_yaml;
-#[cfg(feature = "use_pickle")]
-use serde_pickle;
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_cbor")]
+use serde_cbor;
+#[cfg(feature = "use_json")]
+use serde_json;
+#[cfg(feature = "use_pickle")]
+use serde_pickle;
+#[cfg(feature = "use_yaml")]
+use serde_yaml;
 
 #[derive(Clone, Debug)]
-#[cfg_attr(any(feature = "use_serde", feature = "use_bincode", feature = "use_json", feature = "use_cbor", feature = "use_yaml", feature = "use_pickle", feature = "use_ron"), derive(Serialize, Deserialize))]
+#[cfg_attr(
+    any(
+        feature = "use_serde",
+        feature = "use_bincode",
+        feature = "use_json",
+        feature = "use_cbor",
+        feature = "use_yaml",
+        feature = "use_pickle",
+        feature = "use_ron"
+    ),
+    derive(Serialize, Deserialize)
+)]
 pub struct TreeNode {
     references: u64,
     node: NodeVariant<TreeBranch, TreeLeaf, TreeData>,
@@ -147,16 +174,30 @@ impl Decode for TreeNode {
 }
 
 impl<ValueType> Node<TreeBranch, TreeLeaf, TreeData, ValueType> for TreeNode
-    where ValueType: Encode + Decode {
-    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self { Self::new(node_variant) }
+where
+    ValueType: Encode + Decode,
+{
+    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
+        Self::new(node_variant)
+    }
 
-    fn get_references(&self) -> u64 { Self::get_references(&self) }
+    fn get_references(&self) -> u64 {
+        Self::get_references(&self)
+    }
     fn get_variant(self) -> NodeVariant<TreeBranch, TreeLeaf, TreeData> {
         self.node
     }
 
-    fn set_references(&mut self, references: u64) { Self::set_references(self, references) }
-    fn set_branch(&mut self, branch: TreeBranch) { Self::set_branch(self, branch) }
-    fn set_leaf(&mut self, leaf: TreeLeaf) { Self::set_leaf(self, leaf) }
-    fn set_data(&mut self, data: TreeData) { Self::set_data(self, data) }
+    fn set_references(&mut self, references: u64) {
+        Self::set_references(self, references)
+    }
+    fn set_branch(&mut self, branch: TreeBranch) {
+        Self::set_branch(self, branch)
+    }
+    fn set_leaf(&mut self, leaf: TreeLeaf) {
+        Self::set_leaf(self, leaf)
+    }
+    fn set_data(&mut self, data: TreeData) {
+        Self::set_data(self, data)
+    }
 }
