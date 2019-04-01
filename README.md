@@ -134,3 +134,6 @@ The project is currently undergoing rapid development and it should be noted tha
 to the API.  These changes will be noted in the Changelog of each release, but if we broke something or forgot to mention 
 such a change, please [file an issue](https://github.com/ChosunOne/merkle_bit/issues/new/choose) or 
 [submit a pull request](https://github.com/ChosunOne/merkle_bit/compare) and we will review it at our earliest convenience.
+
+#### Acknowledgments
+Special thanks to Niall Moore for assistance with the early phases of this project. 
