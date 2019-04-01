@@ -1,3 +1,9 @@
+# 2.4.0
+* Require custom branch types to provide a key via ```get_key``` when requested
+    * **NOTE:** This is a breaking change for custom data structures.  Usage of the default tree is not affected.
+* Major performance upgrades, as much as 60% in some cases, though most cases see 20-30% improvements.
+* Keys are now fixed to 32 bytes in size
+    * **NOTE:** This is a breaking change.
 # 2.3.1
 * Simplify handling of errors within the crate.  ```Exception``` is used in place of ```Box<Error>```.
 * Reduce the indirection in ```create_tree``` by compressing long pointer chains.  Results in approx 5% performance

@@ -59,8 +59,8 @@ struct TreeCell<'a, NodeType> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
 struct TreeRef {
-    key: Rc<Vec<u8>>,
-    location: Rc<Vec<u8>>,
+    key: Rc<[u8; 32]>,
+    location: Rc<[u8; 32]>,
     count: u64,
 }
 
@@ -76,6 +76,22 @@ impl TreeRefWrapper {
             raw: Some(tree_ref),
             reference: None,
         }
+    }
+
+    pub fn update_reference(&mut self) {
+        if self.raw.is_some() {
+            return;
+        }
+        let mut new_ref;
+        if let Some(r) = &self.reference {
+            if r.borrow().raw.is_some() {
+                return;
+            }
+            new_ref = r.borrow().get_reference();
+        } else {
+            unreachable!();
+        }
+        self.reference.replace(new_ref);
     }
 
     pub fn set_reference(&mut self, other: Rc<RefCell<TreeRefWrapper>>) {
@@ -98,7 +114,7 @@ impl TreeRefWrapper {
         unreachable!();
     }
 
-    pub fn get_tree_ref_key(&self) -> Rc<Vec<u8>> {
+    pub fn get_tree_ref_key(&self) -> Rc<[u8; 32]> {
         if let Some(t) = &self.raw {
             return Rc::clone(&t.borrow().key);
         }
@@ -108,7 +124,7 @@ impl TreeRefWrapper {
         unreachable!();
     }
 
-    pub fn get_tree_ref_location(&self) -> Rc<Vec<u8>> {
+    pub fn get_tree_ref_location(&self) -> Rc<[u8; 32]> {
         if let Some(t) = &self.raw {
             return Rc::clone(&t.borrow().location);
         }
@@ -128,7 +144,7 @@ impl TreeRefWrapper {
         unreachable!();
     }
 
-    pub fn set_tree_ref_key(&mut self, key: Rc<Vec<u8>>) {
+    pub fn set_tree_ref_key(&mut self, key: Rc<[u8; 32]>) {
         if let Some(t) = &mut self.raw {
             t.borrow_mut().key = key;
         } else if let Some(r) = &mut self.reference {
@@ -138,7 +154,7 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn set_tree_ref_location(&mut self, location: Rc<Vec<u8>>) {
+    pub fn set_tree_ref_location(&mut self, location: Rc<[u8; 32]>) {
         if let Some(t) = &mut self.raw {
             t.borrow_mut().location = location;
         } else if let Some(r) = &mut self.reference {
@@ -181,7 +197,7 @@ impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
 }
 
 impl TreeRef {
-    pub fn new(key: Vec<u8>, location: Vec<u8>, count: u64) -> TreeRef {
+    pub fn new(key: [u8; 32], location: [u8; 32], count: u64) -> TreeRef {
         TreeRef {
             key: Rc::new(key),
             location: Rc::new(location),
@@ -344,29 +360,24 @@ where
             let node = tree_cell.node;
 
             match node.get_variant() {
-                NodeVariant::Branch(n) => {
-                    let key_and_index = if n.get_key().is_some() {
-                        self.calc_min_split_index(&tree_cell.keys, None, Some(&n))?
-                    } else {
-                        let mut hasher = HasherType::new(32);
-                        hasher.update(b"b");
-                        hasher.update(n.get_zero());
-                        hasher.update(n.get_one());
-                        let location = hasher.finalize();
-                        self.calc_min_split_index(&tree_cell.keys, Some(&location), None)?
-                    };
-                    let branch_key = key_and_index.0;
-                    let min_split_index = key_and_index.1;
-                    let descendants =
-                        Self::check_descendants(tree_cell.keys, &n, &branch_key, min_split_index);
+                NodeVariant::Branch(branch) => {
+                    let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
+                    let min_split_index =
+                        self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
+                    let descendants = Self::check_descendants(
+                        tree_cell.keys,
+                        branch_split_index as usize,
+                        &branch_key,
+                        min_split_index,
+                    );
                     if descendants.is_empty() {
                         continue;
                     }
 
-                    let split = split_pairs(&descendants, n.get_split_index() as usize);
+                    let split = split_pairs(&descendants, branch_split_index as usize);
 
                     // If you switch the order of these blocks, the result comes out backwards
-                    if let Some(o) = self.db.get_node(n.get_one())? {
+                    if let Some(o) = self.db.get_node(&one)? {
                         let one_node = o;
                         if !split.1.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
@@ -378,7 +389,7 @@ where
                         }
                     }
 
-                    if let Some(z) = self.db.get_node(n.get_zero())? {
+                    if let Some(z) = self.db.get_node(&zero)? {
                         let zero_node = z;
                         if !split.0.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
@@ -394,7 +405,7 @@ where
                     if let Some(d) = self.db.get_node(n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant() {
                             let value = ValueType::decode(data.get_value())?;
-                            if let Ok(index) = keys.binary_search(&n.get_key()) {
+                            if let Ok(index) = keys.binary_search(&&n.get_key()[..]) {
                                 leaf_map.insert(keys[index], Some(value));
                             }
                         } else {
@@ -419,7 +430,7 @@ where
         previous_root: Option<&[u8]>,
         keys: &mut [&[u8]],
         values: &mut [&ValueType],
-    ) -> BinaryMerkleTreeResult<Vec<u8>> {
+    ) -> BinaryMerkleTreeResult<[u8; 32]> {
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
         }
@@ -444,11 +455,13 @@ where
             }
         }
 
-        let nodes = self.insert_leaves(keys, &&values[..])?;
+        let nodes = self.insert_leaves(keys, &values[..])?;
 
         let mut tree_refs = Vec::with_capacity(keys.len());
         for (loc, key) in nodes.into_iter().zip(keys.iter()) {
-            let tree_ref = TreeRef::new(key.to_vec(), loc, 1);
+            let mut tree_ref_key = [0; 32];
+            tree_ref_key.copy_from_slice(key);
+            let tree_ref = TreeRef::new(tree_ref_key, loc, 1);
             tree_refs.push(tree_ref);
         }
 
@@ -485,14 +498,18 @@ where
                 match node.get_variant() {
                     NodeVariant::Branch(n) => branch = n,
                     NodeVariant::Leaf(n) => {
-                        let leaf = n;
-                        let key = leaf.get_key();
-                        let data = leaf.get_data();
+                        let key_and_data = n.deconstruct();
+                        let key = key_and_data.0;
+                        let data = key_and_data.1;
+
                         let mut leaf_hasher = HasherType::new(32);
                         leaf_hasher.update(b"l");
-                        leaf_hasher.update(key);
-                        leaf_hasher.update(data);
-                        let location = leaf_hasher.finalize();
+                        leaf_hasher.update(&key);
+                        leaf_hasher.update(&data);
+                        let location_vec = leaf_hasher.finalize();
+                        let mut location = [0; 32];
+                        location.copy_from_slice(&location_vec);
+                        drop(location_vec);
 
                         let mut skip = false;
                         let mut old = false;
@@ -501,11 +518,11 @@ where
                         for b in &tree_refs {
                             let b_key = &b.key;
                             let b_location = &b.location;
-                            if &b_key[..] == key && b_location[..] == location[..] {
+                            if b_key[..] == key[..] && b_location[..] == location[..] {
                                 // This value is not being updated, just update its reference count
                                 old = true;
                                 break;
-                            } else if &b_key[..] == key {
+                            } else if b_key[..] == key[..] {
                                 // We are updating this value
                                 skip = true;
                                 break;
@@ -516,7 +533,7 @@ where
                             continue;
                         }
 
-                        if let Some(mut l) = self.db.get_node(location.as_ref())? {
+                        if let Some(mut l) = self.db.get_node(&location)? {
                             let refs = l.get_references() + 1;
                             l.set_references(refs);
                             self.db.insert(location.as_ref(), &l)?;
@@ -528,51 +545,58 @@ where
                             continue;
                         }
 
-                        let tree_ref = TreeRef::new(key.to_vec(), location, 1);
+                        let tree_ref = TreeRef::new(key, location, 1);
                         proof_nodes.push(tree_ref);
                         continue;
                     }
                     NodeVariant::Data(_) => return Err(Exception::new("Corrupt merkle tree")),
                 }
 
+                let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
+                    branch.deconstruct();
+
                 let mut branch_hasher = HasherType::new(32);
                 branch_hasher.update(b"b");
-                branch_hasher.update(branch.get_zero());
-                branch_hasher.update(branch.get_one());
-                let location = branch_hasher.finalize();
+                branch_hasher.update(&branch_zero);
+                branch_hasher.update(&branch_one);
+                let location_vec = branch_hasher.finalize();
+                let mut location = [0; 32];
+                location.clone_from_slice(&location_vec);
+                drop(location_vec);
 
-                let key_and_index = self.calc_min_split_index(
-                    &tree_cell.keys,
-                    Some(location.as_ref()),
-                    Some(&branch),
-                )?;
-                let branch_key = key_and_index.0;
-                let min_split_index = key_and_index.1;
+                let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
                 let split;
                 let mut descendants = &tree_cell.keys[..];
 
-                if min_split_index < branch.get_split_index() as usize {
+                if min_split_index < branch_split_index as usize {
                     descendants = Self::check_descendants(
                         &tree_cell.keys,
-                        &branch,
+                        branch_split_index as usize,
                         &branch_key,
                         min_split_index,
                     );
 
                     if descendants.is_empty() {
-                        let tree_ref = TreeRef::new(branch_key, location, branch.get_count());
+                        let mut new_branch = BranchType::new();
+                        new_branch.set_count(branch_count);
+                        new_branch.set_zero(branch_zero);
+                        new_branch.set_one(branch_one);
+                        new_branch.set_split_index(branch_split_index);
+                        new_branch.set_key(branch_key.clone());
+
+                        let tree_ref = TreeRef::new(branch_key, location, branch_count);
                         refs += 1;
-                        let mut new_node = NodeType::new(NodeVariant::Branch(branch));
+                        let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
                         new_node.set_references(refs);
-                        self.db.insert(&tree_ref.location, &new_node)?;
+                        self.db.insert(&tree_ref.location[..], &new_node)?;
                         proof_nodes.push(tree_ref);
                         continue;
                     }
                 }
 
-                split = split_pairs(descendants, branch.get_split_index() as usize);
-                if let Some(o) = self.db.get_node(branch.get_one())? {
+                split = split_pairs(descendants, branch_split_index as usize);
+                if let Some(o) = self.db.get_node(&branch_one)? {
                     let one_node = o;
                     if !split.1.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
@@ -582,30 +606,32 @@ where
                         );
                         cell_queue.push_front(new_cell);
                     } else {
-                        let other_key = self.get_proof_key(Some(branch.get_one()), None)?;
+                        let mut other_key = [0; 32];
                         let count;
                         let refs = one_node.get_references() + 1;
                         let mut new_one_node;
                         match one_node.get_variant() {
                             NodeVariant::Branch(b) => {
                                 count = b.get_count();
+                                other_key.copy_from_slice(b.get_key());
                                 new_one_node = NodeType::new(NodeVariant::Branch(b));
                             }
                             NodeVariant::Leaf(l) => {
                                 count = 1;
+                                other_key.copy_from_slice(l.get_key());
                                 new_one_node = NodeType::new(NodeVariant::Leaf(l));
                             }
                             NodeVariant::Data(_) => {
                                 return Err(Exception::new("Corrupt merkle tree"));
                             }
                         }
-                        let tree_ref = TreeRef::new(other_key, branch.get_one().to_vec(), count);
                         new_one_node.set_references(refs);
-                        self.db.insert(branch.get_one(), &new_one_node)?;
+                        self.db.insert(&branch_one, &new_one_node)?;
+                        let tree_ref = TreeRef::new(other_key, branch_one, count);
                         proof_nodes.push(tree_ref);
                     }
                 }
-                if let Some(z) = self.db.get_node(branch.get_zero())? {
+                if let Some(z) = self.db.get_node(&branch_zero)? {
                     let zero_node = z;
                     if !split.0.is_empty() {
                         let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
@@ -615,26 +641,28 @@ where
                         );
                         cell_queue.push_front(new_cell);
                     } else {
-                        let other_key = self.get_proof_key(Some(branch.get_zero()), None)?;
+                        let mut other_key = [0; 32];
                         let count;
                         let refs = zero_node.get_references() + 1;
                         let mut new_zero_node;
                         match zero_node.get_variant() {
                             NodeVariant::Branch(b) => {
                                 count = b.get_count();
+                                other_key.copy_from_slice(b.get_key());
                                 new_zero_node = NodeType::new(NodeVariant::Branch(b));
                             }
                             NodeVariant::Leaf(l) => {
                                 count = 1;
+                                other_key.copy_from_slice(l.get_key());
                                 new_zero_node = NodeType::new(NodeVariant::Leaf(l));
                             }
                             NodeVariant::Data(_) => {
                                 return Err(Exception::new("Corrupt merkle tree"));
                             }
                         }
-                        let tree_ref = TreeRef::new(other_key, branch.get_zero().to_vec(), count);
                         new_zero_node.set_references(refs);
-                        self.db.insert(branch.get_zero(), &new_zero_node)?;
+                        self.db.insert(&branch_zero, &new_zero_node)?;
+                        let tree_ref = TreeRef::new(other_key, branch_zero, count);
                         proof_nodes.push(tree_ref);
                     }
                 }
@@ -653,7 +681,7 @@ where
 
     fn check_descendants<'a>(
         keys: &'a [&'a [u8]],
-        branch: &BranchType,
+        branch_split_index: usize,
         branch_key: &[u8],
         min_split_index: usize,
     ) -> &'a [&'a [u8]] {
@@ -661,7 +689,6 @@ where
         let mut start = 0;
         let mut end = 0;
         let mut found_start = false;
-        let branch_split_index = branch.get_split_index() as usize;
         for i in 0..keys.len() {
             let mut descendant = true;
             for j in (min_split_index..branch_split_index).step_by(8) {
@@ -696,9 +723,8 @@ where
     fn calc_min_split_index(
         &self,
         keys: &[&[u8]],
-        location: Option<&[u8]>,
-        branch: Option<&BranchType>,
-    ) -> BinaryMerkleTreeResult<(Vec<u8>, usize)> {
+        branch_key: &[u8],
+    ) -> BinaryMerkleTreeResult<usize> {
         let mut min_key;
         if let Some(m) = keys.iter().min() {
             min_key = *m;
@@ -712,8 +738,6 @@ where
         } else {
             return Err(Exception::new("No keys to calculate minimum split index"));
         }
-
-        let branch_key = self.get_proof_key(location, branch)?;
 
         if branch_key[..] < *min_key {
             min_key = &branch_key;
@@ -730,14 +754,14 @@ where
             split_bit = i * 8 + (7 - f32::from(xor_key).log2().floor() as usize);
             break;
         }
-        Ok((branch_key, split_bit))
+        Ok(split_bit)
     }
 
     fn insert_leaves(
         &mut self,
         keys: &[&[u8]],
-        values: &&[&ValueType],
-    ) -> BinaryMerkleTreeResult<Vec<Vec<u8>>> {
+        values: &[&ValueType],
+    ) -> BinaryMerkleTreeResult<Vec<[u8; 32]>> {
         let mut nodes = Vec::with_capacity(keys.len());
         for i in 0..keys.len() {
             // Create data node
@@ -756,12 +780,14 @@ where
             // Create leaf node
             let mut leaf = LeafType::new();
             leaf.set_data(&data_node_location);
-            leaf.set_key(keys[i]);
+            let mut leaf_key = [0; 32];
+            leaf_key.copy_from_slice(keys[i]);
+            leaf.set_key(leaf_key);
 
             let mut leaf_hasher = HasherType::new(32);
             leaf_hasher.update(b"l");
             leaf_hasher.update(keys[i]);
-            leaf_hasher.update(leaf.get_data());
+            leaf_hasher.update(&leaf.get_data());
             let leaf_node_location = leaf_hasher.finalize();
 
             let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
@@ -780,12 +806,14 @@ where
             self.db.insert(&data_node_location, &data_node)?;
             self.db.insert(&leaf_node_location, &leaf_node)?;
 
-            nodes.push(leaf_node_location);
+            let mut location = [0; 32];
+            location.copy_from_slice(&leaf_node_location);
+            nodes.push(location);
         }
         Ok(nodes)
     }
 
-    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<Vec<u8>> {
+    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<[u8; 32]> {
         if tree_refs.is_empty() {
             return Err(Exception::new("Tried to create a tree with no tree refs"));
         }
@@ -852,6 +880,9 @@ where
             let tree_ref_wrapper = item.1;
             let next_tree_ref_wrapper = item.2;
 
+            tree_ref_wrapper.borrow_mut().update_reference();
+            next_tree_ref_wrapper.borrow_mut().update_reference();
+
             let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
             let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
             let tree_ref_count = tree_ref_wrapper.borrow().get_tree_ref_count();
@@ -862,22 +893,34 @@ where
             {
                 let mut branch_hasher = HasherType::new(32);
                 branch_hasher.update(b"b");
-                branch_hasher.update(&tree_ref_location.as_ref());
-                branch_hasher.update(&next_tree_ref_location.as_ref());
-                branch_node_location = Rc::new(branch_hasher.finalize());
+                branch_hasher.update(&tree_ref_location[..]);
+                branch_hasher.update(&next_tree_ref_location[..]);
+                let branch_node_location_vec = branch_hasher.finalize();
+                let mut branch_node_location_arr = [0u8; 32];
+                branch_node_location_arr.copy_from_slice(&branch_node_location_vec);
+                branch_node_location = Rc::new(branch_node_location_arr);
 
                 count = tree_ref_count + next_tree_ref_count;
-                branch.set_zero(&tree_ref_location);
-                branch.set_one(&next_tree_ref_location);
+                let mut branch_zero = [0; 32];
+                branch_zero.copy_from_slice(&tree_ref_location[..]);
+
+                let mut branch_one = [0; 32];
+                branch_one.copy_from_slice(&next_tree_ref_location[..]);
+
+                let mut branch_key = [0; 32];
+                branch_key.copy_from_slice(&tree_ref_key[..]);
+
+                branch.set_zero(branch_zero);
+                branch.set_one(branch_one);
                 branch.set_count(count);
                 branch.set_split_index(split_index as u32);
-                branch.set_key(&tree_ref_key);
+                branch.set_key(branch_key);
             }
 
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
             branch_node.set_references(1);
 
-            self.db.insert(&branch_node_location, &branch_node)?;
+            self.db.insert(&branch_node_location[..], &branch_node)?;
 
             next_tree_ref_wrapper
                 .borrow_mut()
@@ -899,51 +942,6 @@ where
                     Err(v) => return Ok((*v).clone()),
                 }
             }
-        }
-        unreachable!();
-    }
-
-    fn get_proof_key(
-        &self,
-        root_hash: Option<&[u8]>,
-        branch: Option<&BranchType>,
-    ) -> BinaryMerkleTreeResult<Vec<u8>> {
-        if let Some(b) = branch {
-            if let Some(k) = b.get_key() {
-                return Ok(k.to_vec());
-            }
-        }
-
-        let child_location = if let Some(h) = root_hash {
-            h
-        } else {
-            return Err(Exception::new("root_hash and node must not both be None"));
-        };
-
-        let mut key;
-        let mut depth = 0;
-        let mut get_node = self.db.get_node(child_location)?;
-
-        // DFS to find a key
-        while let Some(node) = get_node {
-            if depth > self.depth {
-                // If a poor hasher is chosen, you can end up with circular paths through the tree.
-                // This check ensures that you are alerted of the possibility.
-                return Err(Exception::new("Maximum proof key depth exceeded.  Ensure hasher does not generate collisions."));
-            }
-            let location;
-            match node.get_variant() {
-                NodeVariant::Branch(m) => {
-                    location = m.get_zero();
-                    get_node = self.db.get_node(location)?;
-                }
-                NodeVariant::Leaf(m) => {
-                    key = m.get_key().to_vec();
-                    return Ok(key);
-                }
-                NodeVariant::Data(_) => return Err(Exception::new("Corrupt merkle tree")),
-            }
-            depth += 1;
         }
         unreachable!();
     }

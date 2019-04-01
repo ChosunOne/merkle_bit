@@ -14,8 +14,8 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
     fn main() -> Result<Ok(), Error> {
         let tree = HashTree::new(8)?;
         
-        // Keys must be slices of u8 arrays or vectors
-        let mut key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
+        // Keys must be [u8; 32]
+        let mut key: [u8; 32] = [0xFF; 32];
         
         // Value to be put into the tree
         let value: Vec<u8> = vec![0xDDu8];
@@ -97,13 +97,13 @@ If you provide your own implementation of the traits for each component of the t
                              ValueType>::from_db(db, depth);
                              
         // Keys must be slices of u8 arrays or vectors
-        let key: Vec<u8> = vec![0x00u8, 0x81u8, 0xA3u8];
+        let key: [u8; 32] = [0xFF; 32];
         
         // An example value created from ValueType.  
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: Vec<u8> = mbit.insert(None, &mut [&key[..]], &mut [&value[..]])?;
+        let root: [u8; 32] = mbit.insert(None, &mut [&key[..]], &mut [&value[..]])?;
         
         // Retrieving the inserted value
         let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [&key[..]])?;
