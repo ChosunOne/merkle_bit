@@ -247,7 +247,6 @@ pub mod integration_tests {
             assert_eq!(items[&key[..]], Some(value.clone()))
         }
         tear_down(&path);
-        panic!();
         Ok(())
     }
 

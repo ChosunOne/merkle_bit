@@ -102,8 +102,8 @@ impl TreeBranch {
     fn get_split_index(&self) -> u32 {
         self.split_index
     }
-    fn get_key(&self) -> Option<&[u8]> {
-        Some(&self.key)
+    fn get_key(&self) -> &[u8] {
+        &self.key
     }
 
     fn set_count(&mut self, count: u64) {
@@ -140,7 +140,7 @@ impl Branch for TreeBranch {
     fn get_split_index(&self) -> u32 {
         Self::get_split_index(&self)
     }
-    fn get_key(&self) -> Option<&[u8]> {
+    fn get_key(&self) -> &[u8] {
         Self::get_key(&self)
     }
 

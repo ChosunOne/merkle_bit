@@ -17,7 +17,7 @@ pub trait Branch {
     fn get_zero(&self) -> &[u8];
     fn get_one(&self) -> &[u8];
     fn get_split_index(&self) -> u32;
-    fn get_key(&self) -> Option<&[u8]>;
+    fn get_key(&self) -> &[u8];
     fn set_count(&mut self, count: u64);
     fn set_zero(&mut self, zero: &[u8]);
     fn set_one(&mut self, one: &[u8]);
@@ -31,6 +31,7 @@ pub trait Leaf {
     fn get_data(&self) -> &[u8];
     fn set_key(&mut self, key: &[u8]);
     fn set_data(&mut self, data: &[u8]);
+    fn deconstruct(self) -> (Vec<u8>, Vec<u8>);
 }
 
 pub trait Data {

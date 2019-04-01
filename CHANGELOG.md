@@ -1,3 +1,8 @@
+# 2.4.0
+* Require custom branch types to provide a key via ```get_key``` when requested
+    * **NOTE:** This is a breaking change for custom data structures.  Usage of the default tree is not affected.
+* Major performance upgrades, as much as 40% in some cases, though most cases see 5-7% improvements.
+
 # 2.3.0
 * Change return type of ```get``` to return a ```HashMap<&[u8], Option<ValueType>>``` instead of a ```Vec<Option<ValueType>>```.
 This should resolve ambiguity of the return values when the input key list is not sorted.

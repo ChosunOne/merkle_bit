@@ -1,36 +1,12 @@
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serialization")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 
 use crate::traits::Leaf;
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serialization")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "use_bincode")]
@@ -47,18 +23,7 @@ use serde_pickle;
 use serde_yaml;
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(
-    any(
-        feature = "use_serde",
-        feature = "use_bincode",
-        feature = "use_json",
-        feature = "use_cbor",
-        feature = "use_yaml",
-        feature = "use_pickle",
-        feature = "use_ron"
-    ),
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(feature = "use_serialization", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: Vec<u8>,
     data: Vec<u8>,
@@ -85,6 +50,10 @@ impl TreeLeaf {
     fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
     }
+
+    fn deconstruct(self) -> (Vec<u8>, Vec<u8>) {
+        (self.key, self.data)
+    }
 }
 
 impl Leaf for TreeLeaf {
@@ -104,6 +73,10 @@ impl Leaf for TreeLeaf {
     }
     fn set_data(&mut self, data: &[u8]) {
         Self::set_data(self, data.to_vec())
+    }
+
+    fn deconstruct(self) -> (Vec<u8>, Vec<u8>) {
+        Self::deconstruct(self)
     }
 }
 
