@@ -78,6 +78,22 @@ impl TreeRefWrapper {
         }
     }
 
+    pub fn update_reference(&mut self) {
+        if self.raw.is_some() {
+            return;
+        }
+        let mut new_ref;
+        if let Some(r) = &self.reference {
+            if r.borrow().raw.is_some() {
+                return;
+            }
+            new_ref = r.borrow().get_reference();
+        } else {
+            unreachable!();
+        }
+        self.reference.replace(new_ref);
+    }
+
     pub fn set_reference(&mut self, other: Rc<RefCell<TreeRefWrapper>>) {
         self.raw = None;
         if other.borrow().raw.is_some() {
@@ -851,6 +867,9 @@ where
 
             let tree_ref_wrapper = item.1;
             let next_tree_ref_wrapper = item.2;
+
+            tree_ref_wrapper.borrow_mut().update_reference();
+            next_tree_ref_wrapper.borrow_mut().update_reference();
 
             let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
             let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
