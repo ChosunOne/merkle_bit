@@ -73,20 +73,20 @@ use std::string::FromUtf8Error;
 )]
 pub struct TreeBranch {
     count: u64,
-    zero: Vec<u8>,
-    one: Vec<u8>,
+    zero: [u8; 32],
+    one: [u8; 32],
     split_index: u32,
-    key: Vec<u8>,
+    key: [u8; 32],
 }
 
 impl TreeBranch {
     fn new() -> Self {
         Self {
             count: 0,
-            zero: vec![],
-            one: vec![],
+            zero: [0; 32],
+            one: [0; 32],
             split_index: 0,
-            key: vec![],
+            key: [0; 32],
         }
     }
 
@@ -109,17 +109,21 @@ impl TreeBranch {
     fn set_count(&mut self, count: u64) {
         self.count = count;
     }
-    fn set_zero(&mut self, zero: Vec<u8>) {
+    fn set_zero(&mut self, zero: [u8; 32]) {
         self.zero = zero;
     }
-    fn set_one(&mut self, one: Vec<u8>) {
-        self.one = one;
+    fn set_one(&mut self, one: [u8; 32]) {
+        self.one = one;;
     }
     fn set_split_index(&mut self, split_index: u32) {
         self.split_index = split_index;
     }
-    fn set_key(&mut self, key: Vec<u8>) {
+    fn set_key(&mut self, key: [u8; 32]) {
         self.key = key;
+    }
+
+    fn deconstruct(self) -> (u64, [u8; 32], [u8; 32], u32, [u8; 32]) {
+        (self.count, self.zero, self.one, self.split_index, self.key)
     }
 }
 
@@ -147,17 +151,21 @@ impl Branch for TreeBranch {
     fn set_count(&mut self, count: u64) {
         Self::set_count(self, count)
     }
-    fn set_zero(&mut self, zero: &[u8]) {
-        Self::set_zero(self, zero.to_vec())
+    fn set_zero(&mut self, zero: [u8; 32]) {
+        Self::set_zero(self, zero)
     }
-    fn set_one(&mut self, one: &[u8]) {
-        Self::set_one(self, one.to_vec())
+    fn set_one(&mut self, one: [u8; 32]) {
+        Self::set_one(self, one)
     }
     fn set_split_index(&mut self, index: u32) {
         Self::set_split_index(self, index)
     }
-    fn set_key(&mut self, key: &[u8]) {
-        Self::set_key(self, key.to_vec())
+    fn set_key(&mut self, key: [u8; 32]) {
+        Self::set_key(self, key)
+    }
+
+    fn deconstruct(self) -> (u64, [u8; 32], [u8; 32], u32, [u8; 32]) {
+        Self::deconstruct(self)
     }
 }
 

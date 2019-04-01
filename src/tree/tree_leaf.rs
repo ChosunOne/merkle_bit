@@ -25,14 +25,14 @@ use serde_yaml;
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "use_serialization", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
-    key: Vec<u8>,
+    key: [u8; 32],
     data: Vec<u8>,
 }
 
 impl TreeLeaf {
     pub fn new() -> Self {
         Self {
-            key: vec![],
+            key: [0; 32],
             data: vec![],
         }
     }
@@ -44,14 +44,14 @@ impl TreeLeaf {
         &self.data
     }
 
-    fn set_key(&mut self, key: Vec<u8>) {
+    fn set_key(&mut self, key: [u8; 32]) {
         self.key = key;
     }
     fn set_data(&mut self, data: Vec<u8>) {
         self.data = data;
     }
 
-    fn deconstruct(self) -> (Vec<u8>, Vec<u8>) {
+    fn deconstruct(self) -> ([u8; 32], Vec<u8>) {
         (self.key, self.data)
     }
 }
@@ -68,14 +68,14 @@ impl Leaf for TreeLeaf {
         Self::get_data(&self)
     }
 
-    fn set_key(&mut self, key: &[u8]) {
-        Self::set_key(self, key.to_vec())
+    fn set_key(&mut self, key: [u8; 32]) {
+        Self::set_key(self, key)
     }
     fn set_data(&mut self, data: &[u8]) {
         Self::set_data(self, data.to_vec())
     }
 
-    fn deconstruct(self) -> (Vec<u8>, Vec<u8>) {
+    fn deconstruct(self) -> ([u8; 32], Vec<u8>) {
         Self::deconstruct(self)
     }
 }

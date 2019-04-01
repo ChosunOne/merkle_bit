@@ -25,7 +25,7 @@ pub mod integration_tests {
     fn it_works_with_a_real_database() -> BinaryMerkleTreeResult<()> {
         let seed = [0x00u8; 32];
         let path = generate_path(seed);
-        let key = vec![0xAAu8];
+        let key = [0xAAu8; 32];
         let retrieved_value;
         let removed_retrieved_value;
         let data = vec![0xFFu8];
@@ -76,7 +76,7 @@ pub mod integration_tests {
     fn it_gets_an_item_out_of_a_simple_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x01u8; 32];
         let path = generate_path(seed);
-        let key = vec![0xAAu8];
+        let key = [0xAAu8; 32];
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
@@ -91,11 +91,11 @@ pub mod integration_tests {
     fn it_fails_to_get_from_empty_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x02u8; 32];
         let path = generate_path(seed);
-        let key = vec![0x00u8];
-        let root_key = vec![0x01u8];
+        let key = [0x00u8; 32];
+        let root_key = [0x01u8; 32];
 
         let bmt = Tree::open(&path, 160)?;
-        let items = bmt.get(&root_key, &mut vec![&key[..]])?;
+        let items = bmt.get(&root_key, &mut [&key[..]])?;
         let expected_item = None;
         assert_eq!(items[&key[..]], expected_item);
         tear_down(&path);
@@ -106,14 +106,14 @@ pub mod integration_tests {
     fn it_fails_to_get_a_nonexistent_item() -> BinaryMerkleTreeResult<()> {
         let seed = [0x03u8; 32];
         let path = generate_path(seed);
-        let key = vec![0xAAu8];
+        let key = [0xAAu8; 32];
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root = bmt.insert(None, &mut [&key[..]], &mut vec![&value])?;
+        let root = bmt.insert(None, &mut [&key[..]], &mut [&value])?;
 
-        let nonexistent_key = vec![0xAB];
-        let items = bmt.get(&root, &mut vec![&nonexistent_key[..]])?;
+        let nonexistent_key = [0xAB; 32];
+        let items = bmt.get(&root, &mut [&nonexistent_key[..]])?;
         assert_eq!(items[&nonexistent_key[..]], None);
         tear_down(&path);
         Ok(())
@@ -126,10 +126,10 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(8);
         let mut values = Vec::with_capacity(8);
         for i in 0..8 {
-            keys.push(vec![i << 5]);
-            values.push(vec![i]);
+            keys.push([i << 5u8; 32]);
+            values.push(vec![i; 32]);
         }
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 3)?;
         let mut insert_values = values.iter().collect::<Vec<_>>();
@@ -137,7 +137,7 @@ pub mod integration_tests {
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
         for (key, value) in get_keys.into_iter().zip(values.iter()) {
-            assert_eq!(items[&key[..]], Some(value.clone()))
+            assert_eq!(Some(value.clone()), items[&key[..]])
         }
         tear_down(&path);
         Ok(())
@@ -147,13 +147,13 @@ pub mod integration_tests {
     fn it_gets_items_from_a_small_unbalanced_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x05u8; 32];
         let path = generate_path(seed);
-        let mut keys: Vec<Vec<u8>> = Vec::with_capacity(7);
+        let mut keys = Vec::with_capacity(7);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(7);
         for i in 0..7 {
-            keys.push(vec![i << 5]);
-            values.push(vec![i]);
+            keys.push([i << 5u8; 32]);
+            values.push(vec![i; 32]);
         }
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
         let mut bmt = Tree::open(&path, 3)?;
 
@@ -172,14 +172,14 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         let num_leaves = 256;
-        let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push(vec![i as u8]);
-            values.push(vec![i as u8]);
+            keys.push([i as u8; 32]);
+            values.push(vec![i as u8; 32]);
         }
 
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 8)?;
@@ -198,14 +198,14 @@ pub mod integration_tests {
         let seed = [0x07u8; 32];
         let path = generate_path(seed);
         let num_leaves = 255;
-        let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push(vec![i as u8]);
-            values.push(vec![i as u8]);
+            keys.push([i as u8; 32]);
+            values.push(vec![i as u8; 32]);
         }
 
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 8)?;
@@ -229,14 +229,17 @@ pub mod integration_tests {
         #[cfg(feature = "use_groestl")]
         let num_leaves = 1024;
 
-        let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push(vec![(i >> 8) as u8, (i & 0xFF) as u8]);
-            values.push(vec![(i >> 8) as u8, (i & 0xFF) as u8]);
+            let mut key = [0u8; 32];
+            key[0] = (i >> 8) as u8;
+            key[1] = (i & 0xFF) as u8;
+            values.push(key.to_vec());
+            keys.push(key);
         }
 
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 16)?;
@@ -259,14 +262,17 @@ pub mod integration_tests {
         let num_leaves = 8195;
         #[cfg(feature = "use_groestl")]
         let num_leaves = 1023;
-        let mut keys: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push(vec![(i >> 8) as u8, (i & 0xFF) as u8]);
-            values.push(vec![(i >> 8) as u8, (i & 0xFF) as u8]);
+            let mut key = [0u8; 32];
+            key[0] = (i >> 8) as u8;
+            key[1] = (i & 0xFF) as u8;
+            values.push(key.to_vec());
+            keys.push(key);
         }
 
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut insert_values = values.iter().collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 16)?;
@@ -293,10 +299,10 @@ pub mod integration_tests {
         // A     B      C      D     E     F     G     H     I     J     K     L     M     N     O     P
         // 0x00  0x40, 0x41, 0x60, 0x68, 0x70, 0x71, 0x72, 0x80, 0xC0, 0xC1, 0xE0, 0xE1, 0xE2, 0xF0, 0xF8
         // None, None, None, 0x01, 0x02, None, None, None, 0x03, None, None, None, None, None, 0x04, None
-        let pop_key_d = vec![0x60u8]; // 0110_0000   96 (Dec)
-        let pop_key_e = vec![0x68u8]; // 0110_1000  104 (Dec)
-        let pop_key_i = vec![0x80u8]; // 1000_0000  128 (Dec)
-        let pop_key_o = vec![0xF0u8]; // 1111_0000  240 (Dec)
+        let pop_key_d = [0x60u8; 32]; // 0110_0000   96 (Dec)
+        let pop_key_e = [0x68u8; 32]; // 0110_1000  104 (Dec)
+        let pop_key_i = [0x80u8; 32]; // 1000_0000  128 (Dec)
+        let pop_key_o = [0xF0u8; 32]; // 1111_0000  240 (Dec)
 
         let mut populated_keys = [
             &pop_key_d[..],
@@ -315,18 +321,18 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 5)?;
         let root_node = bmt.insert(None, &mut populated_keys, &mut populated_values)?;
 
-        let key_a = vec![0x00u8]; // 0000_0000     0 (Dec)
-        let key_b = vec![0x40u8]; // 0100_0000    64 (Dec)
-        let key_c = vec![0x41u8]; // 0100_0001    65 (Dec)
-        let key_f = vec![0x70u8]; // 0111_0000   112 (Dec)
-        let key_g = vec![0x71u8]; // 0111_0001   113 (Dec)
-        let key_h = vec![0x72u8]; // 0111_0010   114 (Dec)
-        let key_j = vec![0xC0u8]; // 1100_0000   192 (Dec)
-        let key_k = vec![0xC1u8]; // 1100_0001   193 (Dec)
-        let key_l = vec![0xE0u8]; // 1110_0000   224 (Dec)
-        let key_m = vec![0xE1u8]; // 1110_0001   225 (Dec)
-        let key_n = vec![0xE2u8]; // 1110_0010   226 (Dec)
-        let key_p = vec![0xF8u8]; // 1111_1000   248 (Dec)
+        let key_a = [0x00u8; 32]; // 0000_0000     0 (Dec)
+        let key_b = [0x40u8; 32]; // 0100_0000    64 (Dec)
+        let key_c = [0x41u8; 32]; // 0100_0001    65 (Dec)
+        let key_f = [0x70u8; 32]; // 0111_0000   112 (Dec)
+        let key_g = [0x71u8; 32]; // 0111_0001   113 (Dec)
+        let key_h = [0x72u8; 32]; // 0111_0010   114 (Dec)
+        let key_j = [0xC0u8; 32]; // 1100_0000   192 (Dec)
+        let key_k = [0xC1u8; 32]; // 1100_0001   193 (Dec)
+        let key_l = [0xE0u8; 32]; // 1110_0000   224 (Dec)
+        let key_m = [0xE1u8; 32]; // 1110_0001   225 (Dec)
+        let key_n = [0xE2u8; 32]; // 1110_0010   226 (Dec)
+        let key_p = [0xF8u8; 32]; // 1111_1000   248 (Dec)
 
         let mut keys = vec![
             &key_a[..],
@@ -379,15 +385,15 @@ pub mod integration_tests {
         let seed = [0x11u8; 32];
         let path = generate_path(seed);
 
-        let initial_key = vec![0x00u8];
+        let initial_key = [0x00u8; 32];
         let initial_value = vec![0xFFu8];
 
         let mut keys = Vec::with_capacity(256);
         for i in 0..256 {
-            keys.push(vec![i as u8]);
+            keys.push([i as u8]);
         }
 
-        let mut get_keys = keys.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();
 
         let mut bmt = Tree::open(&path, 3)?;
         let root_node = bmt.insert(None, &mut [&initial_key], &mut vec![&initial_value])?;
@@ -410,8 +416,8 @@ pub mod integration_tests {
         let seed = [0x12u8; 32];
         let path = generate_path(seed);
 
-        let key_values = vec![vec![0x00u8], vec![0x01u8]];
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let key_values = vec![[0x00u8; 32], [0x01u8; 32]];
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = vec![vec![0x02u8], vec![0x03u8]];
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -431,8 +437,8 @@ pub mod integration_tests {
         let seed = [0x13u8; 32];
         let path = generate_path(seed);
 
-        let key_values = vec![vec![0x00u8], vec![0x80u8]];
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let key_values = vec![[0x00u8; 32], [0x80u8; 32]];
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = vec![vec![0x02u8], vec![0x03u8]];
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -451,11 +457,11 @@ pub mod integration_tests {
         let seed = [0x14u8; 32];
         let path = generate_path(seed);
 
-        let key = vec![0xAAu8];
+        let key = [0xAAu8; 32];
         let data = vec![0xBBu8];
 
         let mut bmt = Tree::open(&path, 3)?;
-        let new_root_hash = bmt.insert(None, &mut [&key[..]], &mut vec![data.as_ref()])?;
+        let new_root_hash = bmt.insert(None, &mut [&key[..]], &mut vec![&data])?;
         let items = bmt.get(&new_root_hash, &mut vec![&key[..]])?;
         assert_eq!(items[&key[..]], Some(data));
         tear_down(&path);
@@ -468,11 +474,11 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         let key_values = vec![
-            vec![0xAAu8], // 1010_1010
-            vec![0xBBu8], // 1011_1011
-            vec![0xCCu8],
+            [0xAAu8; 32], // 1010_1010
+            [0xBBu8; 32], // 1011_1011
+            [0xCCu8; 32],
         ]; // 1100_1100
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = vec![vec![0xDDu8], vec![0xEEu8], vec![0xFFu8]];
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -497,7 +503,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(32, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -522,7 +528,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(31, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -547,7 +553,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -572,7 +578,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(255, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -600,7 +606,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -628,7 +634,7 @@ pub mod integration_tests {
         let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
@@ -647,10 +653,10 @@ pub mod integration_tests {
         let seed = [0x22u8; 32];
         let path = generate_path(seed);
 
-        let first_key = vec![0xAAu8];
+        let first_key = vec![0xAAu8; 32];
         let first_data = vec![0xBBu8];
 
-        let second_key = vec![0xCCu8];
+        let second_key = vec![0xCCu8; 32];
         let second_data = vec![0xDDu8];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -693,7 +699,7 @@ pub mod integration_tests {
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values
             .iter()
-            .map(|x| x.as_slice())
+            .map(|x| &x[..])
             .collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
         let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
@@ -703,10 +709,7 @@ pub mod integration_tests {
 
         let prepare_added = prepare_inserts(num_inserts, &mut rng);
         let added_key_values = prepare_added.0;
-        let mut added_keys = added_key_values
-            .iter()
-            .map(|x| x.as_slice())
-            .collect::<Vec<_>>();
+        let mut added_keys = added_key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let added_data_values = prepare_added.1;
         let mut added_data = added_data_values.iter().collect::<Vec<_>>();
 
@@ -743,7 +746,7 @@ pub mod integration_tests {
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values
             .iter()
-            .map(|x| x.as_slice())
+            .map(|x| &x[..])
             .collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
         let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
@@ -753,10 +756,7 @@ pub mod integration_tests {
 
         let prepare_added = prepare_inserts(num_inserts, &mut rng);
         let added_key_values = prepare_added.0;
-        let mut added_keys = added_key_values
-            .iter()
-            .map(|x| x.as_slice())
-            .collect::<Vec<_>>();
+        let mut added_keys = added_key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let added_data_values = prepare_added.1;
         let mut added_data = added_data_values.iter().collect::<Vec<_>>();
 
@@ -781,24 +781,20 @@ pub mod integration_tests {
         let seed = [0x25u8; 32];
         let path = generate_path(seed);
 
-        let key = vec![0xAAu8];
+        let key = [0xAAu8; 32];
         let first_value = vec![0xBBu8];
         let second_value = vec![0xCCu8];
 
         let mut bmt = Tree::open(&path, 3)?;
-        let first_root_hash = bmt.insert(
-            None,
-            &mut vec![key.as_ref()],
-            &mut vec![first_value.as_ref()],
-        )?;
+        let first_root_hash = bmt.insert(None, &mut [&key], &mut vec![&first_value])?;
         let second_root_hash = bmt.insert(
             Some(&first_root_hash),
-            &mut vec![key.as_ref()],
-            &mut vec![second_value.as_ref()],
+            &mut [&key],
+            &mut vec![&second_value],
         )?;
 
-        let first_item = bmt.get(&first_root_hash, &mut vec![key.as_ref()])?;
-        let second_item = bmt.get(&second_root_hash, &mut vec![key.as_ref()])?;
+        let first_item = bmt.get(&first_root_hash, &mut [&key])?;
+        let second_item = bmt.get(&second_root_hash, &mut [&key])?;
 
         assert_eq!(first_item[&key[..]], Some(first_value));
         assert_eq!(second_item[&key[..]], Some(second_value));
@@ -822,7 +818,7 @@ pub mod integration_tests {
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values
             .iter()
-            .map(|x| x.as_slice())
+            .map(|x| &x[..])
             .collect::<Vec<_>>();
         let initial_data_values = prepare_initial.1;
         let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
@@ -875,19 +871,19 @@ pub mod integration_tests {
         let seed = [0x28u8; 32];
         let path = generate_path(seed);
 
-        let key = vec![0x00u8];
+        let key = [0x00u8; 32];
         let data = vec![0x01u8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root_hash = bmt.insert(None, &mut vec![key.as_ref()], &mut vec![&data])?;
+        let root_hash = bmt.insert(None, &mut [&key], &mut vec![&data])?;
 
-        let inserted_data = bmt.get(&root_hash, &mut vec![key.as_ref()])?;
+        let inserted_data = bmt.get(&root_hash, &mut [&key])?;
 
         assert_eq!(inserted_data[&key[..]], Some(data));
 
         bmt.remove(&root_hash)?;
 
-        let retrieved_values = bmt.get(&root_hash, &mut vec![&key[..]])?;
+        let retrieved_values = bmt.get(&root_hash, &mut [&key[..]])?;
 
         assert_eq!(retrieved_values[&key[..]], None);
         tear_down(&path);
@@ -910,7 +906,7 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
         let key_values = prepare.0;
         let data_values = prepare.1;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut data = data_values.iter().collect::<Vec<_>>();
 
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
@@ -935,17 +931,14 @@ pub mod integration_tests {
         let seed = [0x30u8; 32];
         let path = generate_path(seed);
 
-        let first_key = vec![0x00u8];
+        let first_key = vec![0x00u8; 32];
         let first_data = vec![0x01u8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let first_root_hash = bmt.insert(
-            None,
-            &mut vec![first_key.as_ref()],
-            &mut vec![first_data.as_ref()],
-        )?;
+        let first_root_hash =
+            bmt.insert(None, &mut vec![&first_key[..]], &mut vec![&first_data])?;
 
-        let second_key = vec![0x02u8];
+        let second_key = vec![0x02u8; 32];
         let second_data = vec![0x03u8];
 
         let second_root_hash = bmt.insert(
@@ -970,10 +963,10 @@ pub mod integration_tests {
         let seed = [0x31u8; 32];
         let path = generate_path(seed);
 
-        let first_key = vec![0x00u8];
-        let second_key = vec![0x01u8];
-        let third_key = vec![0x02u8];
-        let fourth_key = vec![0x03u8];
+        let first_key = vec![0x00u8; 32];
+        let second_key = vec![0x01u8; 32];
+        let third_key = vec![0x02u8; 32];
+        let fourth_key = vec![0x03u8; 32];
 
         let first_data = vec![0x04u8];
         let second_data = vec![0x05u8];
@@ -1026,7 +1019,7 @@ pub mod integration_tests {
         let initial_data_values = prepare_initial.1;
         let mut initial_keys = initial_key_values
             .iter()
-            .map(|x| x.as_slice())
+            .map(|x| &x[..])
             .collect::<Vec<_>>();
         let mut initial_data = initial_data_values.iter().collect::<Vec<_>>();
 
@@ -1036,10 +1029,7 @@ pub mod integration_tests {
         let prepare_added = prepare_inserts(16, &mut rng);
         let added_key_values = prepare_added.0;
         let added_data_values = prepare_added.1;
-        let mut added_keys = added_key_values
-            .iter()
-            .map(|x| x.as_slice())
-            .collect::<Vec<_>>();
+        let mut added_keys = added_key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
         let mut added_data = added_data_values.iter().collect::<Vec<_>>();
 
         let second_root_hash =
@@ -1084,11 +1074,11 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         let key_values = vec![
-            vec![0x00u8],
-            vec![0x01u8],
-            vec![0x02u8],
-            vec![0x10u8],
-            vec![0x20u8],
+            vec![0x00u8; 32],
+            vec![0x01u8; 32],
+            vec![0x02u8; 32],
+            vec![0x10u8; 32],
+            vec![0x20u8; 32],
         ];
         let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
         let values = vec![
@@ -1119,11 +1109,11 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         let key_values = vec![
-            vec![0x10u8],
-            vec![0x11u8],
-            vec![0x00u8],
-            vec![0x01u8],
-            vec![0x02u8],
+            vec![0x10u8; 32],
+            vec![0x11u8; 32],
+            vec![0x00u8; 32],
+            vec![0x01u8; 32],
+            vec![0x02u8; 32],
         ];
         let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
         let values = vec![
@@ -1178,17 +1168,13 @@ pub mod integration_tests {
 
         let mut bmt = Tree::open(&path, 160)?;
 
-        let key = vec![0x00u8];
+        let key = [0x00u8; 32];
         let data = vec![0x00u8];
 
-        let first_root = bmt.insert(None, &mut vec![key.as_ref()], &mut vec![data.as_ref()])?;
-        let second_root = bmt.insert(
-            Some(&first_root),
-            &mut vec![key.as_ref()],
-            &mut vec![data.as_ref()],
-        )?;
+        let first_root = bmt.insert(None, &mut [&key], &mut vec![data.as_ref()])?;
+        let second_root = bmt.insert(Some(&first_root), &mut [&key], &mut vec![data.as_ref()])?;
         bmt.remove(&first_root)?;
-        let item = bmt.get(&second_root, &mut vec![key.as_ref()])?;
+        let item = bmt.get(&second_root, &mut [&key])?;
         assert_eq!(item[&key[..]], Some(data));
         tear_down(&path);
         Ok(())
@@ -1209,13 +1195,13 @@ pub mod integration_tests {
         remove_dir_all(&_path).unwrap();
     }
 
-    fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<Vec<u8>>, Vec<Vec<u8>>) {
+    fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; 32]>, Vec<Vec<u8>>) {
         let mut keys = Vec::with_capacity(num_entries);
         let mut data = Vec::with_capacity(num_entries);
         for _ in 0..num_entries {
             let mut key_value = [0u8; 32];
             rng.fill(&mut key_value);
-            keys.push(key_value.to_vec());
+            keys.push(key_value);
 
             let mut data_value = [0u8; 32];
             rng.fill(data_value.as_mut());
@@ -1232,8 +1218,9 @@ pub mod integration_tests {
         iterations: usize,
         rng: &mut StdRng,
         bmt: &mut Tree,
-    ) -> BinaryMerkleTreeResult<(Vec<Option<Vec<u8>>>, Vec<Vec<Vec<u8>>>, Vec<Vec<Vec<u8>>>)> {
-        let mut state_roots: Vec<Option<Vec<u8>>> = Vec::with_capacity(iterations);
+    ) -> BinaryMerkleTreeResult<(Vec<Option<[u8; 32]>>, Vec<Vec<[u8; 32]>>, Vec<Vec<Vec<u8>>>)>
+    {
+        let mut state_roots: Vec<Option<[u8; 32]>> = Vec::with_capacity(iterations);
         let mut key_groups = Vec::with_capacity(iterations);
         let mut data_groups = Vec::with_capacity(iterations);
         state_roots.push(None);
@@ -1245,13 +1232,13 @@ pub mod integration_tests {
             let data_values = prepare.1;
             data_groups.push(data_values.clone());
 
-            let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+            let mut keys = key_values.iter().map(|x| &x[..]).collect::<Vec<_>>();
             let mut data = data_values.iter().collect::<Vec<_>>();
 
             let previous_state_root = &state_roots[i].clone();
             let previous_root;
             match previous_state_root {
-                Some(r) => previous_root = Some(r.as_slice()),
+                Some(r) => previous_root = Some(&r[..]),
                 None => previous_root = None,
             }
 

@@ -51,7 +51,7 @@ where
         previous_root: Option<&[u8]>,
         keys: &mut [&[u8]],
         values: &mut [&ValueType],
-    ) -> BinaryMerkleTreeResult<Vec<u8>> {
+    ) -> BinaryMerkleTreeResult<[u8; 32]> {
         self.tree.insert(previous_root, keys, values)
     }
 
