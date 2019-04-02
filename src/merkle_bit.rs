@@ -476,7 +476,7 @@ where
             // Nodes that form the merkle proof for the new tree
             let mut proof_nodes = Vec::with_capacity(keys.len());
 
-            let root_node = if let Some(m) = self.db.get_node(n.as_ref())? {
+            let root_node = if let Some(m) = self.db.get_node(n)? {
                 m
             } else {
                 return Err(Exception::new("Could not find previous root"));
@@ -488,11 +488,9 @@ where
             cell_queue.push_front(root_cell);
 
             while !cell_queue.is_empty() {
-                let tree_cell = if let Some(c) = cell_queue.pop_front() {
-                    c
-                } else {
-                    unreachable!();
-                };
+                let tree_cell = cell_queue
+                    .pop_front()
+                    .expect("cell queue should not be empty");
 
                 if tree_cell.depth > self.depth {
                     return Err(Exception::new("Depth of merkle tree exceeded"));
@@ -505,34 +503,24 @@ where
                 match node.get_variant() {
                     NodeVariant::Branch(n) => branch = n,
                     NodeVariant::Leaf(n) => {
-                        let key_and_data = n.deconstruct();
-                        let key = key_and_data.0;
-                        let data = key_and_data.1;
+                        let (key, data) = n.deconstruct();
 
                         let mut leaf_hasher = HasherType::new(32);
                         leaf_hasher.update(b"l");
                         leaf_hasher.update(&key);
                         leaf_hasher.update(&data);
-                        let location_vec = leaf_hasher.finalize();
                         let mut location = [0; 32];
-                        location.copy_from_slice(&location_vec);
-                        drop(location_vec);
+                        location.copy_from_slice(&leaf_hasher.finalize());
 
                         let mut skip = false;
                         let mut old = false;
 
                         // Check if we are updating an existing value
-                        for b in &tree_refs {
-                            let b_key = &b.key;
-                            let b_location = &b.location;
-                            if b_key[..] == key[..] && b_location[..] == location[..] {
-                                // This value is not being updated, just update its reference count
+                        if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key)) {
+                            if tree_refs[index].location[..] == location {
                                 old = true;
-                                break;
-                            } else if b_key[..] == key[..] {
-                                // We are updating this value
+                            } else {
                                 skip = true;
-                                break;
                             }
                         }
 
@@ -556,7 +544,7 @@ where
                         proof_nodes.push(tree_ref);
                         continue;
                     }
-                    NodeVariant::Data(_) => return Err(Exception::new("Corrupt merkle tree")),
+                    _ => return Err(Exception::new("Corrupt merkle tree")),
                 }
 
                 let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
@@ -590,7 +578,7 @@ where
                         new_branch.set_zero(branch_zero);
                         new_branch.set_one(branch_one);
                         new_branch.set_split_index(branch_split_index);
-                        new_branch.set_key(branch_key.clone());
+                        new_branch.set_key(branch_key);
 
                         let tree_ref = TreeRef::new(branch_key, location, branch_count);
                         refs += 1;
@@ -946,7 +934,7 @@ where
                 let root = branch_node_location;
                 match Rc::try_unwrap(root) {
                     Ok(v) => return Ok(v),
-                    Err(v) => return Ok((*v).clone()),
+                    Err(v) => return Ok(*v),
                 }
             }
         }
@@ -955,6 +943,10 @@ where
 
     /// Remove all items with less than 1 reference under the given root.
     pub fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
+        if root_hash.len() != 32 {
+            return Err(Exception::new("root_hash must be 32 bytes long"));
+        }
+
         let mut nodes = VecDeque::with_capacity(128);
         nodes.push_front(root_hash.to_vec());
 
