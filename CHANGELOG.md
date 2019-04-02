@@ -1,3 +1,6 @@
+# 2.4.2
+* Add error checking for root that is not 32 bytes long.
+* Further major performance improvements.  Most cases see 50-70% reduction in time for insertions into a non-empty tree.
 # 2.4.1
 * Add error checking for keys that are not 32 bytes long.
 # 2.4.0

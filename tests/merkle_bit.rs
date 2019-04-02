@@ -860,7 +860,7 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
-        let missing_root_hash = vec![0x00u8];
+        let missing_root_hash = [0x00u8; 32];
         bmt.remove(&missing_root_hash)?;
         tear_down(&path);
         Ok(())
