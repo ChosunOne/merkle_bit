@@ -1,3 +1,5 @@
+# 2.4.1
+* Add error checking for keys that are not 32 bytes long.
 # 2.4.0
 * Require custom branch types to provide a key via ```get_key``` when requested
     * **NOTE:** This is a breaking change for custom data structures.  Usage of the default tree is not affected.
