@@ -390,7 +390,7 @@ pub mod integration_tests {
 
         let mut keys = Vec::with_capacity(256);
         for i in 0..256 {
-            keys.push([i as u8]);
+            keys.push([i as u8; 32]);
         }
 
         let mut get_keys = keys.iter().map(|x| &x[..]).collect::<Vec<_>>();

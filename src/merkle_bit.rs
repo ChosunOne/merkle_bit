@@ -330,6 +330,9 @@ where
         if keys[0].is_empty() {
             return Err(Exception::new("Key size must be greater than 0"));
         }
+        if keys.iter().any(|&x| x.len() != 32) {
+            return Err(Exception::new("Key size must be 32 bytes"));
+        }
         keys.sort();
 
         let root_node;
@@ -437,6 +440,10 @@ where
 
         if keys.is_empty() || values.is_empty() {
             return Err(Exception::new("Keys or values are empty"));
+        }
+
+        if keys.iter().any(|&x| x.len() != 32) {
+            return Err(Exception::new("Key size must be 32 bytes"));
         }
 
         {
