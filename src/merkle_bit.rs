@@ -349,12 +349,9 @@ where
         cell_queue.push_front(root_cell);
 
         while !cell_queue.is_empty() {
-            let tree_cell;
-            if let Some(c) = cell_queue.pop_front() {
-                tree_cell = c;
-            } else {
-                unreachable!();
-            }
+            let tree_cell = cell_queue
+                .pop_front()
+                .expect("Cell queue should not be empty.");
 
             if tree_cell.depth > self.depth {
                 return Err(Exception::new("Depth of merkle tree exceeded"));
@@ -377,14 +374,13 @@ where
                         continue;
                     }
 
-                    let split = split_pairs(&descendants, branch_split_index as usize);
+                    let (zeros, ones) = split_pairs(&descendants, branch_split_index as usize);
 
-                    // If you switch the order of these blocks, the result comes out backwards
                     if let Some(o) = self.db.get_node(&one)? {
                         let one_node = o;
-                        if !split.1.is_empty() {
+                        if !ones.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                                split.1,
+                                ones,
                                 one_node,
                                 tree_cell.depth + 1,
                             );
@@ -394,9 +390,9 @@ where
 
                     if let Some(z) = self.db.get_node(&zero)? {
                         let zero_node = z;
-                        if !split.0.is_empty() {
+                        if !zeros.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                                split.0,
+                                zeros,
                                 zero_node,
                                 tree_cell.depth + 1,
                             );
@@ -472,6 +468,18 @@ where
             tree_refs.push(tree_ref);
         }
 
+        self.generate_treerefs(previous_root, &keys, &mut tree_refs)?;
+
+        let new_root = self.create_tree(tree_refs)?;
+        Ok(new_root)
+    }
+
+    fn generate_treerefs(
+        &mut self,
+        previous_root: Option<&[u8]>,
+        keys: &&mut [&[u8]],
+        tree_refs: &mut Vec<TreeRef>,
+    ) -> BinaryMerkleTreeResult<()> {
         if let Some(n) = previous_root {
             // Nodes that form the merkle proof for the new tree
             let mut proof_nodes = Vec::with_capacity(keys.len());
@@ -512,31 +520,26 @@ where
                         let mut location = [0; 32];
                         location.copy_from_slice(&leaf_hasher.finalize());
 
-                        let mut skip = false;
-                        let mut old = false;
+                        let mut update = false;
 
                         // Check if we are updating an existing value
                         if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key)) {
                             if tree_refs[index].location[..] == location {
-                                old = true;
+                                update = true;
                             } else {
-                                skip = true;
+                                continue;
                             }
-                        }
-
-                        if skip {
-                            continue;
                         }
 
                         if let Some(mut l) = self.db.get_node(&location)? {
                             let refs = l.get_references() + 1;
                             l.set_references(refs);
-                            self.db.insert(location.as_ref(), &l)?;
+                            self.db.insert(&location, &l)?;
                         } else {
                             return Err(Exception::new("Corrupt merkle tree"));
                         }
 
-                        if old {
+                        if update {
                             continue;
                         }
 
@@ -556,7 +559,7 @@ where
                 branch_hasher.update(&branch_one);
                 let location_vec = branch_hasher.finalize();
                 let mut location = [0; 32];
-                location.clone_from_slice(&location_vec);
+                location.copy_from_slice(&location_vec);
                 drop(location_vec);
 
                 let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
@@ -664,14 +667,8 @@ where
             }
 
             tree_refs.append(&mut proof_nodes);
-
-            let new_root = self.create_tree(tree_refs)?;
-            return Ok(new_root);
-        } else {
-            // There is no tree, just build one with the keys and values
-            let new_root = self.create_tree(tree_refs)?;
-            return Ok(new_root);
         }
+        Ok(())
     }
 
     fn check_descendants<'a>(
