@@ -45,6 +45,22 @@ struct TreeRef {
     count: u64,
 }
 
+impl TreeRef {
+    pub fn new(key: [u8; 32], location: [u8; 32], count: u64) -> TreeRef {
+        TreeRef {
+            key: Rc::new(key),
+            location: Rc::new(location),
+            count,
+        }
+    }
+}
+
+impl Ord for TreeRef {
+    fn cmp(&self, other_ref: &TreeRef) -> Ordering {
+        self.key.cmp(&other_ref.key)
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum TreeRefWrapper {
     Raw(Rc<RefCell<TreeRef>>),
@@ -111,12 +127,6 @@ impl TreeRefWrapper {
     }
 }
 
-impl Ord for TreeRef {
-    fn cmp(&self, other_ref: &TreeRef) -> Ordering {
-        self.key.cmp(&other_ref.key)
-    }
-}
-
 impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
     pub fn new<BranchType, LeafType, DataType>(
         keys: &'a [&'a [u8]],
@@ -129,16 +139,6 @@ impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
         DataType: Data,
     {
         TreeCell { keys, node, depth }
-    }
-}
-
-impl TreeRef {
-    pub fn new(key: [u8; 32], location: [u8; 32], count: u64) -> TreeRef {
-        TreeRef {
-            key: Rc::new(key),
-            location: Rc::new(location),
-            count,
-        }
     }
 }
 
