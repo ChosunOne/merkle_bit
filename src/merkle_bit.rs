@@ -5,15 +5,7 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
 
 use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node};
@@ -28,18 +20,7 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 
 /// Contains the distinguishing data from the node
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    any(
-        feature = "use_serde",
-        feature = "use_bincode",
-        feature = "use_json",
-        feature = "use_cbor",
-        feature = "use_yaml",
-        feature = "use_pickle",
-        feature = "use_ron"
-    ),
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType>
 where
     BranchType: Branch,
@@ -468,7 +449,9 @@ where
             tree_refs.push(tree_ref);
         }
 
-        self.generate_treerefs(previous_root, &keys, &mut tree_refs)?;
+        if let Some(root) = previous_root {
+            self.generate_treerefs(root, keys, &mut tree_refs)?;
+        }
 
         let new_root = self.create_tree(tree_refs)?;
         Ok(new_root)
@@ -476,198 +459,196 @@ where
 
     fn generate_treerefs(
         &mut self,
-        previous_root: Option<&[u8]>,
-        keys: &&mut [&[u8]],
+        root: &[u8],
+        keys: &mut [&[u8]],
         tree_refs: &mut Vec<TreeRef>,
     ) -> BinaryMerkleTreeResult<()> {
-        if let Some(n) = previous_root {
-            // Nodes that form the merkle proof for the new tree
-            let mut proof_nodes = Vec::with_capacity(keys.len());
+        // Nodes that form the merkle proof for the new tree
+        let mut proof_nodes = Vec::with_capacity(keys.len());
 
-            let root_node = if let Some(m) = self.db.get_node(n)? {
-                m
-            } else {
-                return Err(Exception::new("Could not find previous root"));
-            };
+        let root_node = if let Some(m) = self.db.get_node(root)? {
+            m
+        } else {
+            return Err(Exception::new("Could not find root"));
+        };
 
-            let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
-            let root_cell: TreeCell<NodeType> =
-                TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
-            cell_queue.push_front(root_cell);
+        let mut cell_queue = VecDeque::with_capacity(2.0_f64.powf(self.depth as f64) as usize);
+        let root_cell: TreeCell<NodeType> =
+            TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
+        cell_queue.push_front(root_cell);
 
-            while !cell_queue.is_empty() {
-                let tree_cell = cell_queue
-                    .pop_front()
-                    .expect("cell queue should not be empty");
+        while !cell_queue.is_empty() {
+            let tree_cell = cell_queue
+                .pop_front()
+                .expect("cell queue should not be empty");
 
-                if tree_cell.depth > self.depth {
-                    return Err(Exception::new("Depth of merkle tree exceeded"));
-                }
+            if tree_cell.depth > self.depth {
+                return Err(Exception::new("Depth of merkle tree exceeded"));
+            }
 
-                let node = tree_cell.node;
+            let node = tree_cell.node;
 
-                let branch;
-                let mut refs = node.get_references();
-                match node.get_variant() {
-                    NodeVariant::Branch(n) => branch = n,
-                    NodeVariant::Leaf(n) => {
-                        let (key, data) = n.deconstruct();
+            let branch;
+            let mut refs = node.get_references();
+            match node.get_variant() {
+                NodeVariant::Branch(n) => branch = n,
+                NodeVariant::Leaf(n) => {
+                    let (key, data) = n.deconstruct();
 
-                        let mut leaf_hasher = HasherType::new(32);
-                        leaf_hasher.update(b"l");
-                        leaf_hasher.update(&key);
-                        leaf_hasher.update(&data);
-                        let mut location = [0; 32];
-                        location.copy_from_slice(&leaf_hasher.finalize());
+                    let mut leaf_hasher = HasherType::new(32);
+                    leaf_hasher.update(b"l");
+                    leaf_hasher.update(&key);
+                    leaf_hasher.update(&data);
+                    let mut location = [0; 32];
+                    location.copy_from_slice(&leaf_hasher.finalize());
 
-                        let mut update = false;
+                    let mut update = false;
 
-                        // Check if we are updating an existing value
-                        if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key)) {
-                            if tree_refs[index].location[..] == location {
-                                update = true;
-                            } else {
-                                continue;
-                            }
-                        }
-
-                        if let Some(mut l) = self.db.get_node(&location)? {
-                            let refs = l.get_references() + 1;
-                            l.set_references(refs);
-                            self.db.insert(&location, &l)?;
+                    // Check if we are updating an existing value
+                    if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key)) {
+                        if tree_refs[index].location[..] == location {
+                            update = true;
                         } else {
-                            return Err(Exception::new("Corrupt merkle tree"));
-                        }
-
-                        if update {
                             continue;
                         }
+                    }
 
-                        let tree_ref = TreeRef::new(key, location, 1);
-                        proof_nodes.push(tree_ref);
+                    if let Some(mut l) = self.db.get_node(&location)? {
+                        let refs = l.get_references() + 1;
+                        l.set_references(refs);
+                        self.db.insert(&location, &l)?;
+                    } else {
+                        return Err(Exception::new("Corrupt merkle tree"));
+                    }
+
+                    if update {
                         continue;
                     }
-                    _ => return Err(Exception::new("Corrupt merkle tree")),
+
+                    let tree_ref = TreeRef::new(key, location, 1);
+                    proof_nodes.push(tree_ref);
+                    continue;
                 }
+                _ => return Err(Exception::new("Corrupt merkle tree")),
+            }
 
-                let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
-                    branch.deconstruct();
+            let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
+                branch.deconstruct();
 
-                let mut branch_hasher = HasherType::new(32);
-                branch_hasher.update(b"b");
-                branch_hasher.update(&branch_zero);
-                branch_hasher.update(&branch_one);
-                let location_vec = branch_hasher.finalize();
-                let mut location = [0; 32];
-                location.copy_from_slice(&location_vec);
-                drop(location_vec);
+            let mut branch_hasher = HasherType::new(32);
+            branch_hasher.update(b"b");
+            branch_hasher.update(&branch_zero);
+            branch_hasher.update(&branch_one);
+            let location_vec = branch_hasher.finalize();
+            let mut location = [0; 32];
+            location.copy_from_slice(&location_vec);
+            drop(location_vec);
 
-                let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
+            let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
-                let split;
-                let mut descendants = &tree_cell.keys[..];
+            let split;
+            let mut descendants = &tree_cell.keys[..];
 
-                if min_split_index < branch_split_index as usize {
-                    descendants = Self::check_descendants(
-                        &tree_cell.keys,
-                        branch_split_index as usize,
-                        &branch_key,
-                        min_split_index,
-                    );
+            if min_split_index < branch_split_index as usize {
+                descendants = Self::check_descendants(
+                    &tree_cell.keys,
+                    branch_split_index as usize,
+                    &branch_key,
+                    min_split_index,
+                );
 
-                    if descendants.is_empty() {
-                        let mut new_branch = BranchType::new();
-                        new_branch.set_count(branch_count);
-                        new_branch.set_zero(branch_zero);
-                        new_branch.set_one(branch_one);
-                        new_branch.set_split_index(branch_split_index);
-                        new_branch.set_key(branch_key);
+                if descendants.is_empty() {
+                    let mut new_branch = BranchType::new();
+                    new_branch.set_count(branch_count);
+                    new_branch.set_zero(branch_zero);
+                    new_branch.set_one(branch_one);
+                    new_branch.set_split_index(branch_split_index);
+                    new_branch.set_key(branch_key);
 
-                        let tree_ref = TreeRef::new(branch_key, location, branch_count);
-                        refs += 1;
-                        let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
-                        new_node.set_references(refs);
-                        self.db.insert(&tree_ref.location[..], &new_node)?;
-                        proof_nodes.push(tree_ref);
-                        continue;
-                    }
-                }
-
-                split = split_pairs(descendants, branch_split_index as usize);
-                if let Some(o) = self.db.get_node(&branch_one)? {
-                    let one_node = o;
-                    if !split.1.is_empty() {
-                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                            split.1,
-                            one_node,
-                            tree_cell.depth + 1,
-                        );
-                        cell_queue.push_front(new_cell);
-                    } else {
-                        let mut other_key = [0; 32];
-                        let count;
-                        let refs = one_node.get_references() + 1;
-                        let mut new_one_node;
-                        match one_node.get_variant() {
-                            NodeVariant::Branch(b) => {
-                                count = b.get_count();
-                                other_key.copy_from_slice(b.get_key());
-                                new_one_node = NodeType::new(NodeVariant::Branch(b));
-                            }
-                            NodeVariant::Leaf(l) => {
-                                count = 1;
-                                other_key.copy_from_slice(l.get_key());
-                                new_one_node = NodeType::new(NodeVariant::Leaf(l));
-                            }
-                            NodeVariant::Data(_) => {
-                                return Err(Exception::new("Corrupt merkle tree"));
-                            }
-                        }
-                        new_one_node.set_references(refs);
-                        self.db.insert(&branch_one, &new_one_node)?;
-                        let tree_ref = TreeRef::new(other_key, branch_one, count);
-                        proof_nodes.push(tree_ref);
-                    }
-                }
-                if let Some(z) = self.db.get_node(&branch_zero)? {
-                    let zero_node = z;
-                    if !split.0.is_empty() {
-                        let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                            split.0,
-                            zero_node,
-                            tree_cell.depth + 1,
-                        );
-                        cell_queue.push_front(new_cell);
-                    } else {
-                        let mut other_key = [0; 32];
-                        let count;
-                        let refs = zero_node.get_references() + 1;
-                        let mut new_zero_node;
-                        match zero_node.get_variant() {
-                            NodeVariant::Branch(b) => {
-                                count = b.get_count();
-                                other_key.copy_from_slice(b.get_key());
-                                new_zero_node = NodeType::new(NodeVariant::Branch(b));
-                            }
-                            NodeVariant::Leaf(l) => {
-                                count = 1;
-                                other_key.copy_from_slice(l.get_key());
-                                new_zero_node = NodeType::new(NodeVariant::Leaf(l));
-                            }
-                            NodeVariant::Data(_) => {
-                                return Err(Exception::new("Corrupt merkle tree"));
-                            }
-                        }
-                        new_zero_node.set_references(refs);
-                        self.db.insert(&branch_zero, &new_zero_node)?;
-                        let tree_ref = TreeRef::new(other_key, branch_zero, count);
-                        proof_nodes.push(tree_ref);
-                    }
+                    let tree_ref = TreeRef::new(branch_key, location, branch_count);
+                    refs += 1;
+                    let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
+                    new_node.set_references(refs);
+                    self.db.insert(&tree_ref.location[..], &new_node)?;
+                    proof_nodes.push(tree_ref);
+                    continue;
                 }
             }
 
-            tree_refs.append(&mut proof_nodes);
+            split = split_pairs(descendants, branch_split_index as usize);
+            if let Some(o) = self.db.get_node(&branch_one)? {
+                let one_node = o;
+                if !split.1.is_empty() {
+                    let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                        split.1,
+                        one_node,
+                        tree_cell.depth + 1,
+                    );
+                    cell_queue.push_front(new_cell);
+                } else {
+                    let mut other_key = [0; 32];
+                    let count;
+                    let refs = one_node.get_references() + 1;
+                    let mut new_one_node;
+                    match one_node.get_variant() {
+                        NodeVariant::Branch(b) => {
+                            count = b.get_count();
+                            other_key.copy_from_slice(b.get_key());
+                            new_one_node = NodeType::new(NodeVariant::Branch(b));
+                        }
+                        NodeVariant::Leaf(l) => {
+                            count = 1;
+                            other_key.copy_from_slice(l.get_key());
+                            new_one_node = NodeType::new(NodeVariant::Leaf(l));
+                        }
+                        _ => {
+                            return Err(Exception::new("Corrupt merkle tree"));
+                        }
+                    }
+                    new_one_node.set_references(refs);
+                    self.db.insert(&branch_one, &new_one_node)?;
+                    let tree_ref = TreeRef::new(other_key, branch_one, count);
+                    proof_nodes.push(tree_ref);
+                }
+            }
+            if let Some(z) = self.db.get_node(&branch_zero)? {
+                let zero_node = z;
+                if !split.0.is_empty() {
+                    let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                        split.0,
+                        zero_node,
+                        tree_cell.depth + 1,
+                    );
+                    cell_queue.push_front(new_cell);
+                } else {
+                    let mut other_key = [0; 32];
+                    let count;
+                    let refs = zero_node.get_references() + 1;
+                    let mut new_zero_node;
+                    match zero_node.get_variant() {
+                        NodeVariant::Branch(b) => {
+                            count = b.get_count();
+                            other_key.copy_from_slice(b.get_key());
+                            new_zero_node = NodeType::new(NodeVariant::Branch(b));
+                        }
+                        NodeVariant::Leaf(l) => {
+                            count = 1;
+                            other_key.copy_from_slice(l.get_key());
+                            new_zero_node = NodeType::new(NodeVariant::Leaf(l));
+                        }
+                        _ => {
+                            return Err(Exception::new("Corrupt merkle tree"));
+                        }
+                    }
+                    new_zero_node.set_references(refs);
+                    self.db.insert(&branch_zero, &new_zero_node)?;
+                    let tree_ref = TreeRef::new(other_key, branch_zero, count);
+                    proof_nodes.push(tree_ref);
+                }
+            }
         }
+
+        tree_refs.append(&mut proof_nodes);
         Ok(())
     }
 

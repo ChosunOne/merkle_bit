@@ -23,7 +23,7 @@ use serde_pickle;
 use serde_yaml;
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(feature = "use_serialization", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: [u8; 32],
     data: Vec<u8>,
