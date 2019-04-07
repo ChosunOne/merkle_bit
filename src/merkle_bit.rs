@@ -46,112 +46,67 @@ struct TreeRef {
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-struct TreeRefWrapper {
-    raw: Option<Rc<RefCell<TreeRef>>>,
-    reference: Option<Rc<RefCell<TreeRefWrapper>>>,
+enum TreeRefWrapper {
+    Raw(Rc<RefCell<TreeRef>>),
+    Ref(Rc<RefCell<TreeRefWrapper>>),
 }
 
 impl TreeRefWrapper {
-    pub fn new(tree_ref: Rc<RefCell<TreeRef>>) -> Self {
-        Self {
-            raw: Some(tree_ref),
-            reference: None,
-        }
-    }
-
     pub fn update_reference(&mut self) {
-        if self.raw.is_some() {
-            return;
+        let new_ref;
+        match self {
+            TreeRefWrapper::Raw(_) => return,
+            TreeRefWrapper::Ref(r) => new_ref = TreeRefWrapper::get_reference(r),
         }
-        let mut new_ref;
-        if let Some(r) = &self.reference {
-            if r.borrow().raw.is_some() {
-                return;
-            }
-            new_ref = r.borrow().get_reference();
-        } else {
-            unreachable!();
-        }
-        self.reference.replace(new_ref);
+        *self = TreeRefWrapper::Ref(new_ref);
     }
 
-    pub fn set_reference(&mut self, other: Rc<RefCell<TreeRefWrapper>>) {
-        self.raw = None;
-        if other.borrow().raw.is_some() {
-            self.reference = Some(other);
-        } else {
-            self.reference = Some(other.borrow().get_reference());
+    pub fn get_reference(wrapper: &Rc<RefCell<TreeRefWrapper>>) -> Rc<RefCell<TreeRefWrapper>> {
+        match *wrapper.borrow() {
+            TreeRefWrapper::Raw(ref _t) => Rc::clone(wrapper),
+            TreeRefWrapper::Ref(ref r) => TreeRefWrapper::get_reference(r),
         }
-    }
-
-    pub fn get_reference(&self) -> Rc<RefCell<TreeRefWrapper>> {
-        if let Some(r) = &self.reference {
-            if r.borrow().raw.is_some() {
-                return Rc::clone(r);
-            } else {
-                return r.borrow().get_reference();
-            }
-        }
-        unreachable!();
     }
 
     pub fn get_tree_ref_key(&self) -> Rc<[u8; 32]> {
-        if let Some(t) = &self.raw {
-            return Rc::clone(&t.borrow().key);
+        match self {
+            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().key),
+            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_key(),
         }
-        if let Some(r) = &self.reference {
-            return r.borrow().get_tree_ref_key();
-        }
-        unreachable!();
     }
 
     pub fn get_tree_ref_location(&self) -> Rc<[u8; 32]> {
-        if let Some(t) = &self.raw {
-            return Rc::clone(&t.borrow().location);
+        match self {
+            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().location),
+            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_location(),
         }
-        if let Some(r) = &self.reference {
-            return r.borrow().get_tree_ref_location();
-        }
-        unreachable!();
     }
 
     pub fn get_tree_ref_count(&self) -> u64 {
-        if let Some(t) = &self.raw {
-            return t.borrow().count;
+        match self {
+            TreeRefWrapper::Raw(t) => t.borrow().count,
+            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_count(),
         }
-        if let Some(r) = &self.reference {
-            return r.borrow().get_tree_ref_count();
-        }
-        unreachable!();
     }
 
     pub fn set_tree_ref_key(&mut self, key: Rc<[u8; 32]>) {
-        if let Some(t) = &mut self.raw {
-            t.borrow_mut().key = key;
-        } else if let Some(r) = &mut self.reference {
-            r.borrow_mut().set_tree_ref_key(key);
-        } else {
-            unreachable!();
+        match self {
+            TreeRefWrapper::Raw(t) => t.borrow_mut().key = key,
+            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_key(key),
         }
     }
 
     pub fn set_tree_ref_location(&mut self, location: Rc<[u8; 32]>) {
-        if let Some(t) = &mut self.raw {
-            t.borrow_mut().location = location;
-        } else if let Some(r) = &mut self.reference {
-            r.borrow_mut().set_tree_ref_location(location);
-        } else {
-            unreachable!();
+        match self {
+            TreeRefWrapper::Raw(t) => t.borrow_mut().location = location,
+            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_location(location),
         }
     }
 
     pub fn set_tree_ref_count(&mut self, count: u64) {
-        if let Some(t) = &mut self.raw {
-            t.borrow_mut().count = count;
-        } else if let Some(r) = &mut self.reference {
-            r.borrow_mut().set_tree_ref_count(count);
-        } else {
-            unreachable!();
+        match self {
+            TreeRefWrapper::Raw(t) => t.borrow_mut().count = count,
+            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_count(count),
         }
     }
 }
@@ -805,7 +760,7 @@ where
 
         let tree_rcs = tree_refs
             .into_iter()
-            .map(|x| Rc::new(RefCell::new(TreeRefWrapper::new(Rc::new(RefCell::new(x))))))
+            .map(|x| Rc::new(RefCell::new(TreeRefWrapper::Raw(Rc::new(RefCell::new(x))))))
             .collect::<Vec<_>>();
 
         let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
@@ -903,9 +858,7 @@ where
                 .set_tree_ref_location(Rc::clone(&branch_node_location));
             next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
 
-            tree_ref_wrapper
-                .borrow_mut()
-                .set_reference(next_tree_ref_wrapper);
+            *tree_ref_wrapper.borrow_mut() = TreeRefWrapper::Ref(next_tree_ref_wrapper);
 
             if tree_ref_queue.is_empty() {
                 self.db.batch_write()?;
