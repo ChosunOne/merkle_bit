@@ -38,6 +38,21 @@ struct TreeCell<'a, NodeType> {
     depth: usize,
 }
 
+impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
+    pub fn new<BranchType, LeafType, DataType>(
+        keys: &'a [&'a [u8]],
+        node: NodeType,
+        depth: usize,
+    ) -> TreeCell<'a, NodeType>
+    where
+        BranchType: Branch,
+        LeafType: Leaf,
+        DataType: Data,
+    {
+        TreeCell { keys, node, depth }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
 struct TreeRef {
     key: Rc<[u8; 32]>,
@@ -124,21 +139,6 @@ impl TreeRefWrapper {
             TreeRefWrapper::Raw(t) => t.borrow_mut().count = count,
             TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_count(count),
         }
-    }
-}
-
-impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
-    pub fn new<BranchType, LeafType, DataType>(
-        keys: &'a [&'a [u8]],
-        node: NodeType,
-        depth: usize,
-    ) -> TreeCell<'a, NodeType>
-    where
-        BranchType: Branch,
-        LeafType: Leaf,
-        DataType: Data,
-    {
-        TreeCell { keys, node, depth }
     }
 }
 
