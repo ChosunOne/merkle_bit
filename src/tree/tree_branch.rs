@@ -1,46 +1,14 @@
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Branch;
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
+#[cfg(feature = "use_serde")]
 use std::error::Error;
 
 #[cfg(feature = "use_bincode")]
@@ -59,18 +27,7 @@ use serde_yaml;
 use std::string::FromUtf8Error;
 
 #[derive(Clone, Debug)]
-#[cfg_attr(
-    any(
-        feature = "use_serde",
-        feature = "use_bincode",
-        feature = "use_json",
-        feature = "use_cbor",
-        feature = "use_yaml",
-        feature = "use_pickle",
-        feature = "use_ron"
-    ),
-    derive(Serialize, Deserialize)
-)]
+#[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,
     zero: [u8; 32],
@@ -93,16 +50,16 @@ impl TreeBranch {
     fn get_count(&self) -> u64 {
         self.count
     }
-    fn get_zero(&self) -> &[u8] {
+    fn get_zero(&self) -> &[u8; 32] {
         &self.zero
     }
-    fn get_one(&self) -> &[u8] {
+    fn get_one(&self) -> &[u8; 32] {
         &self.one
     }
     fn get_split_index(&self) -> u32 {
         self.split_index
     }
-    fn get_key(&self) -> &[u8] {
+    fn get_key(&self) -> &[u8; 32] {
         &self.key
     }
 
@@ -135,16 +92,16 @@ impl Branch for TreeBranch {
     fn get_count(&self) -> u64 {
         Self::get_count(&self)
     }
-    fn get_zero(&self) -> &[u8] {
+    fn get_zero(&self) -> &[u8; 32] {
         Self::get_zero(&self)
     }
-    fn get_one(&self) -> &[u8] {
+    fn get_one(&self) -> &[u8; 32] {
         Self::get_one(&self)
     }
     fn get_split_index(&self) -> u32 {
         Self::get_split_index(&self)
     }
-    fn get_key(&self) -> &[u8] {
+    fn get_key(&self) -> &[u8; 32] {
         Self::get_key(&self)
     }
 

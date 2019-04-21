@@ -10,8 +10,8 @@ impl crate::traits::Hasher for KeccakHasher {
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.update(data); }
-    fn finalize(self) -> Vec<u8> {
-        let mut res = vec![0u8; 32];
+    fn finalize(self) -> [u8; 32] {
+        let mut res = [0u8; 32];
         self.0.finalize(&mut res);
         res
     }

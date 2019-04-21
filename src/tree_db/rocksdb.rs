@@ -34,7 +34,7 @@ impl Database for RocksDB {
         Ok(RocksDB::new(DB::open_default(path)?))
     }
 
-    fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Exception> {
+    fn get_node(&self, key: &[u8; 32]) -> Result<Option<Self::NodeType>, Exception> {
         if let Some(buffer) = self.db.get(key)? {
             Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
         } else {
@@ -42,7 +42,7 @@ impl Database for RocksDB {
         }
     }
 
-    fn insert(&mut self, key: &[u8], value: &Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: [u8; 32], value: Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized)?;
@@ -54,7 +54,7 @@ impl Database for RocksDB {
         Ok(())
     }
 
-    fn remove(&mut self, key: &[u8]) -> Result<(), Exception> {
+    fn remove(&mut self, key: &[u8; 32]) -> Result<(), Exception> {
         Ok(self.db.delete(key)?)
     }
 
