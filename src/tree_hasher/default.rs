@@ -10,9 +10,9 @@ impl crate::traits::Hasher for DefaultHasher {
     fn update(&mut self, data: &[u8]) {
         Self::write(self, data)
     }
-    fn finalize(self) -> Vec<u8> {
-        let value = Self::finish(&self).to_le_bytes().to_vec();
-        let mut v = vec![0; 32];
+    fn finalize(self) -> [u8; 32] {
+        let value = Self::finish(&self).to_le_bytes();
+        let mut v = [0; 32];
         for i in 0..32 {
             v[i] = value[i % 8];
         }

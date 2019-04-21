@@ -21,9 +21,9 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
         let value: Vec<u8> = vec![0xDDu8];
         
         // Inserting an element changes the root node
-        let root = tree.insert(None, &mut [&key[..]], &mut [&value[..]])?;
+        let root = tree.insert(None, &mut [&key], &mut [&value])?;
         
-        let retrieved_value = tree.get(&root, &mut [&key[..]])?;
+        let retrieved_value = tree.get(&root, &mut [&key])?;
         
         // Removing a root only deletes elements that are referenced only by that root
         tree.remove(&root)?;
@@ -103,10 +103,10 @@ If you provide your own implementation of the traits for each component of the t
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: [u8; 32] = mbit.insert(None, &mut [&key[..]], &mut [&value[..]])?;
+        let root: [u8; 32] = mbit.insert(None, &mut [&key], &mut [&value])?;
         
         // Retrieving the inserted value
-        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [&key[..]])?;
+        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [&key])?;
         
         // Removing a tree root
         mbit.remove(&root)?;

@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "2.4.2"
+version = "2.5.0-nightly"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -17,12 +17,12 @@ criterion = "0.2.10"
 [dependencies]
 bincode = { version = "1.1.2", optional = true }
 blake2-rfc = { version = "0.2.18", optional = true }
-serde = { version = "1.0.89", features = ["derive"], optional = true }
+serde = { version = "1.0.90", features = ["derive"], optional = true }
 serde_json = { version = "1.0.39", optional = true }
 serde_cbor = { version = "0.9.0", optional = true }
 serde_yaml = { version = "0.8.8", optional = true }
 serde-pickle = { version = "0.5.0", optional = true }
-ron = { version = "0.5.0", optional = true }
+ron = { version = "0.5.1", optional = true }
 groestl = { version = "0.8.0", optional = true }
 openssl = { version = "0.10.20", optional = true }
 tiny-keccak = { version = "1.4.2", optional = true }
@@ -34,12 +34,12 @@ default = []
 default_tree = []
 use_serialization = []
 use_serde = ["default_tree", "serde", "use_serialization"]
-use_bincode = ["default_tree", "serde", "bincode", "use_serialization"]
-use_json = ["default_tree", "serde", "serde_json", "use_serialization"]
-use_cbor = ["default_tree", "serde", "serde_cbor", "use_serialization"]
-use_yaml = ["default_tree", "serde", "serde_yaml", "use_serialization"]
-use_pickle = ["default_tree", "serde", "serde-pickle", "use_serialization"]
-use_ron = ["default_tree", "serde", "ron", "use_serialization"]
+use_bincode = ["use_serde", "bincode"]
+use_json = ["use_serde", "serde_json"]
+use_cbor = ["use_serde", "serde_cbor"]
+use_yaml = ["use_serde", "serde_yaml"]
+use_pickle = ["use_serde", "serde-pickle"]
+use_ron = ["use_serde", "ron"]
 
 use_blake2b = ["default_tree", "blake2-rfc"]
 use_groestl = ["default_tree", "groestl"]

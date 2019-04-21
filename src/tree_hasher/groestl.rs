@@ -10,5 +10,12 @@ impl crate::traits::Hasher for GroestlHasher {
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.input(data); }
-    fn finalize(self) -> Vec<u8> { self.0.result().into_iter().collect() }
+    fn finalize(self) -> [u8; 32] {
+        let mut finalized = [0; 32];
+        let result = self.0.result();
+        for (i, byte) in result.into_iter().enumerate() {
+            finalized[i] = byte;
+        }
+        finalized
+    }
 }

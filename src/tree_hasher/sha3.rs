@@ -10,8 +10,8 @@ impl crate::traits::Hasher for Sha3Hasher {
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.update(data); }
-    fn finalize(self) -> Vec<u8> {
-        let mut res = vec![0; 32];
+    fn finalize(self) -> [u8; 32] {
+        let mut res = [0; 32];
         self.0.finalize(&mut res);
         res
     }

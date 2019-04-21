@@ -8,16 +8,16 @@ pub trait Hasher {
     type HashType;
     fn new(size: usize) -> Self::HashType;
     fn update(&mut self, data: &[u8]);
-    fn finalize(self) -> Vec<u8>;
+    fn finalize(self) -> [u8; 32];
 }
 
 pub trait Branch {
     fn new() -> Self;
     fn get_count(&self) -> u64;
-    fn get_zero(&self) -> &[u8];
-    fn get_one(&self) -> &[u8];
+    fn get_zero(&self) -> &[u8; 32];
+    fn get_one(&self) -> &[u8; 32];
     fn get_split_index(&self) -> u32;
-    fn get_key(&self) -> &[u8];
+    fn get_key(&self) -> &[u8; 32];
     fn set_count(&mut self, count: u64);
     fn set_zero(&mut self, zero: [u8; 32]);
     fn set_one(&mut self, one: [u8; 32]);
@@ -28,11 +28,11 @@ pub trait Branch {
 
 pub trait Leaf {
     fn new() -> Self;
-    fn get_key(&self) -> &[u8];
-    fn get_data(&self) -> &[u8];
+    fn get_key(&self) -> &[u8; 32];
+    fn get_data(&self) -> &[u8; 32];
     fn set_key(&mut self, key: [u8; 32]);
-    fn set_data(&mut self, data: &[u8]);
-    fn deconstruct(self) -> ([u8; 32], Vec<u8>);
+    fn set_data(&mut self, data: [u8; 32]);
+    fn deconstruct(self) -> ([u8; 32], [u8; 32]);
 }
 
 pub trait Data {
@@ -41,12 +41,11 @@ pub trait Data {
     fn set_value(&mut self, value: &[u8]);
 }
 
-pub trait Node<BranchType, LeafType, DataType, ValueType>
+pub trait Node<BranchType, LeafType, DataType>
 where
     BranchType: Branch,
     LeafType: Leaf,
     DataType: Data,
-    ValueType: Decode + Encode,
 {
     fn new(node_variant: NodeVariant<BranchType, LeafType, DataType>) -> Self;
     fn get_references(&self) -> u64;
@@ -63,9 +62,9 @@ pub trait Database {
     fn open(path: &PathBuf) -> Result<Self, Exception>
     where
         Self: Sized;
-    fn get_node(&self, key: &[u8]) -> Result<Option<Self::NodeType>, Exception>;
-    fn insert(&mut self, key: &[u8], node: &Self::NodeType) -> Result<(), Exception>;
-    fn remove(&mut self, key: &[u8]) -> Result<(), Exception>;
+    fn get_node(&self, key: &[u8; 32]) -> Result<Option<Self::NodeType>, Exception>;
+    fn insert(&mut self, key: [u8; 32], node: Self::NodeType) -> Result<(), Exception>;
+    fn remove(&mut self, key: &[u8; 32]) -> Result<(), Exception>;
     fn batch_write(&mut self) -> Result<(), Exception>;
 }
 

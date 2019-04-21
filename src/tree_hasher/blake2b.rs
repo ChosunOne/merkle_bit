@@ -11,5 +11,12 @@ impl crate::traits::Hasher for Blake2bHasher {
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.update(data); }
-    fn finalize(self) -> Vec<u8> { self.0.finalize().as_ref().to_vec() }
+    fn finalize(self) -> [u8; 32] {
+        let result = self.0.finalize();
+        let mut finalized = [0; 32];
+        for (i, byte) in result.as_ref().into_iter().enumerate() {
+            finalized[i] = *byte;
+        }
+        finalized
+    }
 }
