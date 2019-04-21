@@ -1,3 +1,8 @@
+# 2.5.0
+* Keys must be explicity 32 bytes long, instead of slices
+    * **NOTE:** This is a breaking change.  However, given that keys already had to be 32 bytes long, this change
+        should be relatively painless.
+* General performance improvements of about 30% across the board.
 # 2.4.2
 * Add error checking for root that is not 32 bytes long.
 * Further major performance improvements.  Most cases see 50-70% reduction in time for insertions into a non-empty tree.

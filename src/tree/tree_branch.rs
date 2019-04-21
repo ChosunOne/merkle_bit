@@ -50,16 +50,16 @@ impl TreeBranch {
     fn get_count(&self) -> u64 {
         self.count
     }
-    fn get_zero(&self) -> &[u8] {
+    fn get_zero(&self) -> &[u8; 32] {
         &self.zero
     }
-    fn get_one(&self) -> &[u8] {
+    fn get_one(&self) -> &[u8; 32] {
         &self.one
     }
     fn get_split_index(&self) -> u32 {
         self.split_index
     }
-    fn get_key(&self) -> &[u8] {
+    fn get_key(&self) -> &[u8; 32] {
         &self.key
     }
 
@@ -92,16 +92,16 @@ impl Branch for TreeBranch {
     fn get_count(&self) -> u64 {
         Self::get_count(&self)
     }
-    fn get_zero(&self) -> &[u8] {
+    fn get_zero(&self) -> &[u8; 32] {
         Self::get_zero(&self)
     }
-    fn get_one(&self) -> &[u8] {
+    fn get_one(&self) -> &[u8; 32] {
         Self::get_one(&self)
     }
     fn get_split_index(&self) -> u32 {
         Self::get_split_index(&self)
     }
-    fn get_key(&self) -> &[u8] {
+    fn get_key(&self) -> &[u8; 32] {
         Self::get_key(&self)
     }
 

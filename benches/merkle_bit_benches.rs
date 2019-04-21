@@ -32,12 +32,12 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
         move |b, index| {
             let prepare = prepare_inserts(1000, &mut rng);
             let key_values = prepare.0;
-            let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+            let mut keys = key_values.iter().collect::<Vec<_>>();
             let data_values = prepare.1;
             let mut data = data_values.iter().collect::<Vec<_>>();
             let mut bmt = Tree::open(&path, 160).unwrap();
             b.iter(|| {
-                bmt.insert(None, &mut keys[0..*index].to_vec(), &mut data[0..*index])
+                bmt.insert(None, &mut keys[0..*index], &mut data[0..*index])
                     .unwrap();
             });
         },
@@ -59,23 +59,24 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
         move |b, index| {
             let prepare = prepare_inserts(4096, &mut rng);
             let key_values = prepare.0;
-            let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+            let mut keys = key_values.iter().collect::<Vec<_>>();
             let data_values = prepare.1;
             let mut data = data_values.iter().collect::<Vec<_>>();
 
             let mut bmt = Tree::open(&path, 160).unwrap();
             let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
             let second = prepare_inserts(1000, &mut rng);
-            let mut second_keys = second.0.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+            let mut second_keys = second.0.iter().collect::<Vec<_>>();
             let mut second_data = second.1.iter().collect::<Vec<_>>();
 
             b.iter(|| {
-                bmt.insert(
+                let root = bmt.insert(
                     Some(&root_hash),
                     &mut second_keys[0..*index],
                     &mut second_data[0..*index],
                 )
                 .unwrap();
+                criterion::black_box(root);
             })
         },
         vec![1, 10, 100, 200, 500, 1000],
@@ -94,16 +95,17 @@ fn get_from_hash_tree_benchmark(c: &mut Criterion) {
     c.bench_function("Tree Get Benchmark/4096", move |b| {
         let prepare = prepare_inserts(4096, &mut rng);
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
         let mut bmt = Tree::open(&path, 160).unwrap();
         let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
 
         let keys_ = key_values.clone();
-        let keys_to_get = keys_.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys_to_get = keys_.iter().collect::<Vec<_>>();
         b.iter(|| {
-            bmt.get(&root_hash, &mut keys_to_get.clone()).unwrap();
+            let items = bmt.get(&root_hash, &mut keys_to_get).unwrap();
+            criterion::black_box(items);
         })
     });
     #[cfg(any(feature = "use_rocksdb"))]
@@ -121,7 +123,7 @@ fn remove_from_tree_benchmark(c: &mut Criterion) {
         let prepare = prepare_inserts(4096, &mut rng);
         let mut tree = Tree::open(&path.clone(), 160).unwrap();
         let key_values = prepare.0;
-        let mut keys = key_values.iter().map(|x| x.as_slice()).collect::<Vec<_>>();
+        let mut keys = key_values.iter().collect::<Vec<_>>();
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
         let root_hash = tree.insert(None, &mut keys, &mut data).unwrap();
@@ -144,27 +146,20 @@ criterion_group!(
 );
 criterion_main!(benches);
 
-fn prepare_inserts(
-    num_entries: usize,
-    rng: &mut StdRng,
-) -> (Vec<Vec<u8>>, Vec<Vec<u8>>, Vec<Option<Vec<u8>>>) {
+fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; 32]>, Vec<Vec<u8>>) {
     let mut keys = Vec::with_capacity(num_entries);
     let mut data = Vec::with_capacity(num_entries);
     for _ in 0..num_entries {
         let mut key_value = [0u8; 32];
         rng.fill(&mut key_value);
-        keys.push(key_value.to_vec());
+        keys.push(key_value);
 
         let mut data_value = [0u8; 32];
         rng.fill(data_value.as_mut());
         data.push(data_value.to_vec());
     }
-    let mut expected_items = vec![];
-    for i in 0..num_entries {
-        expected_items.push(Some(data[i].clone()));
-    }
 
     keys.sort();
 
-    (keys, data, expected_items)
+    (keys, data)
 }

@@ -39,22 +39,22 @@ where
 
     pub fn get<'a>(
         &self,
-        root_hash: &[u8],
-        keys: &mut [&'a [u8]],
-    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8], Option<ValueType>>> {
+        root_hash: &[u8; 32],
+        keys: &mut [&'a [u8; 32]],
+    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; 32], Option<ValueType>>> {
         self.tree.get(root_hash, keys)
     }
 
     pub fn insert(
         &mut self,
-        previous_root: Option<&[u8]>,
-        keys: &mut [&[u8]],
+        previous_root: Option<&[u8; 32]>,
+        keys: &mut [&[u8; 32]],
         values: &mut [&ValueType],
     ) -> BinaryMerkleTreeResult<[u8; 32]> {
         self.tree.insert(previous_root, keys, values)
     }
 
-    pub fn remove(&mut self, root_hash: &[u8]) -> BinaryMerkleTreeResult<()> {
+    pub fn remove(&mut self, root_hash: &[u8; 32]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }
 }

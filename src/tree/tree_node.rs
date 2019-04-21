@@ -7,6 +7,7 @@ use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
 
+#[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
 
 #[cfg(feature = "use_serde")]
@@ -28,12 +29,12 @@ use serde_yaml;
 #[derive(Clone, Debug)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeNode {
-    references: u64,
-    node: NodeVariant<TreeBranch, TreeLeaf, TreeData>,
+    pub references: u64,
+    pub node: NodeVariant<TreeBranch, TreeLeaf, TreeData>,
 }
 
 impl TreeNode {
-    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
+    pub fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
         Self {
             references: 0,
             node: node_variant,
@@ -56,6 +57,33 @@ impl TreeNode {
     }
     fn set_data(&mut self, data: TreeData) {
         self.node = NodeVariant::Data(data);
+    }
+}
+
+impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode
+{
+    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
+        Self::new(node_variant)
+    }
+
+    fn get_references(&self) -> u64 {
+        Self::get_references(&self)
+    }
+    fn get_variant(self) -> NodeVariant<TreeBranch, TreeLeaf, TreeData> {
+        self.node
+    }
+
+    fn set_references(&mut self, references: u64) {
+        Self::set_references(self, references)
+    }
+    fn set_branch(&mut self, branch: TreeBranch) {
+        Self::set_branch(self, branch)
+    }
+    fn set_leaf(&mut self, leaf: TreeLeaf) {
+        Self::set_leaf(self, leaf)
+    }
+    fn set_data(&mut self, data: TreeData) {
+        Self::set_data(self, data)
     }
 }
 
@@ -143,34 +171,5 @@ impl Decode for TreeNode {
 impl Decode for TreeNode {
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(ron::de::from_bytes(buffer)?)
-    }
-}
-
-impl<ValueType> Node<TreeBranch, TreeLeaf, TreeData, ValueType> for TreeNode
-where
-    ValueType: Encode + Decode,
-{
-    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
-        Self::new(node_variant)
-    }
-
-    fn get_references(&self) -> u64 {
-        Self::get_references(&self)
-    }
-    fn get_variant(self) -> NodeVariant<TreeBranch, TreeLeaf, TreeData> {
-        self.node
-    }
-
-    fn set_references(&mut self, references: u64) {
-        Self::set_references(self, references)
-    }
-    fn set_branch(&mut self, branch: TreeBranch) {
-        Self::set_branch(self, branch)
-    }
-    fn set_leaf(&mut self, leaf: TreeLeaf) {
-        Self::set_leaf(self, leaf)
-    }
-    fn set_data(&mut self, data: TreeData) {
-        Self::set_data(self, data)
     }
 }
