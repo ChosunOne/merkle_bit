@@ -17,7 +17,7 @@ use hashbrown::HashMap;
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
 use crate::utils::tree_cell::TreeCell;
-use crate::utils::tree_utils::{split_pairs, check_descendants, calc_min_split_index};
+use crate::utils::tree_utils::{split_pairs, check_descendants, calc_min_split_index, fast_log_2};
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -539,7 +539,7 @@ where
                 // Find the bit index of the first difference
                 let xor_key = left_key[j] ^ right_key[j];
                 let split_bit =
-                    (j * 8) as u8 + (7 - (f32::from(xor_key).log2().floor()) as u8);
+                    (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
 
                 tree_ref_queue.push((
                     split_bit,
