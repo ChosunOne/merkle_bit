@@ -4,6 +4,9 @@ use std::path::PathBuf;
 
 use crate::constants::KEY_LEN;
 
+#[cfg(feature = "use_serde")]
+use serde::{Deserialize, Serialize};
+
 pub trait Hasher {
     type HashType;
     fn new(size: usize) -> Self::HashType;

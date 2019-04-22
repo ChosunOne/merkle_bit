@@ -4,9 +4,6 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-#[cfg(feature = "use_serde")]
-use serde::{Deserialize, Serialize};
-
 use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant};
 use crate::constants::KEY_LEN;
 use crate::utils::tree_ref_wrapper::TreeRefWrapper;
