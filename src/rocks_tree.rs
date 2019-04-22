@@ -6,6 +6,7 @@ use std::collections::HashMap;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
+use crate::constants::KEY_LEN;
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 use crate::traits::{Database, Decode, Encode};
 use crate::tree::tree_branch::TreeBranch;
@@ -39,22 +40,22 @@ where
 
     pub fn get<'a>(
         &self,
-        root_hash: &[u8; 32],
-        keys: &mut [&'a [u8; 32]],
-    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; 32], Option<ValueType>>> {
+        root_hash: &[u8; KEY_LEN],
+        keys: &mut [&'a [u8; KEY_LEN]],
+    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; KEY_LEN], Option<ValueType>>> {
         self.tree.get(root_hash, keys)
     }
 
     pub fn insert(
         &mut self,
-        previous_root: Option<&[u8; 32]>,
-        keys: &mut [&[u8; 32]],
+        previous_root: Option<&[u8; KEY_LEN]>,
+        keys: &mut [&[u8; KEY_LEN]],
         values: &mut [&ValueType],
-    ) -> BinaryMerkleTreeResult<[u8; 32]> {
+    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         self.tree.insert(previous_root, keys, values)
     }
 
-    pub fn remove(&mut self, root_hash: &[u8; 32]) -> BinaryMerkleTreeResult<()> {
+    pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }
 }

@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use crate::constants::KEY_LEN;
 use crate::traits::{Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
 
@@ -34,7 +35,7 @@ impl Database for RocksDB {
         Ok(RocksDB::new(DB::open_default(path)?))
     }
 
-    fn get_node(&self, key: &[u8; 32]) -> Result<Option<Self::NodeType>, Exception> {
+    fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception> {
         if let Some(buffer) = self.db.get(key)? {
             Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
         } else {
@@ -42,7 +43,7 @@ impl Database for RocksDB {
         }
     }
 
-    fn insert(&mut self, key: [u8; 32], value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized)?;
@@ -54,7 +55,7 @@ impl Database for RocksDB {
         Ok(())
     }
 
-    fn remove(&mut self, key: &[u8; 32]) -> Result<(), Exception> {
+    fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception> {
         Ok(self.db.delete(key)?)
     }
 

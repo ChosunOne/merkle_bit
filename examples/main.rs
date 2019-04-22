@@ -1,12 +1,13 @@
 extern crate starling;
 
+use starling::constants::KEY_LEN;
 use starling::merkle_bit::BinaryMerkleTreeResult;
 
 fn main() -> BinaryMerkleTreeResult<()> {
     let mut tree = starling::hash_tree::HashTree::new(16)?;
 
-    let key = [0x00; 32];
-    let value = vec![0x00; 32];
+    let key = [0x00; KEY_LEN];
+    let value = vec![0x00; KEY_LEN];
 
     // Inserting and getting from a tree
     let new_root = tree.insert(None, &mut [&key], &mut vec![&value])?;

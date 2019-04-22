@@ -1,5 +1,7 @@
 use tiny_keccak::Keccak;
 
+use crate::constants::KEY_LEN;
+
 pub struct Sha3Hasher(Keccak);
 
 impl crate::traits::Hasher for Sha3Hasher {
@@ -10,8 +12,8 @@ impl crate::traits::Hasher for Sha3Hasher {
         Self(hasher)
     }
     fn update(&mut self, data: &[u8]) { self.0.update(data); }
-    fn finalize(self) -> [u8; 32] {
-        let mut res = [0; 32];
+    fn finalize(self) -> [u8; KEY_LEN] {
+        let mut res = [0; KEY_LEN];
         self.0.finalize(&mut res);
         res
     }

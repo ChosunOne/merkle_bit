@@ -1,6 +1,7 @@
 #[cfg(feature = "use_serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Branch;
+use crate::constants::KEY_LEN;
 
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};
@@ -30,56 +31,56 @@ use std::string::FromUtf8Error;
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,
-    zero: [u8; 32],
-    one: [u8; 32],
-    split_index: u32,
-    key: [u8; 32],
+    zero: [u8; KEY_LEN],
+    one: [u8; KEY_LEN],
+    split_index: u8,
+    key: [u8; KEY_LEN],
 }
 
 impl TreeBranch {
     fn new() -> Self {
         Self {
             count: 0,
-            zero: [0; 32],
-            one: [0; 32],
+            zero: [0; KEY_LEN],
+            one: [0; KEY_LEN],
             split_index: 0,
-            key: [0; 32],
+            key: [0; KEY_LEN],
         }
     }
 
     fn get_count(&self) -> u64 {
         self.count
     }
-    fn get_zero(&self) -> &[u8; 32] {
+    fn get_zero(&self) -> &[u8; KEY_LEN] {
         &self.zero
     }
-    fn get_one(&self) -> &[u8; 32] {
+    fn get_one(&self) -> &[u8; KEY_LEN] {
         &self.one
     }
-    fn get_split_index(&self) -> u32 {
+    fn get_split_index(&self) -> u8 {
         self.split_index
     }
-    fn get_key(&self) -> &[u8; 32] {
+    fn get_key(&self) -> &[u8; KEY_LEN] {
         &self.key
     }
 
     fn set_count(&mut self, count: u64) {
         self.count = count;
     }
-    fn set_zero(&mut self, zero: [u8; 32]) {
+    fn set_zero(&mut self, zero: [u8; KEY_LEN]) {
         self.zero = zero;
     }
-    fn set_one(&mut self, one: [u8; 32]) {
+    fn set_one(&mut self, one: [u8; KEY_LEN]) {
         self.one = one;;
     }
-    fn set_split_index(&mut self, split_index: u32) {
+    fn set_split_index(&mut self, split_index: u8) {
         self.split_index = split_index;
     }
-    fn set_key(&mut self, key: [u8; 32]) {
+    fn set_key(&mut self, key: [u8; KEY_LEN]) {
         self.key = key;
     }
 
-    fn deconstruct(self) -> (u64, [u8; 32], [u8; 32], u32, [u8; 32]) {
+    fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
         (self.count, self.zero, self.one, self.split_index, self.key)
     }
 }
@@ -92,36 +93,36 @@ impl Branch for TreeBranch {
     fn get_count(&self) -> u64 {
         Self::get_count(&self)
     }
-    fn get_zero(&self) -> &[u8; 32] {
+    fn get_zero(&self) -> &[u8; KEY_LEN] {
         Self::get_zero(&self)
     }
-    fn get_one(&self) -> &[u8; 32] {
+    fn get_one(&self) -> &[u8; KEY_LEN] {
         Self::get_one(&self)
     }
-    fn get_split_index(&self) -> u32 {
+    fn get_split_index(&self) -> u8 {
         Self::get_split_index(&self)
     }
-    fn get_key(&self) -> &[u8; 32] {
+    fn get_key(&self) -> &[u8; KEY_LEN] {
         Self::get_key(&self)
     }
 
     fn set_count(&mut self, count: u64) {
         Self::set_count(self, count)
     }
-    fn set_zero(&mut self, zero: [u8; 32]) {
+    fn set_zero(&mut self, zero: [u8; KEY_LEN]) {
         Self::set_zero(self, zero)
     }
-    fn set_one(&mut self, one: [u8; 32]) {
+    fn set_one(&mut self, one: [u8; KEY_LEN]) {
         Self::set_one(self, one)
     }
-    fn set_split_index(&mut self, index: u32) {
+    fn set_split_index(&mut self, index: u8) {
         Self::set_split_index(self, index)
     }
-    fn set_key(&mut self, key: [u8; 32]) {
+    fn set_key(&mut self, key: [u8; KEY_LEN]) {
         Self::set_key(self, key)
     }
 
-    fn deconstruct(self) -> (u64, [u8; 32], [u8; 32], u32, [u8; 32]) {
+    fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
         Self::deconstruct(self)
     }
 }

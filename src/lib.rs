@@ -16,6 +16,7 @@
 
 #[cfg(feature = "use_rocksdb")] extern crate rocksdb;
 
+pub mod constants;
 pub mod merkle_bit;
 pub mod traits;
 pub mod hash_tree;

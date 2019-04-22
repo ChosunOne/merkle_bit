@@ -10,6 +10,8 @@ use rand::{Rng, SeedableRng};
 #[cfg(any(feature = "use_rocksdb"))]
 use std::fs::remove_dir_all;
 
+use starling::constants::KEY_LEN;
+
 #[cfg(not(any(feature = "use_rocksdb")))]
 use starling::hash_tree::HashTree;
 
@@ -25,7 +27,7 @@ type Tree = RocksTree<Vec<u8>>;
 /** Benchmarks 1000, 2000, 5000, 10000 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; 32];
+    let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function_over_inputs(
         "Tree Empty Insert",
@@ -53,7 +55,7 @@ fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
 /** Benchmarks 1000, 2000, 5000, 10000 inserts into a tree with existing root */
 fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; 32];
+    let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function_over_inputs(
         "Tree Non Empty Insert",
@@ -91,7 +93,7 @@ fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
 /** Benchmarks retrieving 10000 keys from a tree with 10000 keys */
 fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; 32];
+    let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function("Tree Get Benchmark/10000", move |b| {
         let prepare = prepare_inserts(10000, &mut rng);
@@ -117,7 +119,7 @@ fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
 
 fn remove_from_tree_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; 32];
+    let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
     c.bench_function("Tree Remove Benchmark/10000", move |b| {
@@ -147,15 +149,15 @@ criterion_group!(
 );
 criterion_main!(big_benches);
 
-fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; 32]>, Vec<Vec<u8>>) {
+fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>, Vec<Vec<u8>>) {
     let mut keys = Vec::with_capacity(num_entries);
     let mut data = Vec::with_capacity(num_entries);
     for _ in 0..num_entries {
-        let mut key_value = [0u8; 32];
+        let mut key_value = [0u8; KEY_LEN];
         rng.fill(&mut key_value);
         keys.push(key_value);
 
-        let mut data_value = [0u8; 32];
+        let mut data_value = [0u8; KEY_LEN];
         rng.fill(data_value.as_mut());
         data.push(data_value.to_vec());
     }

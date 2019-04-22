@@ -9,6 +9,7 @@ use std::rc::Rc;
 use serde::{Deserialize, Serialize};
 
 use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node};
+use crate::constants::{KEY_LEN, KEY_LEN_BITS};
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
@@ -33,14 +34,14 @@ where
 }
 
 struct TreeCell<'a, NodeType> {
-    keys: &'a [&'a [u8; 32]],
+    keys: &'a [&'a [u8; KEY_LEN]],
     node: NodeType,
     depth: usize,
 }
 
 impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
     pub fn new<BranchType, LeafType, DataType>(
-        keys: &'a [&'a [u8; 32]],
+        keys: &'a [&'a [u8; KEY_LEN]],
         node: NodeType,
         depth: usize,
     ) -> TreeCell<'a, NodeType>
@@ -55,13 +56,13 @@ impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
 
 #[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
 struct TreeRef {
-    key: Rc<[u8; 32]>,
-    location: Rc<[u8; 32]>,
+    key: Rc<[u8; KEY_LEN]>,
+    location: Rc<[u8; KEY_LEN]>,
     count: u64,
 }
 
 impl TreeRef {
-    pub fn new(key: [u8; 32], location: [u8; 32], count: u64) -> TreeRef {
+    pub fn new(key: [u8; KEY_LEN], location: [u8; KEY_LEN], count: u64) -> TreeRef {
         TreeRef {
             key: Rc::new(key),
             location: Rc::new(location),
@@ -99,14 +100,14 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn get_tree_ref_key(&self) -> Rc<[u8; 32]> {
+    pub fn get_tree_ref_key(&self) -> Rc<[u8; KEY_LEN]> {
         match self {
             TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().key),
             TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_key(),
         }
     }
 
-    pub fn get_tree_ref_location(&self) -> Rc<[u8; 32]> {
+    pub fn get_tree_ref_location(&self) -> Rc<[u8; KEY_LEN]> {
         match self {
             TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().location),
             TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_location(),
@@ -120,14 +121,14 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn set_tree_ref_key(&mut self, key: Rc<[u8; 32]>) {
+    pub fn set_tree_ref_key(&mut self, key: Rc<[u8; KEY_LEN]>) {
         match self {
             TreeRefWrapper::Raw(t) => t.borrow_mut().key = key,
             TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_key(key),
         }
     }
 
-    pub fn set_tree_ref_location(&mut self, location: Rc<[u8; 32]>) {
+    pub fn set_tree_ref_location(&mut self, location: Rc<[u8; KEY_LEN]>) {
         match self {
             TreeRefWrapper::Raw(t) => t.borrow_mut().location = location,
             TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_location(location),
@@ -142,28 +143,28 @@ impl TreeRefWrapper {
     }
 }
 
-fn choose_zero(key: &[u8; 32], bit: usize) -> bool {
-    let index = bit / 8;
+fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
+    let index = (bit >> 3) as usize;
     let shift = bit % 8;
     let extracted_bit = (key[index] >> (7 - shift)) & 1;
     extracted_bit == 0
 }
 
-fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8; 32]], bit: usize) -> (&'a [&'a [u8; 32]], &'a [&'a [u8; 32]]) {
+fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8; KEY_LEN]], bit: u8) -> (&'a [&'a [u8; KEY_LEN]], &'a [&'a [u8; KEY_LEN]]) {
     if sorted_pairs.is_empty() {
-        return (&sorted_pairs[0..0], &sorted_pairs[0..0]);
-    }
-
-    if choose_zero(sorted_pairs[sorted_pairs.len() - 1], bit) {
-        return (&sorted_pairs[0..sorted_pairs.len()], &sorted_pairs[0..0]);
-    }
-
-    if !choose_zero(sorted_pairs[0], bit) {
-        return (&sorted_pairs[0..0], &sorted_pairs[0..sorted_pairs.len()]);
+        return (&[], &[]);
     }
 
     let mut min = 0;
     let mut max = sorted_pairs.len();
+
+    if choose_zero(sorted_pairs[max - 1], bit) {
+        return (&sorted_pairs[..], &[]);
+    }
+
+    if !choose_zero(sorted_pairs[0], bit) {
+        return (&[], &sorted_pairs[..]);
+    }
 
     while max - min > 1 {
         let bisect = (max - min) / 2 + min;
@@ -178,24 +179,24 @@ fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8; 32]], bit: usize) -> (&'a [&'a [u
 }
 
 fn check_descendants<'a>(
-    keys: &'a [&'a [u8; 32]],
-    branch_split_index: usize,
-    branch_key: &[u8],
-    min_split_index: usize,
-) -> &'a [&'a [u8; 32]] {
+    keys: &'a [&'a [u8; KEY_LEN]],
+    branch_split_index: u8,
+    branch_key: &[u8; KEY_LEN],
+    min_split_index: u8,
+) -> &'a [&'a [u8; KEY_LEN]] {
     // Check if any keys from the search need to go down this branch
     let mut start = 0;
     let mut end = 0;
     let mut found_start = false;
-    for i in 0..keys.len() {
+    for (i, key) in keys.iter().enumerate() {
         let mut descendant = true;
         for j in (min_split_index..branch_split_index).step_by(8) {
-            let byte = j / 8;
-            if branch_key[byte] == keys[i][byte] {
+            let byte = j >> 3;
+            if branch_key[byte as usize] == key[byte as usize] {
                 continue;
             }
-            let xor_key = branch_key[byte] ^ keys[i][byte];
-            let split_bit = byte * 8 + (7 - f32::from(xor_key).log2().floor() as usize);
+            let xor_key = branch_key[byte as usize] ^ key[byte as usize];
+            let split_bit = byte * 8 + (7 - f32::from(xor_key).log2().floor() as u8);
             if split_bit < branch_split_index {
                 descendant = false;
                 break;
@@ -292,9 +293,9 @@ where
     /// Get items from the MerkleBIT.  Returns a map of Options which may include the corresponding values.
     pub fn get<'a>(
         &self,
-        root_hash: &[u8; 32],
-        keys: &mut [&'a [u8; 32]],
-    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; 32], Option<ValueType>>> {
+        root_hash: &[u8; KEY_LEN],
+        keys: &mut [&'a [u8; KEY_LEN]],
+    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; KEY_LEN], Option<ValueType>>> {
         let mut leaf_map = HashMap::new();
         for key in keys.iter() {
             leaf_map.insert(*key, None);
@@ -337,7 +338,7 @@ where
                         self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
                     let descendants = check_descendants(
                         tree_cell.keys,
-                        branch_split_index as usize,
+                        branch_split_index,
                         &branch_key,
                         min_split_index,
                     );
@@ -345,7 +346,7 @@ where
                         continue;
                     }
 
-                    let (zeros, ones) = split_pairs(&descendants, branch_split_index as usize);
+                    let (zeros, ones) = split_pairs(&descendants, branch_split_index);
 
                     if let Some(o) = self.db.get_node(&one)? {
                         let one_node = o;
@@ -397,10 +398,10 @@ where
     /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
     pub fn insert(
         &mut self,
-        previous_root: Option<&[u8; 32]>,
-        keys: &mut [&[u8; 32]],
+        previous_root: Option<&[u8; KEY_LEN]>,
+        keys: &mut [&[u8; KEY_LEN]],
         values: &mut [&ValueType],
-    ) -> BinaryMerkleTreeResult<[u8; 32]> {
+    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
         }
@@ -429,7 +430,7 @@ where
 
         let mut tree_refs = Vec::with_capacity(keys.len());
         for (loc, key) in nodes.into_iter().zip(keys.iter()) {
-            let mut tree_ref_key = [0; 32];
+            let mut tree_ref_key = [0; KEY_LEN];
             tree_ref_key.copy_from_slice(&key[..]);
             let tree_ref = TreeRef::new(tree_ref_key, loc, 1);
             tree_refs.push(tree_ref);
@@ -445,8 +446,8 @@ where
 
     fn generate_treerefs(
         &mut self,
-        root: &[u8; 32],
-        keys: &mut [&[u8; 32]],
+        root: &[u8; KEY_LEN],
+        keys: &mut [&[u8; KEY_LEN]],
         tree_refs: &mut Vec<TreeRef>,
     ) -> BinaryMerkleTreeResult<()> {
         // Nodes that form the merkle proof for the new tree
@@ -481,11 +482,11 @@ where
                 NodeVariant::Leaf(n) => {
                     let (key, data) = n.deconstruct();
 
-                    let mut leaf_hasher = HasherType::new(32);
+                    let mut leaf_hasher = HasherType::new(KEY_LEN);
                     leaf_hasher.update(b"l");
                     leaf_hasher.update(&key);
                     leaf_hasher.update(&data);
-                    let mut location = [0; 32];
+                    let mut location = [0; KEY_LEN];
                     location.copy_from_slice(&leaf_hasher.finalize());
 
                     let mut update = false;
@@ -521,24 +522,21 @@ where
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
                 branch.deconstruct();
 
-            let mut branch_hasher = HasherType::new(32);
+            let mut branch_hasher = HasherType::new(KEY_LEN);
             branch_hasher.update(b"b");
             branch_hasher.update(&branch_zero);
             branch_hasher.update(&branch_one);
-            let location_vec = branch_hasher.finalize();
-            let mut location = [0; 32];
-            location.copy_from_slice(&location_vec);
-            drop(location_vec);
+            let location = branch_hasher.finalize();
 
             let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
             let split;
             let mut descendants = &tree_cell.keys[..];
 
-            if min_split_index < branch_split_index as usize {
+            if min_split_index < branch_split_index {
                 descendants = check_descendants(
                     &tree_cell.keys,
-                    branch_split_index as usize,
+                    branch_split_index,
                     &branch_key,
                     min_split_index,
                 );
@@ -561,7 +559,7 @@ where
                 }
             }
 
-            split = split_pairs(descendants, branch_split_index as usize);
+            split = split_pairs(descendants, branch_split_index);
             if let Some(o) = self.db.get_node(&branch_one)? {
                 let one_node = o;
                 if !split.1.is_empty() {
@@ -572,7 +570,7 @@ where
                     );
                     cell_queue.push_front(new_cell);
                 } else {
-                    let mut other_key = [0; 32];
+                    let mut other_key = [0; KEY_LEN];
                     let count;
                     let refs = one_node.get_references() + 1;
                     let mut new_one_node;
@@ -607,7 +605,7 @@ where
                     );
                     cell_queue.push_front(new_cell);
                 } else {
-                    let mut other_key = [0; 32];
+                    let mut other_key = [0; KEY_LEN];
                     let count;
                     let refs = zero_node.get_references() + 1;
                     let mut new_zero_node;
@@ -640,9 +638,9 @@ where
 
     fn calc_min_split_index(
         &self,
-        keys: &[&[u8; 32]],
-        branch_key: &[u8; 32],
-    ) -> BinaryMerkleTreeResult<usize> {
+        keys: &[&[u8; KEY_LEN]],
+        branch_key: &[u8; KEY_LEN],
+    ) -> BinaryMerkleTreeResult<u8> {
         let mut min_key;
         if let Some(m) = keys.iter().min() {
             min_key = *m;
@@ -663,13 +661,13 @@ where
             max_key = &branch_key;
         }
 
-        let mut split_bit = min_key.len() * 8;
-        for i in 0..min_key.len() {
-            if min_key[i] == max_key[i] {
+        let mut split_bit = KEY_LEN_BITS;
+        for (i, &min_key_byte) in min_key.iter().enumerate() {
+            if min_key_byte == max_key[i] {
                 continue;
             }
-            let xor_key = min_key[i] ^ max_key[i];
-            split_bit = i * 8 + (7 - f32::from(xor_key).log2().floor() as usize);
+            let xor_key = min_key_byte ^ max_key[i];
+            split_bit = (i * 8) as u8 + (7 - f32::from(xor_key).log2().floor() as u8);
             break;
         }
         Ok(split_bit)
@@ -677,16 +675,16 @@ where
 
     fn insert_leaves(
         &mut self,
-        keys: &[&[u8; 32]],
+        keys: &[&[u8; KEY_LEN]],
         values: &[&ValueType],
-    ) -> BinaryMerkleTreeResult<Vec<[u8; 32]>> {
+    ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let mut nodes = Vec::with_capacity(keys.len());
         for i in 0..keys.len() {
             // Create data node
             let mut data = DataType::new();
             data.set_value(&values[i].encode()?);
 
-            let mut data_hasher = HasherType::new(32);
+            let mut data_hasher = HasherType::new(KEY_LEN);
             data_hasher.update(b"d");
             data_hasher.update(keys[i]);
             data_hasher.update(data.get_value());
@@ -698,11 +696,11 @@ where
             // Create leaf node
             let mut leaf = LeafType::new();
             leaf.set_data(data_node_location);
-            let mut leaf_key = [0; 32];
+            let mut leaf_key = [0; KEY_LEN];
             leaf_key.copy_from_slice(keys[i]);
             leaf.set_key(leaf_key);
 
-            let mut leaf_hasher = HasherType::new(32);
+            let mut leaf_hasher = HasherType::new(KEY_LEN);
             leaf_hasher.update(b"l");
             leaf_hasher.update(keys[i]);
             leaf_hasher.update(&leaf.get_data()[..]);
@@ -724,14 +722,14 @@ where
             self.db.insert(data_node_location, data_node)?;
             self.db.insert(leaf_node_location, leaf_node)?;
 
-            let mut location = [0; 32];
+            let mut location = [0; KEY_LEN];
             location.copy_from_slice(&leaf_node_location);
             nodes.push(location);
         }
         Ok(nodes)
     }
 
-    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<[u8; 32]> {
+    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         if tree_refs.is_empty() {
             return Err(Exception::new("Tried to create a tree with no tree refs"));
         }
@@ -774,7 +772,7 @@ where
                 // Find the bit index of the first difference
                 let xor_key = left_key[j] ^ right_key[j];
                 let split_bit =
-                    (j * 8) as usize + (7 - (f32::from(xor_key).log2().floor()) as usize);
+                    (j * 8) as u8 + (7 - (f32::from(xor_key).log2().floor()) as u8);
 
                 tree_ref_queue.push((
                     split_bit,
@@ -809,29 +807,29 @@ where
             let next_tree_ref_count = next_tree_ref_wrapper.borrow().get_tree_ref_count();
 
             {
-                let mut branch_hasher = HasherType::new(32);
+                let mut branch_hasher = HasherType::new(KEY_LEN);
                 branch_hasher.update(b"b");
                 branch_hasher.update(&tree_ref_location[..]);
                 branch_hasher.update(&next_tree_ref_location[..]);
                 let branch_node_location_vec = branch_hasher.finalize();
-                let mut branch_node_location_arr = [0u8; 32];
+                let mut branch_node_location_arr = [0u8; KEY_LEN];
                 branch_node_location_arr.copy_from_slice(&branch_node_location_vec);
                 branch_node_location = Rc::new(branch_node_location_arr);
 
                 count = tree_ref_count + next_tree_ref_count;
-                let mut branch_zero = [0; 32];
+                let mut branch_zero = [0; KEY_LEN];
                 branch_zero.copy_from_slice(&tree_ref_location[..]);
 
-                let mut branch_one = [0; 32];
+                let mut branch_one = [0; KEY_LEN];
                 branch_one.copy_from_slice(&next_tree_ref_location[..]);
 
-                let mut branch_key = [0; 32];
+                let mut branch_key = [0; KEY_LEN];
                 branch_key.copy_from_slice(&tree_ref_key[..]);
 
                 branch.set_zero(branch_zero);
                 branch.set_one(branch_one);
                 branch.set_count(count);
-                branch.set_split_index(split_index as u32);
+                branch.set_split_index(split_index);
                 branch.set_key(branch_key);
             }
 
@@ -863,11 +861,7 @@ where
     }
 
     /// Remove all items with less than 1 reference under the given root.
-    pub fn remove(&mut self, root_hash: &[u8; 32]) -> BinaryMerkleTreeResult<()> {
-        if root_hash.len() != 32 {
-            return Err(Exception::new("root_hash must be 32 bytes long"));
-        }
-
+    pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         let mut nodes = VecDeque::with_capacity(128);
         nodes.push_front(*root_hash);
 
@@ -935,7 +929,7 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_easy() {
-        let key = [0x0F; 32];
+        let key = [0x0F; KEY_LEN];
         for i in 0..8 {
             let expected_branch;
             if i < 4 {
@@ -950,7 +944,7 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_medium() {
-        let key = [0x55; 32];
+        let key = [0x55; KEY_LEN];
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
@@ -961,7 +955,7 @@ pub mod tests {
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
-        let key = [0xAA; 32];
+        let key = [0xAA; KEY_LEN];
         for i in 0..8 {
             let expected_branch;
             if i % 2 == 0 {
@@ -976,7 +970,7 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_hard() {
-        let key = [0x68; 32];
+        let key = [0x68; KEY_LEN];
         for i in 0..8 {
             let expected_branch;
             if i == 1 || i == 2 || i == 4 {
@@ -988,7 +982,7 @@ pub mod tests {
             assert_eq!(branch, expected_branch);
         }
 
-        let key = [0xAB; 32];
+        let key = [0xAB; KEY_LEN];
         for i in 0..8 {
             let expected_branch;
             if i == 0 || i == 2 || i == 4 || i == 6 || i == 7 {
@@ -1005,7 +999,7 @@ pub mod tests {
     fn it_splits_an_all_zeros_sorted_list_of_pairs() {
         // The complexity of these tests result from the fact that getting a key and splitting the
         // tree should not require any copying or moving of memory.
-        let zero_key = [0x00u8; 32];
+        let zero_key = [0x00u8; KEY_LEN];
         let key_vec = vec![
             &zero_key,
             &zero_key,
@@ -1024,13 +1018,13 @@ pub mod tests {
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
         for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; 32]);
+            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
         }
     }
 
     #[test]
     fn it_splits_an_all_ones_sorted_list_of_pairs() {
-        let one_key = [0xFFu8; 32];
+        let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             &one_key,
             &one_key,
@@ -1047,14 +1041,14 @@ pub mod tests {
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
         for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; 32]);
+            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
         }
     }
 
     #[test]
     fn it_splits_an_even_length_sorted_list_of_pairs() {
-        let zero_key = [0x00u8; 32];
-        let one_key = [0xFFu8; 32];
+        let zero_key = [0x00u8; KEY_LEN];
+        let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             &zero_key,
             &zero_key,
@@ -1071,17 +1065,17 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
         for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; 32]);
+            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
         }
         for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; 32]);
+            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
         }
     }
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() {
-        let zero_key = [0x00u8; 32];
-        let one_key = [0xFFu8; 32];
+        let zero_key = [0x00u8; KEY_LEN];
+        let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             &zero_key,
             &zero_key,
@@ -1099,17 +1093,17 @@ pub mod tests {
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
         for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; 32]);
+            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
         }
         for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; 32]);
+            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
         }
     }
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() {
-        let zero_key = [0x00u8; 32];
-        let one_key = [0xFFu8; 32];
+        let zero_key = [0x00u8; KEY_LEN];
+        let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             &zero_key,
             &zero_key,
@@ -1128,10 +1122,10 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
         for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; 32]);
+            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
         }
         for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; 32]);
+            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
         }
     }
 }

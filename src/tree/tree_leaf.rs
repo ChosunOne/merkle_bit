@@ -1,6 +1,7 @@
 #[cfg(feature = "use_serialization")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 
+use crate::constants::KEY_LEN;
 use crate::traits::Leaf;
 
 #[cfg(feature = "use_serialization")]
@@ -25,33 +26,33 @@ use serde_yaml;
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
-    key: [u8; 32],
-    data: [u8; 32],
+    key: [u8; KEY_LEN],
+    data: [u8; KEY_LEN],
 }
 
 impl TreeLeaf {
     pub fn new() -> Self {
         Self {
-            key: [0; 32],
-            data: [0; 32],
+            key: [0; KEY_LEN],
+            data: [0; KEY_LEN],
         }
     }
 
-    fn get_key(&self) -> &[u8; 32] {
+    fn get_key(&self) -> &[u8; KEY_LEN] {
         &self.key
     }
-    fn get_data(&self) -> &[u8; 32] {
+    fn get_data(&self) -> &[u8; KEY_LEN] {
         &self.data
     }
 
-    fn set_key(&mut self, key: [u8; 32]) {
+    fn set_key(&mut self, key: [u8; KEY_LEN]) {
         self.key = key;
     }
-    fn set_data(&mut self, data: [u8; 32]) {
+    fn set_data(&mut self, data: [u8; KEY_LEN]) {
         self.data = data;
     }
 
-    fn deconstruct(self) -> ([u8; 32], [u8; 32]) {
+    fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
         (self.key, self.data)
     }
 }
@@ -61,21 +62,21 @@ impl Leaf for TreeLeaf {
         Self::new()
     }
 
-    fn get_key(&self) -> &[u8; 32] {
+    fn get_key(&self) -> &[u8; KEY_LEN] {
         Self::get_key(&self)
     }
-    fn get_data(&self) -> &[u8; 32] {
+    fn get_data(&self) -> &[u8; KEY_LEN] {
         Self::get_data(&self)
     }
 
-    fn set_key(&mut self, key: [u8; 32]) {
+    fn set_key(&mut self, key: [u8; KEY_LEN]) {
         Self::set_key(self, key)
     }
-    fn set_data(&mut self, data: [u8; 32]) {
+    fn set_data(&mut self, data: [u8; KEY_LEN]) {
         Self::set_data(self, data)
     }
 
-    fn deconstruct(self) -> ([u8; 32], [u8; 32]) {
+    fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
         Self::deconstruct(self)
     }
 }
