@@ -23,5 +23,6 @@ pub mod hash_tree;
 pub mod tree;
 pub mod tree_hasher;
 pub mod tree_db;
+pub mod utils;
 
 #[cfg(feature = "use_rocksdb")] pub mod rocks_tree;

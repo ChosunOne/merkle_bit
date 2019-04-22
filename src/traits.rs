@@ -2,7 +2,6 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::path::PathBuf;
 
-use crate::merkle_bit::NodeVariant;
 use crate::constants::KEY_LEN;
 
 pub trait Hasher {
@@ -55,6 +54,20 @@ where
     fn set_branch(&mut self, branch: BranchType);
     fn set_leaf(&mut self, leaf: LeafType);
     fn set_data(&mut self, data: DataType);
+}
+
+/// Contains the distinguishing data from the node
+#[derive(Clone, Debug)]
+#[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
+pub enum NodeVariant<BranchType, LeafType, DataType>
+    where
+        BranchType: Branch,
+        LeafType: Leaf,
+        DataType: Data,
+{
+    Branch(BranchType),
+    Leaf(LeafType),
+    Data(DataType),
 }
 
 pub trait Database {

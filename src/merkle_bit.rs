@@ -1,5 +1,4 @@
 use std::cell::RefCell;
-use std::cmp::Ordering;
 use std::collections::{BinaryHeap, VecDeque};
 use std::marker::PhantomData;
 use std::path::PathBuf;
@@ -8,215 +7,20 @@ use std::rc::Rc;
 #[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node};
-use crate::constants::{KEY_LEN, KEY_LEN_BITS};
+use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant};
+use crate::constants::KEY_LEN;
+use crate::utils::tree_ref_wrapper::TreeRefWrapper;
+use crate::utils::tree_ref::TreeRef;
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
+use crate::utils::tree_cell::TreeCell;
+use crate::utils::tree_utils::{split_pairs, check_descendants, calc_min_split_index};
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
-
-/// Contains the distinguishing data from the node
-#[derive(Clone, Debug)]
-#[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
-pub enum NodeVariant<BranchType, LeafType, DataType>
-where
-    BranchType: Branch,
-    LeafType: Leaf,
-    DataType: Data,
-{
-    Branch(BranchType),
-    Leaf(LeafType),
-    Data(DataType),
-}
-
-struct TreeCell<'a, NodeType> {
-    keys: &'a [&'a [u8; KEY_LEN]],
-    node: NodeType,
-    depth: usize,
-}
-
-impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
-    pub fn new<BranchType, LeafType, DataType>(
-        keys: &'a [&'a [u8; KEY_LEN]],
-        node: NodeType,
-        depth: usize,
-    ) -> TreeCell<'a, NodeType>
-    where
-        BranchType: Branch,
-        LeafType: Leaf,
-        DataType: Data,
-    {
-        TreeCell { keys, node, depth }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, PartialOrd)]
-struct TreeRef {
-    key: Rc<[u8; KEY_LEN]>,
-    location: Rc<[u8; KEY_LEN]>,
-    count: u64,
-}
-
-impl TreeRef {
-    pub fn new(key: [u8; KEY_LEN], location: [u8; KEY_LEN], count: u64) -> TreeRef {
-        TreeRef {
-            key: Rc::new(key),
-            location: Rc::new(location),
-            count,
-        }
-    }
-}
-
-impl Ord for TreeRef {
-    fn cmp(&self, other_ref: &TreeRef) -> Ordering {
-        self.key.cmp(&other_ref.key)
-    }
-}
-
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-enum TreeRefWrapper {
-    Raw(Rc<RefCell<TreeRef>>),
-    Ref(Rc<RefCell<TreeRefWrapper>>),
-}
-
-impl TreeRefWrapper {
-    pub fn update_reference(&mut self) {
-        let new_ref;
-        match self {
-            TreeRefWrapper::Raw(_) => return,
-            TreeRefWrapper::Ref(r) => new_ref = TreeRefWrapper::get_reference(r),
-        }
-        *self = TreeRefWrapper::Ref(new_ref);
-    }
-
-    pub fn get_reference(wrapper: &Rc<RefCell<TreeRefWrapper>>) -> Rc<RefCell<TreeRefWrapper>> {
-        match *wrapper.borrow() {
-            TreeRefWrapper::Raw(ref _t) => Rc::clone(wrapper),
-            TreeRefWrapper::Ref(ref r) => TreeRefWrapper::get_reference(r),
-        }
-    }
-
-    pub fn get_tree_ref_key(&self) -> Rc<[u8; KEY_LEN]> {
-        match self {
-            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().key),
-            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_key(),
-        }
-    }
-
-    pub fn get_tree_ref_location(&self) -> Rc<[u8; KEY_LEN]> {
-        match self {
-            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().location),
-            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_location(),
-        }
-    }
-
-    pub fn get_tree_ref_count(&self) -> u64 {
-        match self {
-            TreeRefWrapper::Raw(t) => t.borrow().count,
-            TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_count(),
-        }
-    }
-
-    pub fn set_tree_ref_key(&mut self, key: Rc<[u8; KEY_LEN]>) {
-        match self {
-            TreeRefWrapper::Raw(t) => t.borrow_mut().key = key,
-            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_key(key),
-        }
-    }
-
-    pub fn set_tree_ref_location(&mut self, location: Rc<[u8; KEY_LEN]>) {
-        match self {
-            TreeRefWrapper::Raw(t) => t.borrow_mut().location = location,
-            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_location(location),
-        }
-    }
-
-    pub fn set_tree_ref_count(&mut self, count: u64) {
-        match self {
-            TreeRefWrapper::Raw(t) => t.borrow_mut().count = count,
-            TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_count(count),
-        }
-    }
-}
-
-fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
-    let index = (bit >> 3) as usize;
-    let shift = bit % 8;
-    let extracted_bit = (key[index] >> (7 - shift)) & 1;
-    extracted_bit == 0
-}
-
-fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8; KEY_LEN]], bit: u8) -> (&'a [&'a [u8; KEY_LEN]], &'a [&'a [u8; KEY_LEN]]) {
-    if sorted_pairs.is_empty() {
-        return (&[], &[]);
-    }
-
-    let mut min = 0;
-    let mut max = sorted_pairs.len();
-
-    if choose_zero(sorted_pairs[max - 1], bit) {
-        return (&sorted_pairs[..], &[]);
-    }
-
-    if !choose_zero(sorted_pairs[0], bit) {
-        return (&[], &sorted_pairs[..]);
-    }
-
-    while max - min > 1 {
-        let bisect = (max - min) / 2 + min;
-        if choose_zero(sorted_pairs[bisect], bit) {
-            min = bisect;
-        } else {
-            max = bisect;
-        }
-    }
-
-    sorted_pairs.split_at(max)
-}
-
-fn check_descendants<'a>(
-    keys: &'a [&'a [u8; KEY_LEN]],
-    branch_split_index: u8,
-    branch_key: &[u8; KEY_LEN],
-    min_split_index: u8,
-) -> &'a [&'a [u8; KEY_LEN]] {
-    // Check if any keys from the search need to go down this branch
-    let mut start = 0;
-    let mut end = 0;
-    let mut found_start = false;
-    for (i, key) in keys.iter().enumerate() {
-        let mut descendant = true;
-        for j in (min_split_index..branch_split_index).step_by(8) {
-            let byte = j >> 3;
-            if branch_key[byte as usize] == key[byte as usize] {
-                continue;
-            }
-            let xor_key = branch_key[byte as usize] ^ key[byte as usize];
-            let split_bit = byte * 8 + (7 - f32::from(xor_key).log2().floor() as u8);
-            if split_bit < branch_split_index {
-                descendant = false;
-                break;
-            }
-        }
-        if descendant && !found_start {
-            start = i;
-            found_start = true;
-        }
-        if !descendant && found_start {
-            end = i;
-            break;
-        }
-        if descendant && i == keys.len() - 1 && found_start {
-            end = i + 1;
-            break;
-        }
-    }
-    &keys[start..end]
-}
 
 /// The MerkleBIT structure relies on many specified types:
 /// # Required Type Annotations
@@ -335,7 +139,7 @@ where
                 NodeVariant::Branch(branch) => {
                     let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
                     let min_split_index =
-                        self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
+                        calc_min_split_index(&tree_cell.keys, &branch_key)?;
                     let descendants = check_descendants(
                         tree_cell.keys,
                         branch_split_index,
@@ -528,7 +332,7 @@ where
             branch_hasher.update(&branch_one);
             let location = branch_hasher.finalize();
 
-            let min_split_index = self.calc_min_split_index(&tree_cell.keys, &branch_key)?;
+            let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
             let split;
             let mut descendants = &tree_cell.keys[..];
@@ -634,43 +438,6 @@ where
 
         tree_refs.append(&mut proof_nodes);
         Ok(())
-    }
-
-    fn calc_min_split_index(
-        &self,
-        keys: &[&[u8; KEY_LEN]],
-        branch_key: &[u8; KEY_LEN],
-    ) -> BinaryMerkleTreeResult<u8> {
-        let mut min_key;
-        if let Some(m) = keys.iter().min() {
-            min_key = *m;
-        } else {
-            return Err(Exception::new("No keys to calculate minimum split index"));
-        }
-
-        let mut max_key;
-        if let Some(m) = keys.iter().max() {
-            max_key = *m;
-        } else {
-            return Err(Exception::new("No keys to calculate minimum split index"));
-        }
-
-        if branch_key < min_key {
-            min_key = &branch_key;
-        } else if branch_key > max_key {
-            max_key = &branch_key;
-        }
-
-        let mut split_bit = KEY_LEN_BITS;
-        for (i, &min_key_byte) in min_key.iter().enumerate() {
-            if min_key_byte == max_key[i] {
-                continue;
-            }
-            let xor_key = min_key_byte ^ max_key[i];
-            split_bit = (i * 8) as u8 + (7 - f32::from(xor_key).log2().floor() as u8);
-            break;
-        }
-        Ok(split_bit)
     }
 
     fn insert_leaves(
@@ -926,6 +693,7 @@ where
 #[cfg(test)]
 pub mod tests {
     use super::*;
+    use crate::utils::tree_utils::choose_zero;
 
     #[test]
     fn it_chooses_the_right_branch_easy() {
