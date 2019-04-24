@@ -216,19 +216,22 @@ where
         for (&key, &value) in keys.iter().zip(values.iter()) {
             value_map.insert(key, value);
         }
-        // Sort keys and values
+
         keys.sort();
 
-        let nodes = self.insert_leaves(keys, value_map)?;
+        let nodes = self.insert_leaves(keys, &value_map)?;
 
         let mut tree_refs = Vec::with_capacity(keys.len());
+        let mut key_map = HashMap::new();
         for (loc, &&key) in nodes.into_iter().zip(keys.iter()) {
+            key_map.insert(key, loc);
             let tree_ref = TreeRef::new(key, loc, 1);
             tree_refs.push(tree_ref);
         }
 
         if let Some(root) = previous_root {
-            self.generate_treerefs(root, keys, &mut tree_refs)?;
+            let mut proof_nodes = self.generate_treerefs(root, keys, &mut tree_refs, &key_map)?;
+            tree_refs.append(&mut proof_nodes);
         }
 
         let new_root = self.create_tree(tree_refs)?;
@@ -240,7 +243,8 @@ where
         root: &[u8; KEY_LEN],
         keys: &mut [&[u8; KEY_LEN]],
         tree_refs: &mut Vec<TreeRef>,
-    ) -> BinaryMerkleTreeResult<()> {
+        key_map: &HashMap<[u8; KEY_LEN], [u8; KEY_LEN]>
+    ) -> BinaryMerkleTreeResult<Vec<TreeRef>> {
         // Nodes that form the merkle proof for the new tree
         let mut proof_nodes = Vec::with_capacity(keys.len());
 
@@ -276,8 +280,8 @@ where
                     let mut update = false;
 
                     // Check if we are updating an existing value
-                    if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key[..])) {
-                        update = *tree_refs[index].location == tree_cell.location;
+                    if let Some(loc) = key_map.get(key) {
+                        update = loc == &tree_cell.location;
                         if !update {
                             continue;
                         }
@@ -408,14 +412,13 @@ where
             }
         }
 
-        tree_refs.append(&mut proof_nodes);
-        Ok(())
+        Ok(proof_nodes)
     }
 
     fn insert_leaves(
         &mut self,
         keys: &[&[u8; KEY_LEN]],
-        values: HashMap<&[u8; KEY_LEN], &ValueType>,
+        values: &HashMap<&[u8; KEY_LEN], &ValueType>,
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let mut nodes = Vec::with_capacity(keys.len());
         for &key in keys.iter() {

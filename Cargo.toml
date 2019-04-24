@@ -10,6 +10,13 @@ license = "MIT/Apache-2.0"
 readme = "README.md"
 edition = "2018"
 
+[profile.bench]
+debug = true
+opt-level = 3
+
+[profile.test]
+debug = true
+
 [dev-dependencies]
 rand = "0.6.5"
 criterion = "0.2.11"
