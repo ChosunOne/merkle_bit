@@ -4,17 +4,19 @@ use std::marker::PhantomData;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant};
 use crate::constants::KEY_LEN;
-use crate::utils::tree_ref_wrapper::TreeRefWrapper;
+use crate::traits::{
+    Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
+};
 use crate::utils::tree_ref::TreeRef;
+use crate::utils::tree_ref_wrapper::TreeRefWrapper;
 
+use crate::utils::tree_cell::TreeCell;
+use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs};
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
-use crate::utils::tree_cell::TreeCell;
-use crate::utils::tree_utils::{split_pairs, check_descendants, calc_min_split_index, fast_log_2};
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -98,12 +100,12 @@ where
         keys: &mut [&'a [u8; KEY_LEN]],
     ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; KEY_LEN], Option<ValueType>>> {
         let mut leaf_map = HashMap::new();
-        for &key in keys.iter() {
-            leaf_map.insert(key, None);
-        }
-
         if keys.is_empty() {
             return Ok(leaf_map);
+        }
+
+        for &key in keys.iter() {
+            leaf_map.insert(key, None);
         }
 
         keys.sort();
@@ -117,7 +119,7 @@ where
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
 
-        let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
+        let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(*root_hash, &keys, root_node, 0);
 
         cell_queue.push_front(root_cell);
 
@@ -135,8 +137,7 @@ where
             match node.get_variant() {
                 NodeVariant::Branch(branch) => {
                     let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
-                    let min_split_index =
-                        calc_min_split_index(&tree_cell.keys, &branch_key)?;
+                    let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
                     let descendants = check_descendants(
                         tree_cell.keys,
                         branch_split_index,
@@ -149,10 +150,10 @@ where
 
                     let (zeros, ones) = split_pairs(&descendants, branch_split_index);
 
-                    if let Some(o) = self.db.get_node(&one)? {
-                        let one_node = o;
+                    if let Some(one_node) = self.db.get_node(&one)? {
                         if !ones.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                                one,
                                 ones,
                                 one_node,
                                 tree_cell.depth + 1,
@@ -161,10 +162,10 @@ where
                         }
                     }
 
-                    if let Some(z) = self.db.get_node(&zero)? {
-                        let zero_node = z;
+                    if let Some(zero_node) = self.db.get_node(&zero)? {
                         if !zeros.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                                zero,
                                 zeros,
                                 zero_node,
                                 tree_cell.depth + 1,
@@ -211,23 +212,14 @@ where
             return Err(Exception::new("Keys or values are empty"));
         }
 
-        {
-            // Sort keys and values
-            let mut value_map = HashMap::new();
-            for (key, value) in keys.iter().zip(values.iter()) {
-                value_map.insert(*key, *value);
-            }
-
-            keys.sort();
-
-            for (key, value) in keys.iter().zip(values.iter_mut()) {
-                if let Some(v) = value_map.get(key) {
-                    *value = *v;
-                }
-            }
+        let mut value_map = HashMap::new();
+        for (&key, &value) in keys.iter().zip(values.iter()) {
+            value_map.insert(key, value);
         }
+        // Sort keys and values
+        keys.sort();
 
-        let nodes = self.insert_leaves(keys, &values[..])?;
+        let nodes = self.insert_leaves(keys, value_map)?;
 
         let mut tree_refs = Vec::with_capacity(keys.len());
         for (loc, &&key) in nodes.into_iter().zip(keys.iter()) {
@@ -260,7 +252,7 @@ where
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
         let root_cell: TreeCell<NodeType> =
-            TreeCell::new::<BranchType, LeafType, DataType>(&keys, root_node, 0);
+            TreeCell::new::<BranchType, LeafType, DataType>(*root, &keys, root_node, 0);
         cell_queue.push_front(root_cell);
 
         while !cell_queue.is_empty() {
@@ -279,30 +271,22 @@ where
             match node.get_variant() {
                 NodeVariant::Branch(n) => branch = n,
                 NodeVariant::Leaf(n) => {
-                    let (key, data) = n.deconstruct();
-
-                    let mut leaf_hasher = HasherType::new(KEY_LEN);
-                    leaf_hasher.update(b"l");
-                    leaf_hasher.update(&key);
-                    leaf_hasher.update(&data);
-                    let mut location = [0; KEY_LEN];
-                    location.copy_from_slice(&leaf_hasher.finalize());
+                    let key = n.get_key();
 
                     let mut update = false;
 
                     // Check if we are updating an existing value
-                    if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key)) {
-                        if tree_refs[index].location[..] == location {
-                            update = true;
-                        } else {
+                    if let Ok(index) = tree_refs.binary_search_by(|x| x.key[..].cmp(&key[..])) {
+                        update = *tree_refs[index].location == tree_cell.location;
+                        if !update {
                             continue;
                         }
                     }
 
-                    if let Some(mut l) = self.db.get_node(&location)? {
+                    if let Some(mut l) = self.db.get_node(&tree_cell.location)? {
                         let refs = l.get_references() + 1;
                         l.set_references(refs);
-                        self.db.insert(location, l)?;
+                        self.db.insert(tree_cell.location, l)?;
                     } else {
                         return Err(Exception::new("Corrupt merkle tree"));
                     }
@@ -311,7 +295,7 @@ where
                         continue;
                     }
 
-                    let tree_ref = TreeRef::new(key, location, 1);
+                    let tree_ref = TreeRef::new(*key, tree_cell.location, 1);
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -320,12 +304,6 @@ where
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
                 branch.deconstruct();
-
-            let mut branch_hasher = HasherType::new(KEY_LEN);
-            branch_hasher.update(b"b");
-            branch_hasher.update(&branch_zero);
-            branch_hasher.update(&branch_one);
-            let location = branch_hasher.finalize();
 
             let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
@@ -347,7 +325,7 @@ where
                     new_branch.set_split_index(branch_split_index);
                     new_branch.set_key(branch_key);
 
-                    let tree_ref = TreeRef::new(branch_key, location, branch_count);
+                    let tree_ref = TreeRef::new(branch_key, tree_cell.location, branch_count);
                     refs += 1;
                     let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
                     new_node.set_references(refs);
@@ -358,10 +336,10 @@ where
             }
 
             let (zeros, ones) = split_pairs(descendants, branch_split_index);
-            if let Some(o) = self.db.get_node(&branch_one)? {
-                let one_node = o;
+            if let Some(one_node) = self.db.get_node(&branch_one)? {
                 if !ones.is_empty() {
                     let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                        branch_one,
                         ones,
                         one_node,
                         tree_cell.depth + 1,
@@ -393,10 +371,10 @@ where
                     proof_nodes.push(tree_ref);
                 }
             }
-            if let Some(z) = self.db.get_node(&branch_zero)? {
-                let zero_node = z;
+            if let Some(zero_node) = self.db.get_node(&branch_zero)? {
                 if !zeros.is_empty() {
                     let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                        branch_zero,
                         zeros,
                         zero_node,
                         tree_cell.depth + 1,
@@ -437,17 +415,17 @@ where
     fn insert_leaves(
         &mut self,
         keys: &[&[u8; KEY_LEN]],
-        values: &[&ValueType],
+        values: HashMap<&[u8; KEY_LEN], &ValueType>,
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let mut nodes = Vec::with_capacity(keys.len());
-        for i in 0..keys.len() {
+        for &key in keys.iter() {
             // Create data node
             let mut data = DataType::new();
-            data.set_value(&values[i].encode()?);
+            data.set_value(&values[key].encode()?);
 
             let mut data_hasher = HasherType::new(KEY_LEN);
             data_hasher.update(b"d");
-            data_hasher.update(keys[i]);
+            data_hasher.update(key);
             data_hasher.update(data.get_value());
             let data_node_location = data_hasher.finalize();
 
@@ -457,12 +435,11 @@ where
             // Create leaf node
             let mut leaf = LeafType::new();
             leaf.set_data(data_node_location);
-            let leaf_key = *keys[i];
-            leaf.set_key(leaf_key);
+            leaf.set_key(*key);
 
             let mut leaf_hasher = HasherType::new(KEY_LEN);
             leaf_hasher.update(b"l");
-            leaf_hasher.update(keys[i]);
+            leaf_hasher.update(key);
             leaf_hasher.update(&leaf.get_data()[..]);
             let leaf_node_location = leaf_hasher.finalize();
 
@@ -487,7 +464,10 @@ where
         Ok(nodes)
     }
 
-    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef>) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+    fn create_tree(
+        &mut self,
+        mut tree_refs: Vec<TreeRef>,
+    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         if tree_refs.is_empty() {
             return Err(Exception::new("Tried to create a tree with no tree refs"));
         }
@@ -528,8 +508,7 @@ where
 
                 // Find the bit index of the first difference
                 let xor_key = left_key[j] ^ right_key[j];
-                let split_bit =
-                    (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+                let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
 
                 tree_ref_queue.push((
                     split_bit,
@@ -745,16 +724,8 @@ pub mod tests {
         // tree should not require any copying or moving of memory.
         let zero_key = [0x00u8; KEY_LEN];
         let key_vec = vec![
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
+            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key,
+            &zero_key, &zero_key,
         ];
         let keys = key_vec;
 
@@ -770,16 +741,8 @@ pub mod tests {
     fn it_splits_an_all_ones_sorted_list_of_pairs() {
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
+            &one_key, &one_key, &one_key, &one_key, &one_key, &one_key, &one_key, &one_key,
+            &one_key, &one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 0);
@@ -794,16 +757,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
+            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key, &one_key,
+            &one_key, &one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
@@ -821,17 +776,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
+            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key,
+            &one_key, &one_key, &one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 6);
@@ -849,17 +795,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &zero_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
-            &one_key,
+            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key, &one_key,
+            &one_key, &one_key, &one_key,
         ];
 
         let result = split_pairs(&keys, 0);

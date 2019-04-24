@@ -39,7 +39,8 @@ fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
             let mut data = data_values.iter().collect::<Vec<_>>();
             let mut bmt = Tree::open(&path, 160).unwrap();
             b.iter(|| {
-                let root = bmt.insert(None, &mut keys[0..*index], &mut data[0..*index])
+                let root = bmt
+                    .insert(None, &mut keys[0..*index], &mut data[0..*index])
                     .unwrap();
                 criterion::black_box(root);
             });
@@ -73,12 +74,13 @@ fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
             let mut second_data = second.1.iter().collect::<Vec<_>>();
 
             b.iter(|| {
-                let root = bmt.insert(
-                    Some(&root_hash),
-                    &mut second_keys[0..*index],
-                    &mut second_data[0..*index],
-                )
-                .unwrap();
+                let root = bmt
+                    .insert(
+                        Some(&root_hash),
+                        &mut second_keys[0..*index],
+                        &mut second_data[0..*index],
+                    )
+                    .unwrap();
                 criterion::black_box(root);
             })
         },

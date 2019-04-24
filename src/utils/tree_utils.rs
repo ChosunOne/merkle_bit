@@ -9,7 +9,10 @@ pub fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
     extracted_bit == 0
 }
 
-pub fn split_pairs<'a>(sorted_pairs: &'a [&'a [u8; KEY_LEN]], bit: u8) -> (&'a [&'a [u8; KEY_LEN]], &'a [&'a [u8; KEY_LEN]]) {
+pub fn split_pairs<'a>(
+    sorted_pairs: &'a [&'a [u8; KEY_LEN]],
+    bit: u8,
+) -> (&'a [&'a [u8; KEY_LEN]], &'a [&'a [u8; KEY_LEN]]) {
     if sorted_pairs.is_empty() {
         return (&[], &[]);
     }
@@ -88,12 +91,11 @@ pub fn calc_min_split_index(
         return Err(Exception::new("No keys to calculate minimum split index"));
     }
 
-    let mut max_key;
-    if let Some(&m) = keys.iter().max() {
-        max_key = m;
+    let mut max_key= if let Some(&m) = keys.iter().max() {
+        m
     } else {
         return Err(Exception::new("No keys to calculate minimum split index"));
-    }
+    };
 
     if branch_key < min_key {
         min_key = branch_key;

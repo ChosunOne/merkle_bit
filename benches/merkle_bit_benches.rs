@@ -10,9 +10,9 @@ use rand::{Rng, SeedableRng};
 #[cfg(any(feature = "use_rocksdb"))]
 use std::fs::remove_dir_all;
 
+use starling::constants::KEY_LEN;
 #[cfg(not(any(feature = "use_rocksdb")))]
 use starling::hash_tree::HashTree;
-use starling::constants::KEY_LEN;
 
 #[cfg(feature = "use_rocksdb")]
 use starling::rocks_tree::RocksTree;
@@ -71,12 +71,13 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
             let mut second_data = second.1.iter().collect::<Vec<_>>();
 
             b.iter(|| {
-                let root = bmt.insert(
-                    Some(&root_hash),
-                    &mut second_keys[0..*index],
-                    &mut second_data[0..*index],
-                )
-                .unwrap();
+                let root = bmt
+                    .insert(
+                        Some(&root_hash),
+                        &mut second_keys[0..*index],
+                        &mut second_data[0..*index],
+                    )
+                    .unwrap();
                 criterion::black_box(root);
             })
         },

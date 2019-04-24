@@ -1,5 +1,5 @@
-use std::rc::Rc;
 use std::cmp::Ordering;
+use std::rc::Rc;
 
 use crate::constants::KEY_LEN;
 

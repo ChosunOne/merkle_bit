@@ -63,10 +63,10 @@ where
 #[derive(Clone, Debug)]
 #[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType>
-    where
-        BranchType: Branch,
-        LeafType: Leaf,
-        DataType: Data,
+where
+    BranchType: Branch,
+    LeafType: Leaf,
+    DataType: Data,
 {
     Branch(BranchType),
     Leaf(LeafType),

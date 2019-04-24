@@ -59,8 +59,7 @@ impl TreeNode {
     }
 }
 
-impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode
-{
+impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode {
     fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
         Self::new(node_variant)
     }

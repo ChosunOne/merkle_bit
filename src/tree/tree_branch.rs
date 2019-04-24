@@ -1,7 +1,7 @@
+use crate::constants::KEY_LEN;
 #[cfg(feature = "use_serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Branch;
-use crate::constants::KEY_LEN;
 
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};

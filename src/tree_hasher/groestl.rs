@@ -11,7 +11,9 @@ impl crate::traits::Hasher for GroestlHasher {
         let hasher = Groestl256::new();
         Self(hasher)
     }
-    fn update(&mut self, data: &[u8]) { self.0.input(data); }
+    fn update(&mut self, data: &[u8]) {
+        self.0.input(data);
+    }
     fn finalize(self) -> [u8; KEY_LEN] {
         let mut finalized = [0; KEY_LEN];
         let result = self.0.result();
