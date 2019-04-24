@@ -91,7 +91,7 @@ pub fn calc_min_split_index(
         return Err(Exception::new("No keys to calculate minimum split index"));
     }
 
-    let mut max_key= if let Some(&m) = keys.iter().max() {
+    let mut max_key = if let Some(&m) = keys.iter().max() {
         m
     } else {
         return Err(Exception::new("No keys to calculate minimum split index"));

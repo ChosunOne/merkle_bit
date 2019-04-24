@@ -119,7 +119,8 @@ where
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
 
-        let root_cell = TreeCell::new::<BranchType, LeafType, DataType>(*root_hash, &keys, root_node, 0);
+        let root_cell =
+            TreeCell::new::<BranchType, LeafType, DataType>(*root_hash, &keys, root_node, 0);
 
         cell_queue.push_front(root_cell);
 
@@ -230,7 +231,7 @@ where
         }
 
         if let Some(root) = previous_root {
-            let mut proof_nodes = self.generate_treerefs(root, keys, &mut tree_refs, &key_map)?;
+            let mut proof_nodes = self.generate_treerefs(root, keys, &key_map)?;
             tree_refs.append(&mut proof_nodes);
         }
 
@@ -242,8 +243,7 @@ where
         &mut self,
         root: &[u8; KEY_LEN],
         keys: &mut [&[u8; KEY_LEN]],
-        tree_refs: &mut Vec<TreeRef>,
-        key_map: &HashMap<[u8; KEY_LEN], [u8; KEY_LEN]>
+        key_map: &HashMap<[u8; KEY_LEN], [u8; KEY_LEN]>,
     ) -> BinaryMerkleTreeResult<Vec<TreeRef>> {
         // Nodes that form the merkle proof for the new tree
         let mut proof_nodes = Vec::with_capacity(keys.len());
@@ -311,11 +311,11 @@ where
 
             let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
 
-            let mut descendants = &tree_cell.keys[..];
+            let mut descendants = tree_cell.keys;
 
             if min_split_index < branch_split_index {
                 descendants = check_descendants(
-                    &tree_cell.keys,
+                    tree_cell.keys,
                     branch_split_index,
                     &branch_key,
                     min_split_index,

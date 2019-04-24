@@ -20,6 +20,11 @@ impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
         LeafType: Leaf,
         DataType: Data,
     {
-        TreeCell { location, keys, node, depth }
+        TreeCell {
+            location,
+            keys,
+            node,
+            depth,
+        }
     }
 }
