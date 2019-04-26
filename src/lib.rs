@@ -35,6 +35,9 @@ extern crate tiny_keccak;
 #[cfg(feature = "use_hashbrown")]
 extern crate hashbrown;
 
+#[cfg(feature = "use_rayon")]
+extern crate rayon;
+
 #[cfg(feature = "use_rocksdb")]
 extern crate rocksdb;
 

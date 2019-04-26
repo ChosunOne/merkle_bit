@@ -12,11 +12,14 @@ use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_ref_wrapper::TreeRefWrapper;
 
 use crate::utils::tree_cell::TreeCell;
-use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs};
+use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs, generate_leaf_map};
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
+
+#[cfg(feature = "use_rayon")]
+use rayon::prelude::*;
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -41,7 +44,7 @@ where
     DataType: Data,
     NodeType: Node<BranchType, LeafType, DataType>,
     HasherType: Hasher,
-    ValueType: Decode + Encode,
+    ValueType: Decode + Encode + Sync + Send,
 {
     db: DatabaseType,
     depth: usize,
@@ -62,7 +65,7 @@ where
     DataType: Data,
     NodeType: Node<BranchType, LeafType, DataType>,
     HasherType: Hasher<HashType = HasherType>,
-    ValueType: Decode + Encode,
+    ValueType: Decode + Encode + Sync + Send,
 {
     /// Create a new MerkleBIT from a saved database
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -99,16 +102,16 @@ where
         root_hash: &[u8; KEY_LEN],
         keys: &mut [&'a [u8; KEY_LEN]],
     ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; KEY_LEN], Option<ValueType>>> {
-        let mut leaf_map = HashMap::new();
         if keys.is_empty() {
-            return Ok(leaf_map);
+            return Ok(HashMap::new());
         }
 
-        for &key in keys.iter() {
-            leaf_map.insert(key, None);
-        }
+        let mut leaf_map = generate_leaf_map(keys);
 
+        #[cfg(not(feature = "use_rayon"))]
         keys.sort();
+        #[cfg(feature = "use_rayon")]
+        keys.par_sort();
 
         let root_node;
         if let Some(n) = self.db.get_node(root_hash)? {
@@ -218,7 +221,10 @@ where
             value_map.insert(key, value);
         }
 
+        #[cfg(not(feature = "use_rayon"))]
         keys.sort();
+        #[cfg(feature = "use_rayon")]
+        keys.par_sort();
 
         let nodes = self.insert_leaves(keys, &value_map)?;
 

@@ -18,14 +18,14 @@ use crate::tree_hasher::TreeHasher;
 
 pub struct RocksTree<ValueType>
 where
-    ValueType: Encode + Decode,
+    ValueType: Encode + Decode + Sync + Send,
 {
     tree: MerkleBIT<RocksDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, ValueType>,
 }
 
 impl<ValueType> RocksTree<ValueType>
 where
-    ValueType: Encode + Decode,
+    ValueType: Encode + Decode + Sync + Send,
 {
     pub fn open(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = RocksDB::open(path)?;

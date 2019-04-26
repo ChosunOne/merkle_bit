@@ -1,3 +1,10 @@
+#[cfg(not(feature = "use_hashbrown"))]
+use std::collections::HashMap;
+#[cfg(feature = "use_hashbrown")]
+use hashbrown::HashMap;
+#[cfg(feature = "use_rayon")]
+use rayon::prelude::*;
+
 use crate::constants::{KEY_LEN, KEY_LEN_BITS};
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Exception;
@@ -113,6 +120,14 @@ pub fn calc_min_split_index(
         break;
     }
     Ok(split_bit)
+}
+
+pub fn generate_leaf_map<'a, ValueType>(keys: &[&'a [u8; KEY_LEN]]) -> HashMap<&'a [u8; KEY_LEN], Option<ValueType>> {
+    let mut leaf_map = HashMap::new();
+    for &key in keys.iter() {
+        leaf_map.insert(key, None);
+    }
+    leaf_map
 }
 
 pub fn fast_log_2(num: u8) -> u8 {

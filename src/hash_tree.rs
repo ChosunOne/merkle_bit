@@ -19,14 +19,14 @@ use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 
 pub struct HashTree<ValueType>
 where
-    ValueType: Encode + Decode,
+    ValueType: Encode + Decode + Sync + Send,
 {
     tree: MerkleBIT<HashTreeDB, TreeBranch, TreeLeaf, TreeData, TreeNode, TreeHasher, ValueType>,
 }
 
 impl<ValueType> HashTree<ValueType>
 where
-    ValueType: Encode + Decode,
+    ValueType: Encode + Decode + Sync + Send,
 {
     pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
         let path = PathBuf::new();
