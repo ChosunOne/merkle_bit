@@ -1,8 +1,12 @@
+#[cfg(not(feature = "use_rayon"))]
 use std::cell::RefCell;
 use std::collections::{BinaryHeap, VecDeque};
 use std::marker::PhantomData;
 use std::path::PathBuf;
+#[cfg(not(feature = "use_rayon"))]
 use std::rc::Rc;
+#[cfg(feature = "use_rayon")]
+use std::sync::{Arc, RwLock};
 
 use crate::constants::KEY_LEN;
 use crate::traits::{
@@ -15,7 +19,7 @@ use crate::utils::par_tree_ref::TreeRef;
 #[cfg(not(feature = "use_rayon"))]
 use crate::utils::tree_ref_wrapper::TreeRefWrapper;
 #[cfg(feature = "use_rayon")]
-use crate::utils::par_tree_ref_wrapper::TreeRefWrapper;
+use crate::utils::par_tree_ref_wrapper::{TreeRefLock, TreeRefWrapper, TreeRefWrapperLock};
 
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs, generate_leaf_map};
@@ -26,6 +30,7 @@ use std::collections::HashMap;
 
 #[cfg(feature = "use_rayon")]
 use rayon::prelude::*;
+
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -479,13 +484,12 @@ where
         Ok(nodes)
     }
 
+    #[cfg(not(feature = "use_rayon"))]
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef>,
     ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
-        if tree_refs.is_empty() {
-            return Err(Exception::new("Tried to create a tree with no tree refs"));
-        }
+        assert!(!tree_refs.is_empty());
 
         if tree_refs.len() == 1 {
             self.db.batch_write()?;
@@ -536,7 +540,9 @@ where
 
         drop(tree_rcs);
 
-        while !tree_ref_queue.is_empty() {
+        let iters = tree_ref_queue.len();
+
+        for _ in 0..iters {
             let (split_index, tree_ref_wrapper, next_tree_ref_wrapper) =
                 tree_ref_queue.pop().expect("Tree ref queue is empty");
 
@@ -589,6 +595,127 @@ where
                 self.db.batch_write()?;
                 let root = branch_node_location;
                 match Rc::try_unwrap(root) {
+                    Ok(v) => return Ok(v),
+                    Err(v) => return Ok(*v),
+                }
+            }
+        }
+        unreachable!();
+    }
+
+    #[cfg(feature = "use_rayon")]
+    fn create_tree(
+        &mut self,
+        mut tree_refs: Vec<TreeRef>,
+    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        assert!(!tree_refs.is_empty());
+
+        if tree_refs.len() == 1 {
+            self.db.batch_write()?;
+            let node = tree_refs.remove(0);
+            if let Ok(v) = Arc::try_unwrap(node.location) {
+                return Ok(v);
+            } else {
+                return Err(Exception::new("Failed to unwrap tree root"));
+            }
+        }
+
+        tree_refs.par_sort();
+
+        let tree_rcs = tree_refs
+            .into_iter()
+            .map(|x| Arc::new(TreeRefWrapperLock(RwLock::new(TreeRefWrapper::Raw(Arc::new(TreeRefLock(RwLock::new(x))))))))
+            .collect::<Vec<_>>();
+
+        let tree_ref_queue = RwLock::new(BinaryHeap::with_capacity(tree_rcs.len() - 1));
+
+        (0..tree_rcs.len() - 1).into_par_iter().map(|i| {
+            let left_key = &tree_rcs[i].read().unwrap().get_tree_ref_key();
+            let right_key = &tree_rcs[i + 1].read().unwrap().get_tree_ref_key();
+
+            for j in 0..KEY_LEN {
+                if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+                    // The keys are the same and don't diverge
+                    return Err(Exception::new(
+                        "Attempted to insert item with duplicate keys",
+                    ));
+                }
+                // Skip bytes until we find a difference
+                if left_key[j] == right_key[j] {
+                    continue;
+                }
+
+                // Find the bit index of the first difference
+                let xor_key = left_key[j] ^ right_key[j];
+                let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+
+                tree_ref_queue.write().unwrap().push((
+                    split_bit,
+                    Arc::clone(&tree_rcs[i]),
+                    Arc::clone(&tree_rcs[i + 1]),
+                ));
+                break;
+            }
+            Ok(())
+        }).reduce(|| {Ok(())}, |_, _| {Ok(())}).unwrap();
+
+        assert!(tree_ref_queue.read().unwrap().len() > 0);
+
+        drop(tree_rcs);
+
+        let iters = tree_ref_queue.read().unwrap().len();
+
+        for _ in 0..iters {
+            let (split_index, tree_ref_wrapper, next_tree_ref_wrapper) = tree_ref_queue.write().unwrap().pop().unwrap();
+            let mut branch = BranchType::new();
+            let branch_node_location;
+            let count;
+
+            tree_ref_wrapper.write().unwrap().update_reference();
+            next_tree_ref_wrapper.write().unwrap().update_reference();
+
+            let tree_ref_key = tree_ref_wrapper.read().unwrap().get_tree_ref_key();
+            let tree_ref_location = tree_ref_wrapper.read().unwrap().get_tree_ref_location();
+            let tree_ref_count = tree_ref_wrapper.read().unwrap().get_tree_ref_count();
+
+            let next_tree_ref_location = next_tree_ref_wrapper.read().unwrap().get_tree_ref_location();
+            let next_tree_ref_count = next_tree_ref_wrapper.read().unwrap().get_tree_ref_count();
+
+            {
+                let mut branch_hasher = HasherType::new(KEY_LEN);
+                branch_hasher.update(b"b");
+                branch_hasher.update(&tree_ref_location[..]);
+                branch_hasher.update(&next_tree_ref_location[..]);
+                branch_node_location = Arc::new(branch_hasher.finalize());
+
+                count = tree_ref_count + next_tree_ref_count;
+
+                branch.set_zero(*tree_ref_location);
+                branch.set_one(*next_tree_ref_location);
+                branch.set_count(count);
+                branch.set_split_index(split_index);
+                branch.set_key(*tree_ref_key);
+            }
+
+            let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
+            branch_node.set_references(1);
+
+            self.db.insert(*branch_node_location, branch_node)?;
+
+            next_tree_ref_wrapper
+                .write().unwrap()
+                .set_tree_ref_key(Arc::clone(&tree_ref_key));
+            next_tree_ref_wrapper
+                .write().unwrap()
+                .set_tree_ref_location(Arc::clone(&branch_node_location));
+            next_tree_ref_wrapper.write().unwrap().set_tree_ref_count(count);
+
+            *tree_ref_wrapper.write().unwrap() = TreeRefWrapper::Ref(next_tree_ref_wrapper);
+
+            if tree_ref_queue.read().unwrap().is_empty() {
+                self.db.batch_write()?;
+                let root = branch_node_location;
+                match Arc::try_unwrap(root) {
                     Ok(v) => return Ok(v),
                     Err(v) => return Ok(*v),
                 }

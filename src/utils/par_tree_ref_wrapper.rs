@@ -8,7 +8,7 @@ use crate::utils::par_tree_ref::TreeRef;
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum TreeRefWrapper {
     Raw(Arc<TreeRefLock>),
-    Ref(Arc<RwLock<TreeRefWrapper>>),
+    Ref(Arc<TreeRefWrapperLock>),
 }
 
 impl TreeRefWrapper {
@@ -21,7 +21,7 @@ impl TreeRefWrapper {
         *self = TreeRefWrapper::Ref(new_ref);
     }
 
-    pub fn get_reference(wrapper: &Arc<RwLock<TreeRefWrapper>>) -> Arc<RwLock<TreeRefWrapper>> {
+    pub fn get_reference(wrapper: &Arc<TreeRefWrapperLock>) -> Arc<TreeRefWrapperLock> {
         match *wrapper.read().unwrap() {
             TreeRefWrapper::Raw(ref _t) => Arc::clone(wrapper),
             TreeRefWrapper::Ref(ref r) => TreeRefWrapper::get_reference(r),
@@ -71,7 +71,8 @@ impl TreeRefWrapper {
     }
 }
 
-struct TreeRefLock(RwLock<TreeRef>);
+#[derive(Debug)]
+pub struct TreeRefLock(pub RwLock<TreeRef>);
 
 impl Deref for TreeRefLock {
     type Target = RwLock<TreeRef>;
@@ -84,5 +85,48 @@ impl Deref for TreeRefLock {
 impl PartialEq for TreeRefLock {
     fn eq(&self, other: &TreeRefLock) -> bool {
         self.0.read().unwrap().eq(&other.0.read().unwrap())
+    }
+}
+
+impl PartialOrd for TreeRefLock {
+    fn partial_cmp(&self, other: &TreeRefLock) -> Option<Ordering> {
+        self.0.read().unwrap().partial_cmp(&other.0.read().unwrap())
+    }
+}
+
+impl Eq for TreeRefLock {}
+
+impl Ord for TreeRefLock {
+    fn cmp(&self, other: &TreeRefLock) -> Ordering {
+        self.0.read().unwrap().cmp(&other.0.read().unwrap())
+    }
+}
+
+#[derive(Debug)]
+pub struct TreeRefWrapperLock(pub RwLock<TreeRefWrapper>);
+
+impl Deref for TreeRefWrapperLock {
+    type Target = RwLock<TreeRefWrapper>;
+
+    fn deref(&self) -> &RwLock<TreeRefWrapper> { &self.0 }
+}
+
+impl PartialEq for TreeRefWrapperLock {
+    fn eq(&self, other: &TreeRefWrapperLock) -> bool {
+        self.0.read().unwrap().eq(&other.0.read().unwrap())
+    }
+}
+
+impl PartialOrd for TreeRefWrapperLock {
+    fn partial_cmp(&self, other: &TreeRefWrapperLock) -> Option<Ordering> {
+        self.0.read().unwrap().partial_cmp(&other.0.read().unwrap())
+    }
+}
+
+impl Eq for TreeRefWrapperLock {}
+
+impl Ord for TreeRefWrapperLock {
+    fn cmp(&self, other: &TreeRefWrapperLock) -> Ordering {
+        self.0.read().unwrap().cmp(&other.0.read().unwrap())
     }
 }
