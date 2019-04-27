@@ -8,8 +8,14 @@ use crate::constants::KEY_LEN;
 use crate::traits::{
     Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
 };
+#[cfg(not(feature = "use_rayon"))]
 use crate::utils::tree_ref::TreeRef;
+#[cfg(feature = "use_rayon")]
+use crate::utils::par_tree_ref::TreeRef;
+#[cfg(not(feature = "use_rayon"))]
 use crate::utils::tree_ref_wrapper::TreeRefWrapper;
+#[cfg(feature = "use_rayon")]
+use crate::utils::par_tree_ref_wrapper::TreeRefWrapper;
 
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs, generate_leaf_map};

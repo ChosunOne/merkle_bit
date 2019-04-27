@@ -2,8 +2,6 @@
 use std::collections::HashMap;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
-#[cfg(feature = "use_rayon")]
-use rayon::prelude::*;
 
 use crate::constants::{KEY_LEN, KEY_LEN_BITS};
 use crate::merkle_bit::BinaryMerkleTreeResult;
