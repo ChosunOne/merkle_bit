@@ -501,7 +501,7 @@ where
 
         let tree_rcs = tree_refs
             .into_iter()
-            .map(|x| Rc::new(RefCell::new(TreeRefWrapper::Raw(Rc::new(RefCell::new(x))))))
+            .map(|x| Rc::new(RefCell::new(TreeRefWrapper::Raw(x))))
             .collect::<Vec<_>>();
 
         let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
