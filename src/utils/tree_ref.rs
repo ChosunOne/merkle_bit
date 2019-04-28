@@ -6,15 +6,17 @@ use crate::constants::KEY_LEN;
 pub struct TreeRef {
     pub key: [u8; KEY_LEN],
     pub location: [u8; KEY_LEN],
-    pub count: u64,
+    pub node_count: u64,
+    pub count: u32,
 }
 
 impl TreeRef {
-    pub fn new(key: [u8; KEY_LEN], location: [u8; KEY_LEN], count: u64) -> TreeRef {
+    pub fn new(key: [u8; KEY_LEN], location: [u8; KEY_LEN], node_count: u64, count: u32) -> TreeRef {
         TreeRef {
             key,
             location,
-            count,
+            node_count,
+            count
         }
     }
 }

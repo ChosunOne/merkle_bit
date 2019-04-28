@@ -18,9 +18,9 @@ impl<'a> TreeRefWrapper<'a> {
         }
     }
 
-    pub fn get_reference(wrapper: &'a mut TreeRefWrapper) -> TreeRefWrapper<'a> {
+    pub fn get_reference(wrapper: &'a mut TreeRefWrapper<'a>) -> TreeRefWrapper<'a> {
         match wrapper {
-            TreeRefWrapper::Raw(t) => TreeRefWrapper::Ref(&mut *wrapper),
+            TreeRefWrapper::Raw(_) => TreeRefWrapper::Ref(&mut *wrapper),
             TreeRefWrapper::Ref(r) => TreeRefWrapper::get_reference(r),
         }
     }
