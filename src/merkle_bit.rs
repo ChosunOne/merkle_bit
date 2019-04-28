@@ -1,10 +1,6 @@
-#[cfg(not(feature = "use_rayon"))]
-use std::cell::RefCell;
 use std::collections::{BinaryHeap, VecDeque};
 use std::marker::PhantomData;
 use std::path::PathBuf;
-#[cfg(not(feature = "use_rayon"))]
-use std::rc::Rc;
 #[cfg(feature = "use_rayon")]
 use std::sync::{Arc, RwLock};
 
@@ -572,6 +568,7 @@ where
                     while lookahead_count > _count {
                         _count = lookahead_count;
                         lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
+                        lookahead_count = (*lookahead_tree_ref_pointer).count;
                     }
                 } else {
                     lookahead_count = _count;
@@ -610,7 +607,7 @@ where
             unsafe {
                 (*lookahead_tree_ref_pointer).key = tree_ref_key;
                 (*lookahead_tree_ref_pointer).location = branch_node_location;
-                (*lookahead_tree_ref_pointer).count += (*tree_ref_pointer).count;
+                (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
                 (*lookahead_tree_ref_pointer).node_count = count;
                 let tree_rcs_raw_access = tree_rcs_raw.offset(index);
                 *tree_rcs_raw_access = *lookahead_tree_ref_pointer;

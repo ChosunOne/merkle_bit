@@ -168,6 +168,87 @@ pub mod integration_tests {
     }
 
     #[test]
+    fn it_gets_items_from_a_tree_of_16() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x06u8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let num_leaves = 16;
+        let mut keys = Vec::with_capacity(num_leaves);
+        let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        for i in 0..num_leaves {
+            keys.push([i as u8; KEY_LEN]);
+            values.push(vec![i as u8; KEY_LEN]);
+        }
+
+        let mut get_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 8)?;
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
+
+        let items = bmt.get(&root_hash, &mut get_keys)?;
+        for (key, value) in keys.iter().zip(values.iter()) {
+            assert_eq!(items[&key], Some(value.clone()))
+        }
+        tear_down(&path);
+        Ok(())
+    }
+
+    #[test]
+    fn it_gets_items_from_a_tree_of_24() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x06u8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let num_leaves = 24;
+        let mut keys = Vec::with_capacity(num_leaves);
+        let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        for i in 0..num_leaves {
+            keys.push([i as u8; KEY_LEN]);
+            values.push(vec![i as u8; KEY_LEN]);
+        }
+
+        let mut get_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 8)?;
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
+
+        let items = bmt.get(&root_hash, &mut get_keys)?;
+        for (key, value) in keys.iter().zip(values.iter()) {
+            assert_eq!(items[&key], Some(value.clone()))
+        }
+        tear_down(&path);
+        Ok(())
+    }
+
+    #[test]
+    fn it_gets_items_from_a_tree_of_25() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x06u8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let num_leaves = 25;
+        let mut keys = Vec::with_capacity(num_leaves);
+        let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        for i in 0..num_leaves {
+            keys.push([i as u8; KEY_LEN]);
+            values.push(vec![i as u8; KEY_LEN]);
+        }
+
+        let mut get_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 8)?;
+        let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
+
+        let items = bmt.get(&root_hash, &mut get_keys)?;
+        for (key, value) in keys.iter().zip(values.iter()) {
+            assert_eq!(items[&key], Some(value.clone()))
+        }
+        tear_down(&path);
+        Ok(())
+    }
+
+    #[test]
     fn it_gets_items_from_a_medium_balanced_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x06u8; KEY_LEN];
         let path = generate_path(seed);
