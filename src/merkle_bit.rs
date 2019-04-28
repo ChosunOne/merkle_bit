@@ -499,15 +499,15 @@ where
 
         tree_refs.sort();
 
-        let tree_rcs = tree_refs
-            .into_iter()
-            .map(|x| Rc::new(RefCell::new(TreeRefWrapper::Raw(x))))
-            .collect::<Vec<_>>();
+//        let mut tree_rcs = tree_refs
+//            .into_iter()
+//            .map(|x| TreeRefWrapper::Raw(x))
+//            .collect::<Vec<_>>();
 
-        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
-        for i in 0..tree_rcs.len() - 1 {
-            let left_key = &RefCell::borrow(&tree_rcs[i]).get_tree_ref_key();
-            let right_key = &RefCell::borrow(&tree_rcs[i + 1]).get_tree_ref_key();
+        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_refs.len() - 1);
+        for i in 0..tree_refs.len() - 1 {
+            let left_key = tree_refs[i].key;
+            let right_key = tree_refs[i + 1].key;
 
             for j in 0..KEY_LEN {
                 if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
@@ -527,34 +527,32 @@ where
 
                 tree_ref_queue.push((
                     split_bit,
-                    Rc::clone(&tree_rcs[i]),
-                    Rc::clone(&tree_rcs[i + 1]),
+                    TreeRefWrapper::Raw(tree_refs[i]),
+                    TreeRefWrapper::Raw(tree_refs[i + 1]),
                 ));
                 break;
             }
         }
 
-        drop(tree_rcs);
-
         let iters = tree_ref_queue.len();
 
         for _ in 0..iters {
-            let (split_index, tree_ref_wrapper, next_tree_ref_wrapper) =
+            let (split_index, mut tree_ref_wrapper, mut next_tree_ref_wrapper) =
                 tree_ref_queue.pop().expect("Tree ref queue is empty");
 
             let mut branch = BranchType::new();
             let branch_node_location;
             let count;
 
-            tree_ref_wrapper.borrow_mut().update_reference();
-            next_tree_ref_wrapper.borrow_mut().update_reference();
+            tree_ref_wrapper.update_reference();
+            next_tree_ref_wrapper.update_reference();
 
-            let tree_ref_key = tree_ref_wrapper.borrow().get_tree_ref_key();
-            let tree_ref_location = tree_ref_wrapper.borrow().get_tree_ref_location();
-            let tree_ref_count = tree_ref_wrapper.borrow().get_tree_ref_count();
+            let tree_ref_key = tree_ref_wrapper.get_tree_ref_key();
+            let tree_ref_location = tree_ref_wrapper.get_tree_ref_location();
+            let tree_ref_count = tree_ref_wrapper.get_tree_ref_count();
 
-            let next_tree_ref_location = next_tree_ref_wrapper.borrow().get_tree_ref_location();
-            let next_tree_ref_count = next_tree_ref_wrapper.borrow().get_tree_ref_count();
+            let next_tree_ref_location = next_tree_ref_wrapper.get_tree_ref_location();
+            let next_tree_ref_count = next_tree_ref_wrapper.get_tree_ref_count();
 
             {
                 let mut branch_hasher = HasherType::new(KEY_LEN);
@@ -578,14 +576,12 @@ where
             self.db.insert(branch_node_location, branch_node)?;
 
             next_tree_ref_wrapper
-                .borrow_mut()
                 .set_tree_ref_key(tree_ref_key);
             next_tree_ref_wrapper
-                .borrow_mut()
                 .set_tree_ref_location(branch_node_location);
-            next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
+            next_tree_ref_wrapper.set_tree_ref_count(count);
 
-            *tree_ref_wrapper.borrow_mut() = TreeRefWrapper::Ref(next_tree_ref_wrapper);
+            tree_ref_wrapper = TreeRefWrapper::Ref(&mut next_tree_ref_wrapper);
 
             if tree_ref_queue.is_empty() {
                 self.db.batch_write()?;
