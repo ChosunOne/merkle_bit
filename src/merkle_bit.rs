@@ -138,10 +138,7 @@ where
 
         cell_queue.push_front(root_cell);
 
-        while !cell_queue.is_empty() {
-            let tree_cell = cell_queue
-                .pop_front()
-                .expect("Cell queue should not be empty.");
+        while let Some(tree_cell) = cell_queue.pop_front() {
 
             if tree_cell.depth > self.depth {
                 return Err(Exception::new("Depth of merkle tree exceeded"));
@@ -152,7 +149,7 @@ where
             match node.get_variant() {
                 NodeVariant::Branch(branch) => {
                     let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
-                    let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
+                    let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key);
                     let descendants = check_descendants(
                         tree_cell.keys,
                         branch_split_index,
@@ -326,7 +323,7 @@ where
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
                 branch.deconstruct();
 
-            let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key)?;
+            let min_split_index = calc_min_split_index(&tree_cell.keys, &branch_key);
 
             let mut descendants = tree_cell.keys;
 
@@ -350,7 +347,10 @@ where
                     refs += 1;
                     let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
                     new_node.set_references(refs);
-                    self.db.insert(*tree_ref.location, new_node)?;
+                    #[cfg(not(feature = "use_rayon"))]
+                    self.db.insert(tree_ref.location, new_node)?;
+                    #[cfg(feature = "use_rayon")]
+                        self.db.insert(tree_ref.location, new_node)?;
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -494,11 +494,7 @@ where
         if tree_refs.len() == 1 {
             self.db.batch_write()?;
             let node = tree_refs.remove(0);
-            if let Ok(v) = Rc::try_unwrap(node.location) {
-                return Ok(v);
-            } else {
-                return Err(Exception::new("Failed to unwrap tree root"));
-            }
+            return Ok(node.location);
         }
 
         tree_refs.sort();
@@ -565,39 +561,35 @@ where
                 branch_hasher.update(b"b");
                 branch_hasher.update(&tree_ref_location[..]);
                 branch_hasher.update(&next_tree_ref_location[..]);
-                branch_node_location = Rc::new(branch_hasher.finalize());
+                branch_node_location = branch_hasher.finalize();
 
                 count = tree_ref_count + next_tree_ref_count;
 
-                branch.set_zero(*tree_ref_location);
-                branch.set_one(*next_tree_ref_location);
+                branch.set_zero(tree_ref_location);
+                branch.set_one(next_tree_ref_location);
                 branch.set_count(count);
                 branch.set_split_index(split_index);
-                branch.set_key(*tree_ref_key);
+                branch.set_key(tree_ref_key);
             }
 
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
             branch_node.set_references(1);
 
-            self.db.insert(*branch_node_location, branch_node)?;
+            self.db.insert(branch_node_location, branch_node)?;
 
             next_tree_ref_wrapper
                 .borrow_mut()
-                .set_tree_ref_key(Rc::clone(&tree_ref_key));
+                .set_tree_ref_key(tree_ref_key);
             next_tree_ref_wrapper
                 .borrow_mut()
-                .set_tree_ref_location(Rc::clone(&branch_node_location));
+                .set_tree_ref_location(branch_node_location);
             next_tree_ref_wrapper.borrow_mut().set_tree_ref_count(count);
 
             *tree_ref_wrapper.borrow_mut() = TreeRefWrapper::Ref(next_tree_ref_wrapper);
 
             if tree_ref_queue.is_empty() {
                 self.db.batch_write()?;
-                let root = branch_node_location;
-                match Rc::try_unwrap(root) {
-                    Ok(v) => return Ok(v),
-                    Err(v) => return Ok(*v),
-                }
+                return Ok(branch_node_location);
             }
         }
         unreachable!();
@@ -613,17 +605,13 @@ where
         if tree_refs.len() == 1 {
             self.db.batch_write()?;
             let node = tree_refs.remove(0);
-            if let Ok(v) = Arc::try_unwrap(node.location) {
-                return Ok(v);
-            } else {
-                return Err(Exception::new("Failed to unwrap tree root"));
-            }
+            return Ok(node.location);
         }
 
         tree_refs.par_sort();
 
         let tree_rcs = tree_refs
-            .into_iter()
+            .into_par_iter()
             .map(|x| Arc::new(TreeRefWrapperLock(RwLock::new(TreeRefWrapper::Raw(Arc::new(TreeRefLock(RwLock::new(x))))))))
             .collect::<Vec<_>>();
 
@@ -686,39 +674,35 @@ where
                 branch_hasher.update(b"b");
                 branch_hasher.update(&tree_ref_location[..]);
                 branch_hasher.update(&next_tree_ref_location[..]);
-                branch_node_location = Arc::new(branch_hasher.finalize());
+                branch_node_location = branch_hasher.finalize();
 
                 count = tree_ref_count + next_tree_ref_count;
 
-                branch.set_zero(*tree_ref_location);
-                branch.set_one(*next_tree_ref_location);
+                branch.set_zero(tree_ref_location);
+                branch.set_one(next_tree_ref_location);
                 branch.set_count(count);
                 branch.set_split_index(split_index);
-                branch.set_key(*tree_ref_key);
+                branch.set_key(tree_ref_key);
             }
 
             let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
             branch_node.set_references(1);
 
-            self.db.insert(*branch_node_location, branch_node)?;
+            self.db.insert(branch_node_location, branch_node)?;
 
             next_tree_ref_wrapper
                 .write().unwrap()
-                .set_tree_ref_key(Arc::clone(&tree_ref_key));
+                .set_tree_ref_key(tree_ref_key);
             next_tree_ref_wrapper
                 .write().unwrap()
-                .set_tree_ref_location(Arc::clone(&branch_node_location));
+                .set_tree_ref_location(branch_node_location);
             next_tree_ref_wrapper.write().unwrap().set_tree_ref_count(count);
 
             *tree_ref_wrapper.write().unwrap() = TreeRefWrapper::Ref(next_tree_ref_wrapper);
 
             if tree_ref_queue.read().unwrap().is_empty() {
                 self.db.batch_write()?;
-                let root = branch_node_location;
-                match Arc::try_unwrap(root) {
-                    Ok(v) => return Ok(v),
-                    Err(v) => return Ok(*v),
-                }
+                return Ok(branch_node_location);
             }
         }
         unreachable!();

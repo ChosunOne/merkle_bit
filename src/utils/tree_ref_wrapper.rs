@@ -27,16 +27,16 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn get_tree_ref_key(&self) -> Rc<[u8; KEY_LEN]> {
+    pub fn get_tree_ref_key(&self) -> [u8; KEY_LEN] {
         match self {
-            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().key),
+            TreeRefWrapper::Raw(t) => t.borrow().key,
             TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_key(),
         }
     }
 
-    pub fn get_tree_ref_location(&self) -> Rc<[u8; KEY_LEN]> {
+    pub fn get_tree_ref_location(&self) -> [u8; KEY_LEN] {
         match self {
-            TreeRefWrapper::Raw(t) => Rc::clone(&t.borrow().location),
+            TreeRefWrapper::Raw(t) => t.borrow().location,
             TreeRefWrapper::Ref(r) => r.borrow().get_tree_ref_location(),
         }
     }
@@ -48,14 +48,14 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn set_tree_ref_key(&mut self, key: Rc<[u8; KEY_LEN]>) {
+    pub fn set_tree_ref_key(&mut self, key: [u8; KEY_LEN]) {
         match self {
             TreeRefWrapper::Raw(t) => t.borrow_mut().key = key,
             TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_key(key),
         }
     }
 
-    pub fn set_tree_ref_location(&mut self, location: Rc<[u8; KEY_LEN]>) {
+    pub fn set_tree_ref_location(&mut self, location: [u8; KEY_LEN]) {
         match self {
             TreeRefWrapper::Raw(t) => t.borrow_mut().location = location,
             TreeRefWrapper::Ref(r) => r.borrow_mut().set_tree_ref_location(location),

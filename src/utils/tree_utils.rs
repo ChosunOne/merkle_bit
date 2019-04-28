@@ -1,11 +1,18 @@
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashMap;
+#[cfg(feature = "use_rayon")]
+use std::sync::atomic::AtomicU8;
+
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
+#[cfg(feature = "use_rayon")]
+use rayon::prelude::*;
+
 use crate::constants::{KEY_LEN, KEY_LEN_BITS};
-use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Exception;
+
+#[cfg(feature = "use_rayon")]
+use std::sync::atomic::Ordering;
 
 pub fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
     let index = (bit >> 3) as usize;
@@ -88,19 +95,10 @@ pub fn check_descendants<'a>(
 pub fn calc_min_split_index(
     keys: &[&[u8; KEY_LEN]],
     branch_key: &[u8; KEY_LEN],
-) -> BinaryMerkleTreeResult<u8> {
-    let mut min_key;
-    if let Some(&m) = keys.iter().min() {
-        min_key = m;
-    } else {
-        return Err(Exception::new("No keys to calculate minimum split index"));
-    }
-
-    let mut max_key = if let Some(&m) = keys.iter().max() {
-        m
-    } else {
-        return Err(Exception::new("No keys to calculate minimum split index"));
-    };
+) -> u8 {
+    assert!(!keys.is_empty());
+    let mut min_key = *keys.iter().min().unwrap();
+    let mut max_key = *keys.iter().max().unwrap();
 
     if branch_key < min_key {
         min_key = branch_key;
@@ -117,7 +115,7 @@ pub fn calc_min_split_index(
         split_bit = (i << 3) as u8 + (7 - fast_log_2(xor_key)) as u8;
         break;
     }
-    Ok(split_bit)
+    split_bit
 }
 
 pub fn generate_leaf_map<'a, ValueType>(keys: &[&'a [u8; KEY_LEN]]) -> HashMap<&'a [u8; KEY_LEN], Option<ValueType>> {

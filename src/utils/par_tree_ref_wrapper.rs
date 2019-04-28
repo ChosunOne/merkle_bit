@@ -28,16 +28,16 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn get_tree_ref_key(&self) -> Arc<[u8; KEY_LEN]> {
+    pub fn get_tree_ref_key(&self) -> [u8; KEY_LEN] {
         match self {
-            TreeRefWrapper::Raw(t) => Arc::clone(&t.read().unwrap().key),
+            TreeRefWrapper::Raw(t) => t.read().unwrap().key,
             TreeRefWrapper::Ref(r) => r.read().unwrap().get_tree_ref_key(),
         }
     }
 
-    pub fn get_tree_ref_location(&self) -> Arc<[u8; KEY_LEN]> {
+    pub fn get_tree_ref_location(&self) -> [u8; KEY_LEN] {
         match self {
-            TreeRefWrapper::Raw(t) => Arc::clone(&t.read().unwrap().location),
+            TreeRefWrapper::Raw(t) => t.read().unwrap().location,
             TreeRefWrapper::Ref(r) => r.read().unwrap().get_tree_ref_location(),
         }
     }
@@ -49,14 +49,14 @@ impl TreeRefWrapper {
         }
     }
 
-    pub fn set_tree_ref_key(&mut self, key: Arc<[u8; KEY_LEN]>) {
+    pub fn set_tree_ref_key(&mut self, key: [u8; KEY_LEN]) {
         match self {
             TreeRefWrapper::Raw(t) => t.write().unwrap().key = key,
             TreeRefWrapper::Ref(r) => r.write().unwrap().set_tree_ref_key(key),
         }
     }
 
-    pub fn set_tree_ref_location(&mut self, location: Arc<[u8; KEY_LEN]>) {
+    pub fn set_tree_ref_location(&mut self, location: [u8; KEY_LEN]) {
         match self {
             TreeRefWrapper::Raw(t) => t.write().unwrap().location = location,
             TreeRefWrapper::Ref(r) => r.write().unwrap().set_tree_ref_location(location),
