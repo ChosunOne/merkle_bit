@@ -92,10 +92,7 @@ pub fn check_descendants<'a>(
     &keys[start..end]
 }
 
-pub fn calc_min_split_index(
-    keys: &[&[u8; KEY_LEN]],
-    branch_key: &[u8; KEY_LEN],
-) -> u8 {
+pub fn calc_min_split_index(keys: &[&[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> u8 {
     assert!(!keys.is_empty());
     let mut min_key = *keys.iter().min().unwrap();
     let mut max_key = *keys.iter().max().unwrap();
@@ -118,7 +115,9 @@ pub fn calc_min_split_index(
     split_bit
 }
 
-pub fn generate_leaf_map<'a, ValueType>(keys: &[&'a [u8; KEY_LEN]]) -> HashMap<&'a [u8; KEY_LEN], Option<ValueType>> {
+pub fn generate_leaf_map<'a, ValueType>(
+    keys: &[&'a [u8; KEY_LEN]],
+) -> HashMap<&'a [u8; KEY_LEN], Option<ValueType>> {
     let mut leaf_map = HashMap::new();
     for &key in keys.iter() {
         leaf_map.insert(key, None);

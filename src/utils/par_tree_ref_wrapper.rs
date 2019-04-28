@@ -108,7 +108,9 @@ pub struct TreeRefWrapperLock(pub RwLock<TreeRefWrapper>);
 impl Deref for TreeRefWrapperLock {
     type Target = RwLock<TreeRefWrapper>;
 
-    fn deref(&self) -> &RwLock<TreeRefWrapper> { &self.0 }
+    fn deref(&self) -> &RwLock<TreeRefWrapper> {
+        &self.0
+    }
 }
 
 impl PartialEq for TreeRefWrapperLock {

@@ -11,12 +11,17 @@ pub struct TreeRef {
 }
 
 impl TreeRef {
-    pub fn new(key: [u8; KEY_LEN], location: [u8; KEY_LEN], node_count: u64, count: u32) -> TreeRef {
+    pub fn new(
+        key: [u8; KEY_LEN],
+        location: [u8; KEY_LEN],
+        node_count: u64,
+        count: u32,
+    ) -> TreeRef {
         TreeRef {
             key,
             location,
             node_count,
-            count
+            count,
         }
     }
 }

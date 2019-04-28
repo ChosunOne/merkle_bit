@@ -8,17 +8,19 @@ use crate::constants::KEY_LEN;
 use crate::traits::{
     Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
 };
-#[cfg(not(feature = "use_rayon"))]
-use crate::utils::tree_ref::TreeRef;
 #[cfg(feature = "use_rayon")]
 use crate::utils::par_tree_ref::TreeRef;
+#[cfg(not(feature = "use_rayon"))]
+use crate::utils::tree_ref::TreeRef;
 //#[cfg(not(feature = "use_rayon"))]
 //use crate::utils::tree_ref_wrapper::TreeRefWrapper;
 #[cfg(feature = "use_rayon")]
 use crate::utils::par_tree_ref_wrapper::{TreeRefLock, TreeRefWrapper, TreeRefWrapperLock};
 
 use crate::utils::tree_cell::TreeCell;
-use crate::utils::tree_utils::{calc_min_split_index, check_descendants, fast_log_2, split_pairs, generate_leaf_map};
+use crate::utils::tree_utils::{
+    calc_min_split_index, check_descendants, fast_log_2, generate_leaf_map, split_pairs,
+};
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 #[cfg(not(feature = "use_hashbrown"))]
@@ -26,7 +28,6 @@ use std::collections::HashMap;
 
 #[cfg(feature = "use_rayon")]
 use rayon::prelude::*;
-
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -135,7 +136,6 @@ where
         cell_queue.push_front(root_cell);
 
         while let Some(tree_cell) = cell_queue.pop_front() {
-
             if tree_cell.depth > self.depth {
                 return Err(Exception::new("Depth of merkle tree exceeded"));
             }
@@ -346,7 +346,7 @@ where
                     #[cfg(not(feature = "use_rayon"))]
                     self.db.insert(tree_ref.location, new_node)?;
                     #[cfg(feature = "use_rayon")]
-                        self.db.insert(tree_ref.location, new_node)?;
+                    self.db.insert(tree_ref.location, new_node)?;
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -495,9 +495,7 @@ where
 
         tree_refs.sort();
 
-        let mut tree_rcs = tree_refs
-            .iter_mut()
-            .collect::<Vec<_>>();
+        let mut tree_rcs = tree_refs.iter_mut().collect::<Vec<_>>();
 
         let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
 
@@ -528,7 +526,7 @@ where
                         split_bit,
                         tree_rcs_raw.offset(i as isize),
                         tree_rcs_raw.offset((i + 1) as isize),
-                        i as isize
+                        i as isize,
                     ));
                     break;
                 }
@@ -588,7 +586,7 @@ where
                 branch_hasher.update(&next_tree_ref_location[..]);
                 branch_node_location = branch_hasher.finalize();
 
-                unsafe{
+                unsafe {
                     count = tree_ref_count + (*lookahead_tree_ref_pointer).node_count;
                 }
 
@@ -638,40 +636,48 @@ where
 
         let tree_rcs = tree_refs
             .into_par_iter()
-            .map(|x| Arc::new(TreeRefWrapperLock(RwLock::new(TreeRefWrapper::Raw(Arc::new(TreeRefLock(RwLock::new(x))))))))
+            .map(|x| {
+                Arc::new(TreeRefWrapperLock(RwLock::new(TreeRefWrapper::Raw(
+                    Arc::new(TreeRefLock(RwLock::new(x))),
+                ))))
+            })
             .collect::<Vec<_>>();
 
         let tree_ref_queue = RwLock::new(BinaryHeap::with_capacity(tree_rcs.len() - 1));
 
-        (0..tree_rcs.len() - 1).into_par_iter().map(|i| {
-            let left_key = &tree_rcs[i].read().unwrap().get_tree_ref_key();
-            let right_key = &tree_rcs[i + 1].read().unwrap().get_tree_ref_key();
+        (0..tree_rcs.len() - 1)
+            .into_par_iter()
+            .map(|i| {
+                let left_key = &tree_rcs[i].read().unwrap().get_tree_ref_key();
+                let right_key = &tree_rcs[i + 1].read().unwrap().get_tree_ref_key();
 
-            for j in 0..KEY_LEN {
-                if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
-                    // The keys are the same and don't diverge
-                    return Err(Exception::new(
-                        "Attempted to insert item with duplicate keys",
+                for j in 0..KEY_LEN {
+                    if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+                        // The keys are the same and don't diverge
+                        return Err(Exception::new(
+                            "Attempted to insert item with duplicate keys",
+                        ));
+                    }
+                    // Skip bytes until we find a difference
+                    if left_key[j] == right_key[j] {
+                        continue;
+                    }
+
+                    // Find the bit index of the first difference
+                    let xor_key = left_key[j] ^ right_key[j];
+                    let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+
+                    tree_ref_queue.write().unwrap().push((
+                        split_bit,
+                        Arc::clone(&tree_rcs[i]),
+                        Arc::clone(&tree_rcs[i + 1]),
                     ));
+                    break;
                 }
-                // Skip bytes until we find a difference
-                if left_key[j] == right_key[j] {
-                    continue;
-                }
-
-                // Find the bit index of the first difference
-                let xor_key = left_key[j] ^ right_key[j];
-                let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
-
-                tree_ref_queue.write().unwrap().push((
-                    split_bit,
-                    Arc::clone(&tree_rcs[i]),
-                    Arc::clone(&tree_rcs[i + 1]),
-                ));
-                break;
-            }
-            Ok(())
-        }).reduce(|| {Ok(())}, |_, _| {Ok(())}).unwrap();
+                Ok(())
+            })
+            .reduce(|| Ok(()), |_, _| Ok(()))
+            .unwrap();
 
         assert!(tree_ref_queue.read().unwrap().len() > 0);
 
@@ -680,7 +686,8 @@ where
         let iters = tree_ref_queue.read().unwrap().len();
 
         for _ in 0..iters {
-            let (split_index, tree_ref_pointer, next_tree_ref_pointer) = tree_ref_queue.write().unwrap().pop().unwrap();
+            let (split_index, tree_ref_pointer, next_tree_ref_pointer) =
+                tree_ref_queue.write().unwrap().pop().unwrap();
             let mut branch = BranchType::new();
             let branch_node_location;
             let count;
@@ -692,7 +699,10 @@ where
             let tree_ref_location = tree_ref_pointer.read().unwrap().get_tree_ref_location();
             let tree_ref_count = tree_ref_pointer.read().unwrap().get_tree_ref_count();
 
-            let next_tree_ref_location = next_tree_ref_pointer.read().unwrap().get_tree_ref_location();
+            let next_tree_ref_location = next_tree_ref_pointer
+                .read()
+                .unwrap()
+                .get_tree_ref_location();
             let next_tree_ref_count = next_tree_ref_pointer.read().unwrap().get_tree_ref_count();
 
             {
@@ -717,12 +727,17 @@ where
             self.db.insert(branch_node_location, branch_node)?;
 
             next_tree_ref_pointer
-                .write().unwrap()
+                .write()
+                .unwrap()
                 .set_tree_ref_key(tree_ref_key);
             next_tree_ref_pointer
-                .write().unwrap()
+                .write()
+                .unwrap()
                 .set_tree_ref_location(branch_node_location);
-            next_tree_ref_pointer.write().unwrap().set_tree_ref_count(count);
+            next_tree_ref_pointer
+                .write()
+                .unwrap()
+                .set_tree_ref_count(count);
 
             *tree_ref_pointer.write().unwrap() = TreeRefWrapper::Ref(next_tree_ref_pointer);
 
