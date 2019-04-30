@@ -4,8 +4,8 @@ pub mod integration_tests {
     use std::error::Error;
     use std::path::PathBuf;
 
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     use starling::constants::KEY_LEN;
     #[cfg(not(any(feature = "use_rocksdb")))]
@@ -306,9 +306,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let num_leaves = 8196;
+        let num_leaves = 8196;
         #[cfg(feature = "use_groestl")]
-            let num_leaves = 1024;
+        let num_leaves = 1024;
 
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -340,9 +340,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let num_leaves = 8195;
+        let num_leaves = 8195;
         #[cfg(feature = "use_groestl")]
-            let num_leaves = 1023;
+        let num_leaves = 1023;
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
@@ -663,9 +663,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let prepare = prepare_inserts(4096, &mut rng);
+        let prepare = prepare_inserts(4096, &mut rng);
         #[cfg(feature = "use_groestl")]
-            let prepare = prepare_inserts(256, &mut rng);
+        let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
         let mut keys = key_values.iter().collect::<Vec<_>>();
@@ -691,9 +691,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let prepare = prepare_inserts(4095, &mut rng);
+        let prepare = prepare_inserts(4095, &mut rng);
         #[cfg(feature = "use_groestl")]
-            let prepare = prepare_inserts(256, &mut rng);
+        let prepare = prepare_inserts(256, &mut rng);
 
         let key_values = prepare.0;
         let mut keys = key_values.iter().collect::<Vec<_>>();
@@ -737,7 +737,8 @@ pub mod integration_tests {
     }
 
     #[test]
-    fn it_inserts_multiple_leaf_nodes_into_a_small_tree_with_existing_items() -> BinaryMerkleTreeResult<()> {
+    fn it_inserts_multiple_leaf_nodes_into_a_small_tree_with_existing_items(
+    ) -> BinaryMerkleTreeResult<()> {
         let db_seed = [0x23u8; KEY_LEN];
         let path = generate_path(db_seed);
 
@@ -786,9 +787,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let num_inserts = 4096;
+        let num_inserts = 4096;
         #[cfg(feature = "use_groestl")]
-            let num_inserts = 256;
+        let num_inserts = 256;
         let prepare_initial = prepare_inserts(num_inserts, &mut rng);
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
@@ -855,9 +856,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let prepare_initial = prepare_inserts(4096, &mut rng);
+        let prepare_initial = prepare_inserts(4096, &mut rng);
         #[cfg(feature = "use_groestl")]
-            let prepare_initial = prepare_inserts(256, &mut rng);
+        let prepare_initial = prepare_inserts(256, &mut rng);
 
         let initial_key_values = prepare_initial.0;
         let mut initial_keys = initial_key_values.iter().collect::<Vec<_>>();
@@ -940,9 +941,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(any(feature = "use_groestl")))]
-            let prepare = prepare_inserts(4096, &mut rng);
+        let prepare = prepare_inserts(4096, &mut rng);
         #[cfg(feature = "use_groestl")]
-            let prepare = prepare_inserts(256, &mut rng);
+        let prepare = prepare_inserts(256, &mut rng);
 
         let mut bmt = Tree::open(&path, 160)?;
         let key_values = prepare.0;
@@ -1087,9 +1088,9 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         #[cfg(not(any(feature = "use_groestl")))]
-            iterate_inserts(8, 100, &mut rng, &mut bmt)?;
+        iterate_inserts(8, 100, &mut rng, &mut bmt)?;
         #[cfg(feature = "use_groestl")]
-            iterate_inserts(8, 10, &mut rng, &mut bmt)?;
+        iterate_inserts(8, 10, &mut rng, &mut bmt)?;
 
         tear_down(&path);
         Ok(())
@@ -1183,9 +1184,9 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         #[cfg(not(any(feature = "use_groestl")))]
-            iterate_removals(8, 100, 1, &mut rng, &mut bmt)?;
+        iterate_removals(8, 100, 1, &mut rng, &mut bmt)?;
         #[cfg(feature = "use_groestl")]
-            iterate_removals(8, 10, 1, &mut rng, &mut bmt)?;
+        iterate_removals(8, 10, 1, &mut rng, &mut bmt)?;
         tear_down(&path);
         Ok(())
     }
@@ -1221,7 +1222,7 @@ pub mod integration_tests {
         use std::fs::remove_dir_all;
 
         #[cfg(feature = "use_rocksdb")]
-            remove_dir_all(&_path).unwrap();
+        remove_dir_all(&_path).unwrap();
     }
 
     fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>, Vec<Vec<u8>>) {

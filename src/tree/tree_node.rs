@@ -15,9 +15,9 @@ use serde_yaml;
 
 #[cfg(feature = "use_serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::{Node, NodeVariant};
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
+use crate::traits::{Node, NodeVariant};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;

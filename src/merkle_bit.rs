@@ -1,6 +1,6 @@
-use std::collections::{BinaryHeap, VecDeque};
 #[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
+use std::collections::{BinaryHeap, VecDeque};
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
@@ -35,14 +35,14 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-    where
-        DatabaseType: Database<NodeType=NodeType> + Send + Sync,
-        BranchType: Branch,
-        LeafType: Leaf,
-        DataType: Data,
-        NodeType: Node<BranchType, LeafType, DataType>,
-        HasherType: Hasher,
-        ValueType: Decode + Encode + Sync + Send,
+where
+    DatabaseType: Database<NodeType = NodeType> + Send + Sync,
+    BranchType: Branch,
+    LeafType: Leaf,
+    DataType: Data,
+    NodeType: Node<BranchType, LeafType, DataType>,
+    HasherType: Hasher,
+    ValueType: Decode + Encode + Sync + Send,
 {
     db: DatabaseType,
     depth: usize,
@@ -55,15 +55,15 @@ pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, Has
 }
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-    where
-        DatabaseType: Database<NodeType=NodeType> + Send + Sync,
-        BranchType: Branch,
-        LeafType: Leaf,
-        DataType: Data,
-        NodeType: Node<BranchType, LeafType, DataType>,
-        HasherType: Hasher<HashType=HasherType>,
-        ValueType: Decode + Encode + Sync + Send,
+    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+where
+    DatabaseType: Database<NodeType = NodeType> + Send + Sync,
+    BranchType: Branch,
+    LeafType: Leaf,
+    DataType: Data,
+    NodeType: Node<BranchType, LeafType, DataType>,
+    HasherType: Hasher<HashType = HasherType>,
+    ValueType: Decode + Encode + Sync + Send,
 {
     /// Create a new MerkleBIT from a saved database
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -107,9 +107,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         let mut leaf_map = generate_leaf_map(keys);
 
         #[cfg(not(feature = "use_rayon"))]
-            keys.sort();
+        keys.sort();
         #[cfg(feature = "use_rayon")]
-            keys.par_sort();
+        keys.par_sort();
 
         let root_node;
         if let Some(n) = self.db.get_node(root_hash)? {
@@ -216,9 +216,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         }
 
         #[cfg(not(feature = "use_rayon"))]
-            keys.sort();
+        keys.sort();
         #[cfg(feature = "use_rayon")]
-            keys.par_sort();
+        keys.par_sort();
 
         let nodes = self.insert_leaves(keys, &value_map)?;
 
@@ -334,9 +334,9 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
                     let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
                     new_node.set_references(refs);
                     #[cfg(not(feature = "use_rayon"))]
-                        self.db.insert(tree_ref.location, new_node)?;
+                    self.db.insert(tree_ref.location, new_node)?;
                     #[cfg(feature = "use_rayon")]
-                        self.db.insert(tree_ref.location, new_node)?;
+                    self.db.insert(tree_ref.location, new_node)?;
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -478,48 +478,59 @@ MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, Va
         values: &HashMap<&[u8; KEY_LEN], &ValueType>,
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let db = &self.db;
-        let nodes: Vec<[u8; 32]> = keys.par_iter().map(|&key| {
-            let mut data = DataType::new();
-            data.set_value(&values[key].encode().expect("Error encoding value"));
+        let nodes: Vec<[u8; 32]> = keys
+            .par_iter()
+            .map(|&key| {
+                let mut data = DataType::new();
+                data.set_value(&values[key].encode().expect("Error encoding value"));
 
-            let mut data_hasher = HasherType::new(KEY_LEN);
-            data_hasher.update(b"d");
-            data_hasher.update(key);
-            data_hasher.update(data.get_value());
-            let data_node_location = data_hasher.finalize();
+                let mut data_hasher = HasherType::new(KEY_LEN);
+                data_hasher.update(b"d");
+                data_hasher.update(key);
+                data_hasher.update(data.get_value());
+                let data_node_location = data_hasher.finalize();
 
-            let mut data_node = NodeType::new(NodeVariant::Data(data));
-            data_node.set_references(1);
+                let mut data_node = NodeType::new(NodeVariant::Data(data));
+                data_node.set_references(1);
 
-            // Create leaf node
-            let mut leaf = LeafType::new();
-            leaf.set_data(data_node_location);
-            leaf.set_key(*key);
+                // Create leaf node
+                let mut leaf = LeafType::new();
+                leaf.set_data(data_node_location);
+                leaf.set_key(*key);
 
-            let mut leaf_hasher = HasherType::new(KEY_LEN);
-            leaf_hasher.update(b"l");
-            leaf_hasher.update(key);
-            leaf_hasher.update(&leaf.get_data()[..]);
-            let leaf_node_location = leaf_hasher.finalize();
+                let mut leaf_hasher = HasherType::new(KEY_LEN);
+                leaf_hasher.update(b"l");
+                leaf_hasher.update(key);
+                leaf_hasher.update(&leaf.get_data()[..]);
+                let leaf_node_location = leaf_hasher.finalize();
 
-            let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
-            leaf_node.set_references(1);
+                let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
+                leaf_node.set_references(1);
 
-            if let Some(n) = db.get_node(&data_node_location).expect("Error loading data node") {
-                let references = n.get_references() + 1;
-                data_node.set_references(references);
-            }
+                if let Some(n) = db
+                    .get_node(&data_node_location)
+                    .expect("Error loading data node")
+                {
+                    let references = n.get_references() + 1;
+                    data_node.set_references(references);
+                }
 
-            if let Some(n) = db.get_node(&leaf_node_location).expect("Error loading leaf node") {
-                let references = n.get_references() + 1;
-                leaf_node.set_references(references);
-            }
+                if let Some(n) = db
+                    .get_node(&leaf_node_location)
+                    .expect("Error loading leaf node")
+                {
+                    let references = n.get_references() + 1;
+                    leaf_node.set_references(references);
+                }
 
-            db.insert(data_node_location, data_node).expect("Error inserting data node");
-            db.insert(leaf_node_location, leaf_node).expect("Error inserting leaf node");
+                db.insert(data_node_location, data_node)
+                    .expect("Error inserting data node");
+                db.insert(leaf_node_location, leaf_node)
+                    .expect("Error inserting leaf node");
 
-            leaf_node_location
-        }).collect::<Vec<_>>();
+                leaf_node_location
+            })
+            .collect::<Vec<_>>();
 
         Ok(nodes)
     }

@@ -6,8 +6,8 @@ use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
 use criterion::Criterion;
-use rand::{Rng, SeedableRng};
 use rand::rngs::StdRng;
+use rand::{Rng, SeedableRng};
 
 use starling::constants::KEY_LEN;
 #[cfg(not(any(feature = "use_rocksdb")))]

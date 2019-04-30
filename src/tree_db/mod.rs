@@ -1,7 +1,7 @@
-#[cfg(feature = "use_hashbrown")]
-pub mod hashbrown;
 #[cfg(feature = "use_rayon")]
 pub mod chashmap;
+#[cfg(feature = "use_hashbrown")]
+pub mod hashbrown;
 #[cfg(not(any(feature = "use_hashbrown", feature = "use_rayon")))]
 pub mod hashmap;
 #[cfg(feature = "use_rocksdb")]

@@ -1,7 +1,7 @@
 use std::error::Error;
 use std::path::PathBuf;
 
-use rocksdb::{DB, WriteBatch};
+use rocksdb::{WriteBatch, DB};
 
 use crate::constants::KEY_LEN;
 use crate::traits::{Database, Decode, Encode, Exception};

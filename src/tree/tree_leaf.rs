@@ -16,9 +16,9 @@ use serde_yaml;
 use crate::constants::KEY_LEN;
 #[cfg(feature = "use_serialization")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
+use crate::traits::Leaf;
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
-use crate::traits::Leaf;
 
 #[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
