@@ -478,6 +478,7 @@ where
         values: &HashMap<&[u8; KEY_LEN], &ValueType>,
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let db = &self.db;
+
         let nodes: Vec<[u8; 32]> = keys
             .par_iter()
             .map(|&key| {
@@ -549,43 +550,9 @@ where
 
         tree_refs.sort();
 
-        let mut tree_rcs = tree_refs.iter_mut().collect::<Vec<_>>();
+        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_refs.len() - 1);
 
-        let mut tree_ref_queue = BinaryHeap::with_capacity(tree_rcs.len() - 1);
-
-        let tree_rcs_raw = tree_rcs.as_mut_ptr();
-
-        for i in 0..tree_rcs.len() - 1 {
-            unsafe {
-                let left_key = (*tree_rcs_raw.offset(i as isize)).key;
-                let right_key = (*tree_rcs_raw.offset((i + 1) as isize)).key;
-
-                for j in 0..KEY_LEN {
-                    if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
-                        // The keys are the same and don't diverge
-                        return Err(Exception::new(
-                            "Attempted to insert item with duplicate keys",
-                        ));
-                    }
-                    // Skip bytes until we find a difference
-                    if left_key[j] == right_key[j] {
-                        continue;
-                    }
-
-                    // Find the bit index of the first difference
-                    let xor_key = left_key[j] ^ right_key[j];
-                    let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
-
-                    tree_ref_queue.push((
-                        split_bit,
-                        tree_rcs_raw.offset(i as isize),
-                        tree_rcs_raw.offset((i + 1) as isize),
-                        i as isize,
-                    ));
-                    break;
-                }
-            }
-        }
+        let tree_rcs_raw = Self::generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
 
         let iters = tree_ref_queue.len();
 
@@ -594,18 +561,10 @@ where
                 tree_ref_queue.pop().expect("Tree ref queue is empty");
 
             let mut branch = BranchType::new();
-            let branch_node_location;
-            let count;
 
-            let tree_ref_key;
-            let tree_ref_location;
-            let tree_ref_count;
-
-            unsafe {
-                tree_ref_key = (*tree_ref_pointer).key;
-                tree_ref_location = (*tree_ref_pointer).location;
-                tree_ref_count = (*tree_ref_pointer).node_count;
-            }
+            let tree_ref_key = unsafe { (*tree_ref_pointer).key };
+            let tree_ref_location = unsafe { (*tree_ref_pointer).location };
+            let tree_ref_count = unsafe { (*tree_ref_pointer).node_count };
 
             // Find the rightmost edge of the adjacent subtree
             let mut lookahead_count;
@@ -628,21 +587,15 @@ where
                 }
             }
 
-            let next_tree_ref_location;
-            unsafe {
-                next_tree_ref_location = (*lookahead_tree_ref_pointer).location;
-            }
-
+            let next_tree_ref_location = unsafe { (*lookahead_tree_ref_pointer).location};
+            let count = unsafe { tree_ref_count + (*lookahead_tree_ref_pointer).node_count };
+            let branch_node_location;
             {
                 let mut branch_hasher = HasherType::new(KEY_LEN);
                 branch_hasher.update(b"b");
                 branch_hasher.update(&tree_ref_location[..]);
                 branch_hasher.update(&next_tree_ref_location[..]);
                 branch_node_location = branch_hasher.finalize();
-
-                unsafe {
-                    count = tree_ref_count + (*lookahead_tree_ref_pointer).node_count;
-                }
 
                 branch.set_zero(tree_ref_location);
                 branch.set_one(next_tree_ref_location);
@@ -670,7 +623,42 @@ where
                 return Ok(branch_node_location);
             }
         }
-        unreachable!();
+        Err(Exception::new("Failed to build tree"))
+    }
+
+    fn generate_tree_ref_queue<'a>(tree_rcs: &mut Vec<TreeRef>, tree_ref_queue: &mut BinaryHeap<(u8, *mut TreeRef, *mut TreeRef, isize)>) -> BinaryMerkleTreeResult<*mut TreeRef> {
+        let tree_rcs_raw = tree_rcs.as_mut_ptr();
+        for i in 0..tree_rcs.len() - 1 {
+            let left_key = tree_rcs[i].key;
+            let right_key = tree_rcs[i + 1].key;
+
+            for j in 0..KEY_LEN {
+                if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+                    // The keys are the same and don't diverge
+                    return Err(Exception::new(
+                        "Attempted to insert item with duplicate keys",
+                    ));
+                }
+                // Skip bytes until we find a difference
+                if left_key[j] == right_key[j] {
+                    continue;
+                }
+
+                // Find the bit index of the first difference
+                let xor_key = left_key[j] ^ right_key[j];
+                let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+                unsafe {
+                    tree_ref_queue.push((
+                        split_bit,
+                        tree_rcs_raw.offset(i as isize),
+                        tree_rcs_raw.offset((i + 1) as isize),
+                        i as isize,
+                    ));
+                }
+                break;
+            }
+        }
+        Ok(tree_rcs_raw)
     }
 
     /// Remove all items with less than 1 reference under the given root.
