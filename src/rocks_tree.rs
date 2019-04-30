@@ -1,7 +1,6 @@
-use std::path::PathBuf;
-
 #[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;

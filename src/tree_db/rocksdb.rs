@@ -1,11 +1,11 @@
+use std::error::Error;
 use std::path::PathBuf;
+
+use rocksdb::{DB, WriteBatch};
 
 use crate::constants::KEY_LEN;
 use crate::traits::{Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
-
-use rocksdb::{WriteBatch, DB};
-use std::error::Error;
 
 impl From<rocksdb::Error> for Exception {
     fn from(error: rocksdb::Error) -> Self {

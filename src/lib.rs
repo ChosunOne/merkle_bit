@@ -1,5 +1,19 @@
 #[cfg(feature = "use_bincode")]
 extern crate bincode;
+#[cfg(feature = "use_blake2b")]
+extern crate blake2_rfc;
+#[cfg(feature = "use_rayon")]
+extern crate chashmap;
+#[cfg(feature = "use_groestl")]
+extern crate groestl;
+#[cfg(feature = "use_hashbrown")]
+extern crate hashbrown;
+#[cfg(feature = "use_sha2")]
+extern crate openssl;
+#[cfg(feature = "use_rayon")]
+extern crate rayon;
+#[cfg(feature = "use_rocksdb")]
+extern crate rocksdb;
 #[cfg(feature = "use_ron")]
 extern crate ron;
 #[cfg(any(
@@ -20,26 +34,10 @@ extern crate serde_json;
 extern crate serde_pickle;
 #[cfg(feature = "use_yaml")]
 extern crate serde_yaml;
-
-#[cfg(feature = "use_blake2b")]
-extern crate blake2_rfc;
-#[cfg(feature = "use_groestl")]
-extern crate groestl;
-#[cfg(feature = "use_sha2")]
-extern crate openssl;
 #[cfg(feature = "use_sha3")]
 extern crate tiny_keccak;
 #[cfg(feature = "use_keccak")]
 extern crate tiny_keccak;
-
-#[cfg(feature = "use_hashbrown")]
-extern crate hashbrown;
-
-#[cfg(feature = "use_rayon")]
-extern crate rayon;
-
-#[cfg(feature = "use_rocksdb")]
-extern crate rocksdb;
 
 pub mod constants;
 pub mod hash_tree;

@@ -2,10 +2,10 @@ use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::path::PathBuf;
 
-use crate::constants::KEY_LEN;
-
 #[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
+
+use crate::constants::KEY_LEN;
 
 pub trait Hasher {
     type HashType;
@@ -60,7 +60,7 @@ where
 }
 
 /// Contains the distinguishing data from the node
-#[derive(Clone, Debug)]
+#[derive(Copy, Clone, Debug)]
 #[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType>
 where
@@ -80,7 +80,10 @@ pub trait Database {
     where
         Self: Sized;
     fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception>;
+    #[cfg(not(feature = "use_rayon"))]
     fn insert(&mut self, key: [u8; KEY_LEN], node: Self::NodeType) -> Result<(), Exception>;
+    #[cfg(feature = "use_rayon")]
+    fn insert(&self, key: [u8; KEY_LEN], node: Self::NodeType) -> Result<(), Exception>;
     fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception>;
     fn batch_write(&mut self) -> Result<(), Exception>;
 }

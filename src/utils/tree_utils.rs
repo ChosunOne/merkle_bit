@@ -1,18 +1,10 @@
-#[cfg(not(feature = "use_hashbrown"))]
+#[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
-#[cfg(feature = "use_rayon")]
-use std::sync::atomic::AtomicU8;
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
-#[cfg(feature = "use_rayon")]
-use rayon::prelude::*;
-
 use crate::constants::{KEY_LEN, KEY_LEN_BITS};
-
-#[cfg(feature = "use_rayon")]
-use std::sync::atomic::Ordering;
 
 pub fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
     let index = (bit >> 3) as usize;

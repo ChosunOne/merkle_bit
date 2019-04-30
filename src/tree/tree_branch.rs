@@ -1,21 +1,14 @@
-use crate::constants::KEY_LEN;
-#[cfg(feature = "use_serde")]
-use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Branch;
-
-#[cfg(feature = "use_serde")]
-use crate::traits::{Decode, Encode, Exception};
-
-#[cfg(feature = "use_serde")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "use_serde")]
 use std::error::Error;
+#[cfg(feature = "use_json")]
+use std::string::FromUtf8Error;
 
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_serde")]
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "use_cbor")]
 use serde_cbor;
 #[cfg(feature = "use_json")]
@@ -24,10 +17,15 @@ use serde_json;
 use serde_pickle;
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
-#[cfg(feature = "use_json")]
-use std::string::FromUtf8Error;
 
-#[derive(Clone, Debug)]
+use crate::constants::KEY_LEN;
+#[cfg(feature = "use_serde")]
+use crate::merkle_bit::BinaryMerkleTreeResult;
+#[cfg(feature = "use_serde")]
+use crate::traits::{Decode, Encode, Exception};
+use crate::traits::Branch;
+
+#[derive(Copy, Clone, Debug)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,

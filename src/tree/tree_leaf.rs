@@ -1,19 +1,9 @@
-#[cfg(feature = "use_serialization")]
-use crate::merkle_bit::BinaryMerkleTreeResult;
-
-use crate::constants::KEY_LEN;
-use crate::traits::Leaf;
-
-#[cfg(feature = "use_serialization")]
-use crate::traits::{Decode, Encode};
-
-#[cfg(feature = "use_serialization")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_serialization")]
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "use_cbor")]
 use serde_cbor;
 #[cfg(feature = "use_json")]
@@ -23,7 +13,14 @@ use serde_pickle;
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
 
-#[derive(Clone, Debug, Default)]
+use crate::constants::KEY_LEN;
+#[cfg(feature = "use_serialization")]
+use crate::merkle_bit::BinaryMerkleTreeResult;
+#[cfg(feature = "use_serialization")]
+use crate::traits::{Decode, Encode};
+use crate::traits::Leaf;
+
+#[derive(Copy, Clone, Debug, Default)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: [u8; KEY_LEN],

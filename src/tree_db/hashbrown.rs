@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
+use hashbrown::HashMap;
+
 use crate::constants::KEY_LEN;
 use crate::traits::{Database, Exception};
 use crate::tree::tree_node::TreeNode;
-
-use hashbrown::HashMap;
 
 pub struct HashDB {
     map: HashMap<[u8; KEY_LEN], TreeNode>,

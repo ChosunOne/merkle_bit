@@ -15,9 +15,7 @@ impl crate::traits::Hasher for DefaultHasher {
     fn finalize(self) -> [u8; KEY_LEN] {
         let value = Self::finish(&self).to_le_bytes();
         let mut v = [0; KEY_LEN];
-        for i in 0..KEY_LEN {
-            v[i] = value[i % 8];
-        }
+        v[..8].copy_from_slice(&value);
         v
     }
 }

@@ -1,21 +1,9 @@
-#[cfg(feature = "use_serde")]
-use crate::merkle_bit::BinaryMerkleTreeResult;
-
-use crate::traits::{Node, NodeVariant};
-use crate::tree::tree_branch::TreeBranch;
-use crate::tree::tree_data::TreeData;
-use crate::tree::tree_leaf::TreeLeaf;
-
-#[cfg(feature = "use_serialization")]
-use crate::traits::{Decode, Encode};
-
-#[cfg(feature = "use_serde")]
-use serde::{Deserialize, Serialize};
-
 #[cfg(feature = "use_bincode")]
 use bincode::{deserialize, serialize};
 #[cfg(feature = "use_ron")]
 use ron;
+#[cfg(feature = "use_serde")]
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "use_cbor")]
 use serde_cbor;
 #[cfg(feature = "use_json")]
@@ -24,6 +12,15 @@ use serde_json;
 use serde_pickle;
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
+
+#[cfg(feature = "use_serde")]
+use crate::merkle_bit::BinaryMerkleTreeResult;
+use crate::traits::{Node, NodeVariant};
+#[cfg(feature = "use_serialization")]
+use crate::traits::{Decode, Encode};
+use crate::tree::tree_branch::TreeBranch;
+use crate::tree::tree_data::TreeData;
+use crate::tree::tree_leaf::TreeLeaf;
 
 #[derive(Clone, Debug)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]

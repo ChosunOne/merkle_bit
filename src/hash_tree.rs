@@ -1,12 +1,12 @@
-use std::path::PathBuf;
-
 #[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
 use crate::constants::KEY_LEN;
+use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 use crate::traits::{Decode, Encode};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
@@ -14,8 +14,6 @@ use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_node::TreeNode;
 use crate::tree_db::HashTreeDB;
 use crate::tree_hasher::TreeHasher;
-
-use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
 
 pub struct HashTree<ValueType>
 where

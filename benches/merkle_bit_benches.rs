@@ -1,19 +1,17 @@
 #[macro_use]
 extern crate criterion;
 
+#[cfg(any(feature = "use_rocksdb"))]
+use std::fs::remove_dir_all;
 use std::path::PathBuf;
 
 use criterion::Criterion;
-use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
-
-#[cfg(any(feature = "use_rocksdb"))]
-use std::fs::remove_dir_all;
+use rand::rngs::StdRng;
 
 use starling::constants::KEY_LEN;
 #[cfg(not(any(feature = "use_rocksdb")))]
 use starling::hash_tree::HashTree;
-
 #[cfg(feature = "use_rocksdb")]
 use starling::rocks_tree::RocksTree;
 

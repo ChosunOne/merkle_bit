@@ -1,33 +1,23 @@
 use std::collections::{BinaryHeap, VecDeque};
+#[cfg(not(any(feature = "use_hashbrown")))]
+use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::path::PathBuf;
+
+#[cfg(feature = "use_hashbrown")]
+use hashbrown::HashMap;
 #[cfg(feature = "use_rayon")]
-use std::sync::{Arc, RwLock};
+use rayon::prelude::*;
 
 use crate::constants::KEY_LEN;
 use crate::traits::{
     Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
 };
-#[cfg(feature = "use_rayon")]
-use crate::utils::par_tree_ref::TreeRef;
-#[cfg(not(feature = "use_rayon"))]
-use crate::utils::tree_ref::TreeRef;
-//#[cfg(not(feature = "use_rayon"))]
-//use crate::utils::tree_ref_wrapper::TreeRefWrapper;
-#[cfg(feature = "use_rayon")]
-use crate::utils::par_tree_ref_wrapper::{TreeRefLock, TreeRefWrapper, TreeRefWrapperLock};
-
 use crate::utils::tree_cell::TreeCell;
+use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_utils::{
     calc_min_split_index, check_descendants, fast_log_2, generate_leaf_map, split_pairs,
 };
-#[cfg(feature = "use_hashbrown")]
-use hashbrown::HashMap;
-#[cfg(not(feature = "use_hashbrown"))]
-use std::collections::HashMap;
-
-#[cfg(feature = "use_rayon")]
-use rayon::prelude::*;
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -45,14 +35,14 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-where
-    DatabaseType: Database<NodeType = NodeType>,
-    BranchType: Branch,
-    LeafType: Leaf,
-    DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
-    HasherType: Hasher,
-    ValueType: Decode + Encode + Sync + Send,
+    where
+        DatabaseType: Database<NodeType=NodeType> + Send + Sync,
+        BranchType: Branch,
+        LeafType: Leaf,
+        DataType: Data,
+        NodeType: Node<BranchType, LeafType, DataType>,
+        HasherType: Hasher,
+        ValueType: Decode + Encode + Sync + Send,
 {
     db: DatabaseType,
     depth: usize,
@@ -65,15 +55,15 @@ where
 }
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-where
-    DatabaseType: Database<NodeType = NodeType>,
-    BranchType: Branch,
-    LeafType: Leaf,
-    DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
-    HasherType: Hasher<HashType = HasherType>,
-    ValueType: Decode + Encode + Sync + Send,
+MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+    where
+        DatabaseType: Database<NodeType=NodeType> + Send + Sync,
+        BranchType: Branch,
+        LeafType: Leaf,
+        DataType: Data,
+        NodeType: Node<BranchType, LeafType, DataType>,
+        HasherType: Hasher<HashType=HasherType>,
+        ValueType: Decode + Encode + Sync + Send,
 {
     /// Create a new MerkleBIT from a saved database
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
@@ -117,9 +107,9 @@ where
         let mut leaf_map = generate_leaf_map(keys);
 
         #[cfg(not(feature = "use_rayon"))]
-        keys.sort();
+            keys.sort();
         #[cfg(feature = "use_rayon")]
-        keys.par_sort();
+            keys.par_sort();
 
         let root_node;
         if let Some(n) = self.db.get_node(root_hash)? {
@@ -226,9 +216,9 @@ where
         }
 
         #[cfg(not(feature = "use_rayon"))]
-        keys.sort();
+            keys.sort();
         #[cfg(feature = "use_rayon")]
-        keys.par_sort();
+            keys.par_sort();
 
         let nodes = self.insert_leaves(keys, &value_map)?;
 
@@ -344,9 +334,9 @@ where
                     let mut new_node = NodeType::new(NodeVariant::Branch(new_branch));
                     new_node.set_references(refs);
                     #[cfg(not(feature = "use_rayon"))]
-                    self.db.insert(tree_ref.location, new_node)?;
+                        self.db.insert(tree_ref.location, new_node)?;
                     #[cfg(feature = "use_rayon")]
-                    self.db.insert(tree_ref.location, new_node)?;
+                        self.db.insert(tree_ref.location, new_node)?;
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -428,6 +418,7 @@ where
         Ok(proof_nodes)
     }
 
+    #[cfg(not(feature = "use_rayon"))]
     fn insert_leaves(
         &mut self,
         keys: &[&[u8; KEY_LEN]],
@@ -480,7 +471,59 @@ where
         Ok(nodes)
     }
 
-    #[cfg(not(feature = "use_rayon"))]
+    #[cfg(feature = "use_rayon")]
+    fn insert_leaves(
+        &mut self,
+        keys: &[&[u8; KEY_LEN]],
+        values: &HashMap<&[u8; KEY_LEN], &ValueType>,
+    ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
+        let db = &self.db;
+        let nodes: Vec<[u8; 32]> = keys.par_iter().map(|&key| {
+            let mut data = DataType::new();
+            data.set_value(&values[key].encode().expect("Error encoding value"));
+
+            let mut data_hasher = HasherType::new(KEY_LEN);
+            data_hasher.update(b"d");
+            data_hasher.update(key);
+            data_hasher.update(data.get_value());
+            let data_node_location = data_hasher.finalize();
+
+            let mut data_node = NodeType::new(NodeVariant::Data(data));
+            data_node.set_references(1);
+
+            // Create leaf node
+            let mut leaf = LeafType::new();
+            leaf.set_data(data_node_location);
+            leaf.set_key(*key);
+
+            let mut leaf_hasher = HasherType::new(KEY_LEN);
+            leaf_hasher.update(b"l");
+            leaf_hasher.update(key);
+            leaf_hasher.update(&leaf.get_data()[..]);
+            let leaf_node_location = leaf_hasher.finalize();
+
+            let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
+            leaf_node.set_references(1);
+
+            if let Some(n) = db.get_node(&data_node_location).expect("Error loading data node") {
+                let references = n.get_references() + 1;
+                data_node.set_references(references);
+            }
+
+            if let Some(n) = db.get_node(&leaf_node_location).expect("Error loading leaf node") {
+                let references = n.get_references() + 1;
+                leaf_node.set_references(references);
+            }
+
+            db.insert(data_node_location, data_node).expect("Error inserting data node");
+            db.insert(leaf_node_location, leaf_node).expect("Error inserting leaf node");
+
+            leaf_node_location
+        }).collect::<Vec<_>>();
+
+        Ok(nodes)
+    }
+
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef>,
@@ -619,136 +662,6 @@ where
         unreachable!();
     }
 
-    #[cfg(feature = "use_rayon")]
-    fn create_tree(
-        &mut self,
-        mut tree_refs: Vec<TreeRef>,
-    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
-        assert!(!tree_refs.is_empty());
-
-        if tree_refs.len() == 1 {
-            self.db.batch_write()?;
-            let node = tree_refs.remove(0);
-            return Ok(node.location);
-        }
-
-        tree_refs.par_sort();
-
-        let tree_rcs = tree_refs
-            .into_par_iter()
-            .map(|x| {
-                Arc::new(TreeRefWrapperLock(RwLock::new(TreeRefWrapper::Raw(
-                    Arc::new(TreeRefLock(RwLock::new(x))),
-                ))))
-            })
-            .collect::<Vec<_>>();
-
-        let tree_ref_queue = RwLock::new(BinaryHeap::with_capacity(tree_rcs.len() - 1));
-
-        (0..tree_rcs.len() - 1)
-            .into_par_iter()
-            .map(|i| {
-                let left_key = &tree_rcs[i].read().unwrap().get_tree_ref_key();
-                let right_key = &tree_rcs[i + 1].read().unwrap().get_tree_ref_key();
-
-                for j in 0..KEY_LEN {
-                    if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
-                        // The keys are the same and don't diverge
-                        return Err(Exception::new(
-                            "Attempted to insert item with duplicate keys",
-                        ));
-                    }
-                    // Skip bytes until we find a difference
-                    if left_key[j] == right_key[j] {
-                        continue;
-                    }
-
-                    // Find the bit index of the first difference
-                    let xor_key = left_key[j] ^ right_key[j];
-                    let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
-
-                    tree_ref_queue.write().unwrap().push((
-                        split_bit,
-                        Arc::clone(&tree_rcs[i]),
-                        Arc::clone(&tree_rcs[i + 1]),
-                    ));
-                    break;
-                }
-                Ok(())
-            })
-            .reduce(|| Ok(()), |_, _| Ok(()))
-            .unwrap();
-
-        assert!(tree_ref_queue.read().unwrap().len() > 0);
-
-        drop(tree_rcs);
-
-        let iters = tree_ref_queue.read().unwrap().len();
-
-        for _ in 0..iters {
-            let (split_index, tree_ref_pointer, next_tree_ref_pointer) =
-                tree_ref_queue.write().unwrap().pop().unwrap();
-            let mut branch = BranchType::new();
-            let branch_node_location;
-            let count;
-
-            tree_ref_pointer.write().unwrap().update_reference();
-            next_tree_ref_pointer.write().unwrap().update_reference();
-
-            let tree_ref_key = tree_ref_pointer.read().unwrap().get_tree_ref_key();
-            let tree_ref_location = tree_ref_pointer.read().unwrap().get_tree_ref_location();
-            let tree_ref_count = tree_ref_pointer.read().unwrap().get_tree_ref_count();
-
-            let next_tree_ref_location = next_tree_ref_pointer
-                .read()
-                .unwrap()
-                .get_tree_ref_location();
-            let next_tree_ref_count = next_tree_ref_pointer.read().unwrap().get_tree_ref_count();
-
-            {
-                let mut branch_hasher = HasherType::new(KEY_LEN);
-                branch_hasher.update(b"b");
-                branch_hasher.update(&tree_ref_location[..]);
-                branch_hasher.update(&next_tree_ref_location[..]);
-                branch_node_location = branch_hasher.finalize();
-
-                count = tree_ref_count + next_tree_ref_count;
-
-                branch.set_zero(tree_ref_location);
-                branch.set_one(next_tree_ref_location);
-                branch.set_count(count);
-                branch.set_split_index(split_index);
-                branch.set_key(tree_ref_key);
-            }
-
-            let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
-            branch_node.set_references(1);
-
-            self.db.insert(branch_node_location, branch_node)?;
-
-            next_tree_ref_pointer
-                .write()
-                .unwrap()
-                .set_tree_ref_key(tree_ref_key);
-            next_tree_ref_pointer
-                .write()
-                .unwrap()
-                .set_tree_ref_location(branch_node_location);
-            next_tree_ref_pointer
-                .write()
-                .unwrap()
-                .set_tree_ref_count(count);
-
-            *tree_ref_pointer.write().unwrap() = TreeRefWrapper::Ref(next_tree_ref_pointer);
-
-            if tree_ref_queue.read().unwrap().is_empty() {
-                self.db.batch_write()?;
-                return Ok(branch_node_location);
-            }
-        }
-        unreachable!();
-    }
-
     /// Remove all items with less than 1 reference under the given root.
     pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         let mut nodes = VecDeque::with_capacity(128);
@@ -814,8 +727,9 @@ where
 
 #[cfg(test)]
 pub mod tests {
-    use super::*;
     use crate::utils::tree_utils::choose_zero;
+
+    use super::*;
 
     #[test]
     fn it_chooses_the_right_branch_easy() {
