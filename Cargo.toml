@@ -36,13 +36,13 @@ tiny-keccak = { version = "1.4.2", optional = true }
 hashbrown = { version = "0.3.0", optional = true }
 rocksdb = { version = "0.12.1", optional = true }
 rayon = { version = "1.0.3", optional = true }
-chashmap = {version = "2.2.2", optional = true }
+evmap = { version = "5.0.0", optional = true }
+parking_lot = {version = "0.7.1", optional = true }
 
 [features]
 default = []
-default_tree = []
 use_serialization = []
-use_serde = ["default_tree", "serde", "use_serialization"]
+use_serde = ["serde", "use_serialization"]
 use_bincode = ["use_serde", "bincode"]
 use_json = ["use_serde", "serde_json"]
 use_cbor = ["use_serde", "serde_cbor"]
@@ -50,16 +50,16 @@ use_yaml = ["use_serde", "serde_yaml"]
 use_pickle = ["use_serde", "serde-pickle"]
 use_ron = ["use_serde", "ron"]
 
-use_blake2b = ["default_tree", "blake2-rfc"]
-use_groestl = ["default_tree", "groestl"]
-use_sha2 = ["default_tree", "openssl"]
-use_sha3 = ["default_tree", "tiny-keccak"]
-use_keccak = ["default_tree", "tiny-keccak"]
+use_blake2b = ["blake2-rfc"]
+use_groestl = ["groestl"]
+use_sha2 = ["openssl"]
+use_sha3 = ["tiny-keccak"]
+use_keccak = ["tiny-keccak"]
 
-use_hashbrown = ["default_tree", "hashbrown"]
-use_rayon = ["rayon", "chashmap"]
+use_hashbrown = ["hashbrown"]
+use_rayon = ["rayon", "evmap", "parking_lot"]
 
-use_rocksdb = ["default_tree", "rocksdb"]
+use_rocksdb = ["rocksdb"]
 
 [[bench]]
 name = "merkle_bit_benches"
