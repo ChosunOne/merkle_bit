@@ -20,7 +20,7 @@ use crate::traits::Leaf;
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
 
-#[derive(Copy, Clone, Debug, Default)]
+#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
     key: [u8; KEY_LEN],

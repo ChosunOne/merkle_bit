@@ -60,7 +60,7 @@ where
 }
 
 /// Contains the distinguishing data from the node
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType>
 where

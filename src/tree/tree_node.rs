@@ -21,8 +21,10 @@ use crate::traits::{Node, NodeVariant};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
+#[cfg(feature = "use_rayon")]
+use evmap::ShallowCopy;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeNode {
     pub references: u64,
@@ -53,6 +55,14 @@ impl TreeNode {
     }
     fn set_data(&mut self, data: TreeData) {
         self.node = NodeVariant::Data(data);
+    }
+    #[cfg(feature = "use_rayon")]
+    unsafe fn from_raw(node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>, references: u64) -> Self {
+        let node = std::ptr::read(node_variant);
+        Self {
+            references,
+            node
+        }
     }
 }
 
@@ -166,5 +176,13 @@ impl Decode for TreeNode {
 impl Decode for TreeNode {
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(ron::de::from_bytes(buffer)?)
+    }
+}
+
+#[cfg(feature = "use_rayon")]
+impl ShallowCopy for TreeNode {
+    unsafe fn shallow_copy(&mut self) -> TreeNode {
+        let raw_node = &self.node as *const _;
+        TreeNode::from_raw( raw_node, self.references)
     }
 }

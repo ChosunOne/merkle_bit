@@ -19,7 +19,7 @@ use crate::traits::Data;
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeData {
     value: Vec<u8>,

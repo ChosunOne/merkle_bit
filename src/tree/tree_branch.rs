@@ -25,7 +25,7 @@ use crate::traits::Branch;
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};
 
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
     count: u64,

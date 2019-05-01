@@ -3,7 +3,9 @@ extern crate bincode;
 #[cfg(feature = "use_blake2b")]
 extern crate blake2_rfc;
 #[cfg(feature = "use_rayon")]
-extern crate chashmap;
+extern crate evmap;
+#[cfg(feature = "use_rayon")]
+extern crate parking_lot;
 #[cfg(feature = "use_groestl")]
 extern crate groestl;
 #[cfg(feature = "use_hashbrown")]
