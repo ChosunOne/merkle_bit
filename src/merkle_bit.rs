@@ -559,76 +559,81 @@ where
         for i in indices.into_iter().rev() {
             let level = tree_ref_queue.remove(&i).expect("Level should not be empty");
             let num_merges = level.len();
-            for j in 0..num_merges {
-                let (split_index, tree_ref_pointer, next_tree_ref_pointer, index) = level[j];
+            if let Some(new_root) = self.merge_nodes(&mut tree_ref_queue, tree_rcs_raw, level, num_merges)? {
+                return Ok(new_root);
+            };
+        }
+        Err(Exception::new("Failed to build tree"))
+    }
 
-                let mut branch = BranchType::new();
+    fn merge_nodes(&mut self, tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>>, tree_rcs_raw: *mut TreeRef, level: Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>, num_merges: usize) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
+        for j in 0..num_merges {
+            let (split_index, tree_ref_pointer, next_tree_ref_pointer, index) = level[j];
 
-                let tree_ref_key = unsafe { (*tree_ref_pointer).key };
-                let tree_ref_location = unsafe { (*tree_ref_pointer).location };
-                let tree_ref_count = unsafe { (*tree_ref_pointer).node_count };
+            let mut branch = BranchType::new();
 
-                // Find the rightmost edge of the adjacent subtree
-                let mut lookahead_count;
-                let mut lookahead_tree_ref_pointer;
-                unsafe {
-                    let mut _count = (*next_tree_ref_pointer).count;
+            let tree_ref_key = unsafe { (*tree_ref_pointer).key };
+            let tree_ref_location = unsafe { (*tree_ref_pointer).location };
+            let tree_ref_count = unsafe { (*tree_ref_pointer).node_count };
 
-                    if _count > 1 {
-                        // Look ahead by the count from our position
+            // Find the rightmost edge of the adjacent subtree
+            let mut lookahead_count;
+            let mut lookahead_tree_ref_pointer;
+            unsafe {
+                let mut _count = (*next_tree_ref_pointer).count;
+
+                if _count > 1 {
+                    // Look ahead by the count from our position
+                    lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
+                    lookahead_count = (*lookahead_tree_ref_pointer).count;
+                    while lookahead_count > _count {
+                        _count = lookahead_count;
                         lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
                         lookahead_count = (*lookahead_tree_ref_pointer).count;
-                        while lookahead_count > _count {
-                            _count = lookahead_count;
-                            lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
-                            lookahead_count = (*lookahead_tree_ref_pointer).count;
-                        }
-                    } else {
-                        lookahead_count = _count;
-                        lookahead_tree_ref_pointer = next_tree_ref_pointer;
                     }
-                }
-
-                let next_tree_ref_location = unsafe { (*lookahead_tree_ref_pointer).location};
-                let count = unsafe { tree_ref_count + (*lookahead_tree_ref_pointer).node_count };
-                let branch_node_location;
-                {
-                    let mut branch_hasher = HasherType::new(KEY_LEN);
-                    branch_hasher.update(b"b");
-                    branch_hasher.update(&tree_ref_location[..]);
-                    branch_hasher.update(&next_tree_ref_location[..]);
-                    branch_node_location = branch_hasher.finalize();
-
-                    branch.set_zero(tree_ref_location);
-                    branch.set_one(next_tree_ref_location);
-                    branch.set_count(count);
-                    branch.set_split_index(split_index);
-                    branch.set_key(tree_ref_key);
-                }
-
-                let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
-                branch_node.set_references(1);
-
-                self.db.insert(branch_node_location, branch_node)?;
-
-                unsafe {
-                    (*lookahead_tree_ref_pointer).key = tree_ref_key;
-                    (*lookahead_tree_ref_pointer).location = branch_node_location;
-                    (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
-                    (*lookahead_tree_ref_pointer).node_count = count;
-                    let tree_rcs_raw_access = tree_rcs_raw.offset(index);
-                    *tree_rcs_raw_access = *lookahead_tree_ref_pointer;
-                }
-
-                if tree_ref_queue.is_empty() {
-                    self.db.batch_write()?;
-                    return Ok(branch_node_location);
+                } else {
+                    lookahead_count = _count;
+                    lookahead_tree_ref_pointer = next_tree_ref_pointer;
                 }
             }
 
+            let next_tree_ref_location = unsafe { (*lookahead_tree_ref_pointer).location };
+            let count = unsafe { tree_ref_count + (*lookahead_tree_ref_pointer).node_count };
+            let branch_node_location;
+            {
+                let mut branch_hasher = HasherType::new(KEY_LEN);
+                branch_hasher.update(b"b");
+                branch_hasher.update(&tree_ref_location[..]);
+                branch_hasher.update(&next_tree_ref_location[..]);
+                branch_node_location = branch_hasher.finalize();
 
+                branch.set_zero(tree_ref_location);
+                branch.set_one(next_tree_ref_location);
+                branch.set_count(count);
+                branch.set_split_index(split_index);
+                branch.set_key(tree_ref_key);
+            }
+
+            let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
+            branch_node.set_references(1);
+
+            self.db.insert(branch_node_location, branch_node)?;
+
+            unsafe {
+                (*lookahead_tree_ref_pointer).key = tree_ref_key;
+                (*lookahead_tree_ref_pointer).location = branch_node_location;
+                (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
+                (*lookahead_tree_ref_pointer).node_count = count;
+                let tree_rcs_raw_access = tree_rcs_raw.offset(index);
+                *tree_rcs_raw_access = *lookahead_tree_ref_pointer;
+            }
+
+            if tree_ref_queue.is_empty() {
+                self.db.batch_write()?;
+                return Ok(Some(branch_node_location));
+            }
         }
-        Err(Exception::new("Failed to build tree"))
+        Ok(None)
     }
 
     fn generate_tree_ref_queue<'a>(tree_refs: &mut Vec<TreeRef>, tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>>) -> BinaryMerkleTreeResult<(*mut TreeRef, HashSet<u8>)> {
