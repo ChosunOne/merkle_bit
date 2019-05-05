@@ -13,19 +13,7 @@ impl crate::traits::Hasher for SeaHasher {
 
     #[inline]
     fn update(&mut self, data: &[u8]) {
-        for i in (0..data.len()).step_by(16) {
-            let mut values = [0_u8; 16];
-            if i + 16 < data.len() {
-                values.copy_from_slice(&data[i..i + 16]);
-            } else if data.len() < 16 {
-                values[..data.len()].copy_from_slice(&data[i..]);
-            } else {
-                values[..data.len() - i].copy_from_slice(&data[i..]);
-            }
-
-            let num = u128::from_le_bytes(values);
-            Self::write_u128(self, num);
-        }
+        Hasher::write(self, data)
     }
 
     #[inline]

@@ -1,3 +1,7 @@
+#2.5.2
+* Add `SeaHash` support via `use_seahash` feature.
+* Improve performance of `use_rayon`, though it is still slower than any other feature.
+* Improve inlining support when LTO is disabled.
 #2.5.1
 * Futher performance improvements across the board, this time by around 20-30%.
 * Added new unstable feature `use_rayon`.  It currently is much slower than any other feature, but will be receiving
