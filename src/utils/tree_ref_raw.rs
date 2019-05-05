@@ -1,5 +1,5 @@
-use std::ops::Deref;
 use crate::utils::tree_ref::TreeRef;
+use std::ops::Deref;
 
 /// This is a wrapper around a raw pointer of a `TreeRef`.
 /// Used primarily to mark it as Send and Sync.

@@ -1,5 +1,5 @@
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 use crate::constants::KEY_LEN;
 use crate::traits::{Database, Exception};
@@ -10,14 +10,17 @@ use parking_lot::Mutex;
 
 pub struct HashDB {
     read: ReadHandle<[u8; KEY_LEN], TreeNode>,
-    write: Mutex<WriteHandle<[u8; KEY_LEN], TreeNode>>
+    write: Mutex<WriteHandle<[u8; KEY_LEN], TreeNode>>,
 }
 
 impl HashDB {
     #[inline]
     pub fn new(_: HashMap<[u8; KEY_LEN], TreeNode>) -> Self {
         let (read, write) = evmap::new();
-        Self { read, write: Mutex::new(write) }
+        Self {
+            read,
+            write: Mutex::new(write),
+        }
     }
 }
 
@@ -32,9 +35,7 @@ impl Database for HashDB {
 
     #[inline]
     fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception> {
-        if let Some(m) = self.read.get_and(key, |x| {
-            x[x.len() - 1].clone()
-        }) {
+        if let Some(m) = self.read.get_and(key, |x| x[x.len() - 1].clone()) {
             return Ok(Some(m));
         } else {
             return Ok(None);

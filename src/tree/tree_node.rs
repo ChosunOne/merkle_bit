@@ -58,12 +58,12 @@ impl TreeNode {
         self.node = NodeVariant::Data(data);
     }
     #[cfg(feature = "use_rayon")]
-    unsafe fn from_raw(node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>, references: u64) -> Self {
+    unsafe fn from_raw(
+        node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>,
+        references: u64,
+    ) -> Self {
         let node = std::ptr::read(node_variant);
-        Self {
-            references,
-            node
-        }
+        Self { references, node }
     }
 }
 
@@ -204,6 +204,6 @@ impl ShallowCopy for TreeNode {
     #[inline]
     unsafe fn shallow_copy(&mut self) -> Self {
         let raw_node = &self.node as *const _;
-        Self::from_raw( raw_node, self.references)
+        Self::from_raw(raw_node, self.references)
     }
 }

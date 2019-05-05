@@ -9,25 +9,35 @@ pub struct MergeCell {
     /// A raw pointer to the adjacent `TreeRef`.
     pub next_tree_ref_pointer: *mut TreeRef,
     /// The index in the list of `tree_refs` of `tree_ref_pointer`.
-    pub index: usize
+    pub index: usize,
 }
 
 impl MergeCell {
     /// Creates a new `MergeCell`.
     #[inline]
-    pub const fn new(split_index: u8, tree_ref_pointer: *mut TreeRef, next_tree_ref_pointer: *mut TreeRef, index: usize) -> Self {
+    pub const fn new(
+        split_index: u8,
+        tree_ref_pointer: *mut TreeRef,
+        next_tree_ref_pointer: *mut TreeRef,
+        index: usize,
+    ) -> Self {
         Self {
             split_index,
             tree_ref_pointer,
             next_tree_ref_pointer,
-            index
+            index,
         }
     }
 
     /// Decomposes the structure into its constituent parts
     #[inline]
     pub const fn deconstruct(self) -> (u8, *mut TreeRef, *mut TreeRef, usize) {
-        (self.split_index, self.tree_ref_pointer, self.next_tree_ref_pointer, self.index)
+        (
+            self.split_index,
+            self.tree_ref_pointer,
+            self.next_tree_ref_pointer,
+            self.index,
+        )
     }
 }
 
