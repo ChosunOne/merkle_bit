@@ -32,14 +32,13 @@ impl Database for HashDB {
         if let Some(m) = self.read.get_and(key, |x| {
             x[x.len() - 1].clone()
         }) {
-            let node = m;
-            return Ok(Some(node));
+            return Ok(Some(m));
         } else {
             return Ok(None);
         }
     }
 
-    fn insert(&self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
         self.write.lock().insert(key, value);
         Ok(())
     }

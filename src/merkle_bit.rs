@@ -18,6 +18,10 @@ use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_utils::{
     calc_min_split_index, check_descendants, fast_log_2, generate_leaf_map, split_pairs,
 };
+#[cfg(feature = "use_rayon")]
+use crate::utils::merge_cell::MergeCell;
+#[cfg(feature = "use_rayon")]
+use crate::utils::tree_ref_raw::TreeRefRaw;
 
 /// A generic Result from an operation involving a MerkleBIT
 pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
@@ -40,7 +44,7 @@ where
     BranchType: Branch,
     LeafType: Leaf,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
+    NodeType: Node<BranchType, LeafType, DataType> + Send + Sync,
     HasherType: Hasher,
     ValueType: Decode + Encode + Sync + Send,
 {
@@ -61,7 +65,7 @@ where
     BranchType: Branch,
     LeafType: Leaf,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
+    NodeType: Node<BranchType, LeafType, DataType> + Send + Sync,
     HasherType: Hasher<HashType = HasherType>,
     ValueType: Decode + Encode + Sync + Send,
 {
@@ -180,14 +184,14 @@ where
                                 leaf_map.insert(keys[index], Some(value));
                             }
                         } else {
-                            return Err(Exception::new("Corrupt merkle tree"));
+                            return Err(Exception::new("Corrupt merkle tree: Found non data node after leaf"));
                         }
                     } else {
-                        return Err(Exception::new("Corrupt merkle tree"));
+                        return Err(Exception::new("Corrupt merkle tree: Failed to get leaf node from DB"));
                     }
                 }
                 NodeVariant::Data(_) => {
-                    return Err(Exception::new("Corrupt merkle tree"));
+                    return Err(Exception::new("Corrupt merkle tree: Found data node while traversing tree"));
                 }
             }
         }
@@ -292,7 +296,7 @@ where
                         l.set_references(refs);
                         self.db.insert(tree_cell.location, l)?;
                     } else {
-                        return Err(Exception::new("Corrupt merkle tree"));
+                        return Err(Exception::new("Corrupt merkle tree: Failed to update leaf references"));
                     }
 
                     if update {
@@ -303,7 +307,7 @@ where
                     proof_nodes.push(tree_ref);
                     continue;
                 }
-                _ => return Err(Exception::new("Corrupt merkle tree")),
+                _ => return Err(Exception::new("Corrupt merkle tree: Found data node while traversing tree")),
             }
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
@@ -369,7 +373,7 @@ where
                             new_one_node = NodeType::new(NodeVariant::Leaf(l));
                         }
                         _ => {
-                            return Err(Exception::new("Corrupt merkle tree"));
+                            return Err(Exception::new("Corrupt merkle tree: Found data node while traversing tree"));
                         }
                     }
                     new_one_node.set_references(refs);
@@ -404,7 +408,7 @@ where
                             new_zero_node = NodeType::new(NodeVariant::Leaf(l));
                         }
                         _ => {
-                            return Err(Exception::new("Corrupt merkle tree"));
+                            return Err(Exception::new("Corrupt merkle tree: Found data node while traversing tree"));
                         }
                     }
                     new_zero_node.set_references(refs);
@@ -479,7 +483,7 @@ where
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let db = &self.db;
 
-        let nodes: Vec<[u8; 32]> = keys
+        let nodes = keys
             .par_iter()
             .map(|&key| {
                 let mut data = DataType::new();
@@ -524,18 +528,20 @@ where
                     leaf_node.set_references(references);
                 }
 
-                db.insert(data_node_location, data_node)
-                    .expect("Error inserting data node");
-                db.insert(leaf_node_location, leaf_node)
-                    .expect("Error inserting leaf node");
-
-                leaf_node_location
+                (data_node_location, data_node, leaf_node_location, leaf_node)
             })
             .collect::<Vec<_>>();
 
-        Ok(nodes)
+        let node_locations = nodes.into_iter().map(|x| {
+            self.db.insert(x.0, x.1).unwrap();
+            self.db.insert(x.2, x.3).unwrap();
+            x.2
+        }).collect::<Vec<_>>();
+
+        Ok(node_locations)
     }
 
+    #[cfg(not(feature = "use_rayon"))]
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef>,
@@ -552,24 +558,52 @@ where
 
         let mut tree_ref_queue = HashMap::new();
 
-        let (tree_rcs_raw, unique_split_bits) = Self::generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
+        let (tree_refs_raw, unique_split_bits) = Self::generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
         let mut indices = unique_split_bits.into_iter().collect::<Vec<_>>();
         indices.sort();
 
+        let mut root = None;
         for i in indices.into_iter().rev() {
             let level = tree_ref_queue.remove(&i).expect("Level should not be empty");
-            let num_merges = level.len();
-            if let Some(new_root) = self.merge_nodes(&mut tree_ref_queue, tree_rcs_raw, level, num_merges)? {
-                return Ok(new_root);
-            };
+            root = self.merge_nodes(tree_refs_raw, level)?;
         }
-        Err(Exception::new("Failed to build tree"))
+        Ok(root.unwrap())
     }
 
-    fn merge_nodes(&mut self, tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>>, tree_rcs_raw: *mut TreeRef, level: Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>, num_merges: usize) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
-        for j in 0..num_merges {
-            let (split_index, tree_ref_pointer, next_tree_ref_pointer, index) = level[j];
+    #[cfg(feature = "use_rayon")]
+    fn create_tree(
+        &mut self,
+        mut tree_refs: Vec<TreeRef>,
+    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        assert!(!tree_refs.is_empty());
 
+        if tree_refs.len() == 1 {
+            self.db.batch_write()?;
+            let node = tree_refs.remove(0);
+            return Ok(node.location);
+        }
+
+        tree_refs.sort();
+
+        let mut tree_ref_queue = HashMap::new();
+
+        let (tree_refs_raw, unique_split_bits) = Self::generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
+        let mut indices = unique_split_bits.into_iter().collect::<Vec<_>>();
+        indices.sort();
+
+        let mut root = [0; 32];
+        for i in indices.into_iter().rev() {
+            let level = tree_ref_queue.remove(&i).expect("Level should not be empty");
+            root = self.merge_nodes(tree_refs_raw, level)?;
+        }
+        self.db.batch_write()?;
+        Ok(root)
+    }
+
+    #[cfg(not(feature = "use_rayon"))]
+    fn merge_nodes(&mut self, tree_refs_raw: *mut TreeRef, level: Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
+        let mut root = [0; 32];
+        for (split_index, tree_ref_pointer, next_tree_ref_pointer, index) in level.into_iter() {
             let mut branch = BranchType::new();
 
             let tree_ref_key = unsafe { (*tree_ref_pointer).key };
@@ -584,11 +618,11 @@ where
 
                 if _count > 1 {
                     // Look ahead by the count from our position
-                    lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
+                    lookahead_tree_ref_pointer = tree_refs_raw.offset(index + _count as isize);
                     lookahead_count = (*lookahead_tree_ref_pointer).count;
                     while lookahead_count > _count {
                         _count = lookahead_count;
-                        lookahead_tree_ref_pointer = tree_rcs_raw.offset(index + _count as isize);
+                        lookahead_tree_ref_pointer = tree_refs_raw.offset(index + _count as isize);
                         lookahead_count = (*lookahead_tree_ref_pointer).count;
                     }
                 } else {
@@ -624,19 +658,99 @@ where
                 (*lookahead_tree_ref_pointer).location = branch_node_location;
                 (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
                 (*lookahead_tree_ref_pointer).node_count = count;
-                let tree_rcs_raw_access = tree_rcs_raw.offset(index);
+                let tree_rcs_raw_access = tree_refs_raw.offset(index);
                 *tree_rcs_raw_access = *lookahead_tree_ref_pointer;
             }
 
-            if tree_ref_queue.is_empty() {
-                self.db.batch_write()?;
-                return Ok(Some(branch_node_location));
-            }
+            root = branch_node_location;
         }
-        Ok(None)
+        Ok(Some(root))
     }
 
-    fn generate_tree_ref_queue<'a>(tree_refs: &mut Vec<TreeRef>, tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>>) -> BinaryMerkleTreeResult<(*mut TreeRef, HashSet<u8>)> {
+    #[cfg(feature = "use_rayon")]
+    fn merge_nodes(&mut self, tree_rcs_raw: *mut TreeRef, level: Vec<MergeCell>) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        let raw_tree_refs = TreeRefRaw(tree_rcs_raw);
+        let root: Vec<BinaryMerkleTreeResult<([u8; 32], u8, NodeType)>> = level.into_par_iter().map(|merge_cell| {
+            let (split_index, tree_ref_pointer, next_tree_ref_pointer, index) = merge_cell.deconstruct();
+            let mut branch = BranchType::new();
+
+            let tree_ref_key = unsafe { (*tree_ref_pointer).key };
+            let tree_ref_location = unsafe { (*tree_ref_pointer).location };
+            let tree_ref_count = unsafe { (*tree_ref_pointer).node_count };
+
+            // Find the rightmost edge of the adjacent subtree
+            let mut lookahead_count;
+            let mut lookahead_tree_ref_pointer;
+            unsafe {
+                let mut _count = (*next_tree_ref_pointer).count;
+
+                if _count > 1 {
+                    // Look ahead by the count from our position
+                    lookahead_tree_ref_pointer = raw_tree_refs.offset(index + _count as isize);
+                    lookahead_count = (*lookahead_tree_ref_pointer).count;
+                    while lookahead_count > _count {
+                        _count = lookahead_count;
+                        lookahead_tree_ref_pointer = raw_tree_refs.offset(index + _count as isize);
+                        lookahead_count = (*lookahead_tree_ref_pointer).count;
+                    }
+                } else {
+                    lookahead_count = _count;
+                    lookahead_tree_ref_pointer = next_tree_ref_pointer;
+                }
+            }
+
+            let next_tree_ref_location = unsafe { (*lookahead_tree_ref_pointer).location };
+            let count = unsafe { tree_ref_count + (*lookahead_tree_ref_pointer).node_count };
+            let branch_node_location;
+            {
+                let mut branch_hasher = HasherType::new(KEY_LEN);
+                branch_hasher.update(b"b");
+                branch_hasher.update(&tree_ref_location[..]);
+                branch_hasher.update(&next_tree_ref_location[..]);
+                branch_node_location = branch_hasher.finalize();
+
+                branch.set_zero(tree_ref_location);
+                branch.set_one(next_tree_ref_location);
+                branch.set_count(count);
+                branch.set_split_index(split_index);
+                branch.set_key(tree_ref_key);
+            }
+
+            let mut branch_node = NodeType::new(NodeVariant::Branch(branch));
+            branch_node.set_references(1);
+
+            unsafe {
+                (*lookahead_tree_ref_pointer).key = tree_ref_key;
+                (*lookahead_tree_ref_pointer).location = branch_node_location;
+                (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
+                (*lookahead_tree_ref_pointer).node_count = count;
+                let tree_rcs_raw_access = raw_tree_refs.offset(index);
+                *tree_rcs_raw_access = *lookahead_tree_ref_pointer;
+            }
+
+            Ok((branch_node_location, split_index, branch_node))
+        }).collect::<Vec<_>>();
+
+        let root_len = root.len() - 1;
+        for (i, result) in root.into_iter().enumerate() {
+            if let Ok(item) = result {
+                self.db.insert(item.0, item.2)?;
+                if i == root_len {
+                    return Ok(item.0)
+                }
+            } else {
+                return Err(Exception::new("Failed to make tree root"));
+            }
+
+        }
+
+        self.db.batch_write()?;
+
+        Err(Exception::new("Failed to make tree root"))
+    }
+
+    #[cfg(not(feature = "use_rayon"))]
+    fn generate_tree_ref_queue(tree_refs: &mut Vec<TreeRef>, tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, isize)>>) -> BinaryMerkleTreeResult<(*mut TreeRef, HashSet<u8>)> {
         let tree_rcs_raw = tree_refs.as_mut_ptr();
         let mut unique_split_bits = HashSet::new();
         for i in 0..tree_refs.len() - 1 {
@@ -662,8 +776,52 @@ where
                 let new_item = unsafe {
                     (
                         split_bit,
-                        tree_rcs_raw.offset(i as isize),
-                        tree_rcs_raw.offset((i + 1) as isize),
+                        tree_rcs_raw.add(i),
+                        tree_rcs_raw.add(i + 1),
+                        i as isize,
+                    )
+                };
+                if let Some(v) = tree_ref_queue.get_mut(&split_bit) {
+                    v.push(new_item);
+                } else {
+                    tree_ref_queue.insert(split_bit, vec![new_item]);
+                }
+
+                break;
+            }
+        }
+        Ok((tree_rcs_raw, unique_split_bits))
+    }
+
+    #[cfg(feature = "use_rayon")]
+    fn generate_tree_ref_queue<'a>(tree_refs: &mut Vec<TreeRef>, tree_ref_queue: &mut HashMap<u8, Vec<MergeCell>>) -> BinaryMerkleTreeResult<(*mut TreeRef, HashSet<u8>)> {
+        let tree_rcs_raw = tree_refs.as_mut_ptr();
+        let mut unique_split_bits = HashSet::new();
+        for i in 0..tree_refs.len() - 1 {
+            let left_key = tree_refs[i].key;
+            let right_key = tree_refs[i + 1].key;
+
+            for j in 0..KEY_LEN {
+                if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+                    // The keys are the same and don't diverge
+                    return Err(Exception::new(
+                        "Attempted to insert item with duplicate keys",
+                    ));
+                }
+                // Skip bytes until we find a difference
+                if left_key[j] == right_key[j] {
+                    continue;
+                }
+
+                // Find the bit index of the first difference
+                let xor_key = left_key[j] ^ right_key[j];
+                let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+                unique_split_bits.insert(split_bit);
+                let new_item = unsafe {
+                    MergeCell::new(
+                        split_bit,
+                        tree_rcs_raw.add(i),
+                        tree_rcs_raw.add(i + 1),
                         i as isize,
                     )
                 };

@@ -80,10 +80,7 @@ pub trait Database {
     where
         Self: Sized;
     fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception>;
-    #[cfg(not(feature = "use_rayon"))]
     fn insert(&mut self, key: [u8; KEY_LEN], node: Self::NodeType) -> Result<(), Exception>;
-    #[cfg(feature = "use_rayon")]
-    fn insert(&self, key: [u8; KEY_LEN], node: Self::NodeType) -> Result<(), Exception>;
     fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception>;
     fn batch_write(&mut self) -> Result<(), Exception>;
 }
