@@ -1,5 +1,3 @@
-extern crate starling;
-
 use starling::constants::KEY_LEN;
 use starling::merkle_bit::BinaryMerkleTreeResult;
 

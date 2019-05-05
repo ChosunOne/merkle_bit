@@ -7,7 +7,6 @@ This tree structure is a binary merkle tree with branch compression via split in
 To quickly get started and get a feel for the Merkle-BIT, you can use the already implemented HashTree structure.
 
 ```rust
-    extern crate starling;
     use std::error::Error;
     use starling::tree::HashTree;
     
@@ -74,7 +73,6 @@ providing up to 10% performance gains.  This feature will be deprecated once ```
 To use the full power of the Merkle-BIT structure, you should customize the structures stored in the tree to match your needs.  
 If you provide your own implementation of the traits for each component of the tree structure, the tree can utilize them over the default implementation.
 ```rust
-    extern crate starling;
     use starling::merkle_bit::MerkleBIT;
     use std::path::PathBuf;
     use std::error::Error;
