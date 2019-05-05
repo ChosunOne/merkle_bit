@@ -1,53 +1,31 @@
-#[cfg(feature = "use_bincode")]
-extern crate bincode;
-#[cfg(feature = "use_blake2b")]
-extern crate blake2_rfc;
-#[cfg(feature = "use_rayon")]
-extern crate evmap;
-#[cfg(feature = "use_rayon")]
-extern crate parking_lot;
-#[cfg(feature = "use_groestl")]
-extern crate groestl;
-#[cfg(feature = "use_hashbrown")]
-extern crate hashbrown;
-#[cfg(feature = "use_sha2")]
-extern crate openssl;
-#[cfg(feature = "use_rayon")]
-extern crate rayon;
-#[cfg(feature = "use_rocksdb")]
-extern crate rocksdb;
-#[cfg(feature = "use_ron")]
-extern crate ron;
-#[cfg(any(
-    feature = "use_serde",
-    feature = "use_bincode",
-    feature = "use_json",
-    feature = "use_cbor",
-    feature = "use_yaml",
-    feature = "use_pickle",
-    feature = "use_ron"
-))]
-extern crate serde;
-#[cfg(feature = "use_cbor")]
-extern crate serde_cbor;
-#[cfg(feature = "use_json")]
-extern crate serde_json;
-#[cfg(feature = "use_pickle")]
-extern crate serde_pickle;
-#[cfg(feature = "use_yaml")]
-extern crate serde_yaml;
-#[cfg(feature = "use_sha3")]
-extern crate tiny_keccak;
-#[cfg(feature = "use_keccak")]
-extern crate tiny_keccak;
+#![allow(unknown_lints)]
+
+// Clippy configurations
+#![warn(
+clippy::all,
+clippy::restriction,
+clippy::pedantic,
+clippy::nursery,
+clippy::cargo,
+)]
+#![allow(clippy::integer_arithmetic)]
+#![allow(clippy::indexing_slicing)]
+#![allow(clippy::cast_possible_truncation)]
+#![allow(clippy::implicit_return)]
+#![allow(clippy::missing_docs_in_private_items)]
+#![allow(clippy::else_if_without_else)]
+#![allow(clippy::module_name_repetitions)]
 
 pub mod constants;
 pub mod hash_tree;
 pub mod merkle_bit;
 pub mod traits;
 pub mod tree;
+/// Contains a collection of structs for implementing tree databases.
 pub mod tree_db;
+/// Contains a collection of structs for implementing hashing functions in the tree.
 pub mod tree_hasher;
+/// Contains a collection of useful structs and functions for tree operations.
 pub mod utils;
 
 #[cfg(feature = "use_rocksdb")]

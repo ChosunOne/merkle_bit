@@ -1,5 +1,6 @@
 #[cfg(feature = "use_blake2b")]
 pub mod blake2b;
+/// The default Rust hashing function expanded to 32 bytes.
 #[cfg(not(any(
     feature = "use_blake2b",
     feature = "use_groestl",
@@ -17,6 +18,7 @@ pub mod sha256;
 #[cfg(feature = "use_sha3")]
 pub mod sha3;
 
+/// The kind of hasher to use in the tree.
 #[cfg(not(any(
     feature = "use_blake2b",
     feature = "use_groestl",

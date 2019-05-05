@@ -26,17 +26,20 @@ impl<ValueType> HashTree<ValueType>
 where
     ValueType: Encode + Decode + Sync + Send,
 {
+    #[inline]
     pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
         let path = PathBuf::new();
         let tree = MerkleBIT::new(&path, depth)?;
         Ok(Self { tree })
     }
 
-    pub fn open(_path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
-        let tree = MerkleBIT::new(&_path, depth)?;
+    #[inline]
+    pub fn open(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
+        let tree = MerkleBIT::new(path, depth)?;
         Ok(Self { tree })
     }
 
+    #[inline]
     pub fn get<'a>(
         &self,
         root_hash: &[u8; KEY_LEN],
@@ -45,6 +48,7 @@ where
         self.tree.get(root_hash, keys)
     }
 
+    #[inline]
     pub fn insert(
         &mut self,
         previous_root: Option<&[u8; KEY_LEN]>,
@@ -54,6 +58,7 @@ where
         self.tree.insert(previous_root, keys, values)
     }
 
+    #[inline]
     pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }

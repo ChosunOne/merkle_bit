@@ -8,8 +8,9 @@ use crate::traits::{Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
 
 impl From<rocksdb::Error> for Exception {
+    #[inline]
     fn from(error: rocksdb::Error) -> Self {
-        Exception::new(error.description())
+        Self::new(error.description())
     }
 }
 
@@ -19,6 +20,7 @@ pub struct RocksDB {
 }
 
 impl RocksDB {
+    #[inline]
     pub fn new(db: DB) -> Self {
         Self {
             db,
@@ -31,10 +33,12 @@ impl Database for RocksDB {
     type NodeType = TreeNode;
     type EntryType = (usize, usize);
 
+    #[inline]
     fn open(path: &PathBuf) -> Result<Self, Exception> {
-        Ok(RocksDB::new(DB::open_default(path)?))
+        Ok(Self::new(DB::open_default(path)?))
     }
 
+    #[inline]
     fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception> {
         if let Some(buffer) = self.db.get(key)? {
             Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
@@ -43,6 +47,7 @@ impl Database for RocksDB {
         }
     }
 
+    #[inline]
     fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
@@ -55,10 +60,12 @@ impl Database for RocksDB {
         Ok(())
     }
 
+    #[inline]
     fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception> {
         Ok(self.db.delete(key)?)
     }
 
+    #[inline]
     fn batch_write(&mut self) -> Result<(), Exception> {
         if let Some(wb) = self.pending_inserts.replace(WriteBatch::default()) {
             self.db.write(wb)?;

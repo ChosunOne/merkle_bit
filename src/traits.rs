@@ -90,7 +90,8 @@ pub trait Encode {
 }
 
 impl Encode for Vec<u8> {
-    fn encode(&self) -> Result<Vec<u8>, Exception> {
+    #[inline]
+    fn encode(&self) -> Result<Self, Exception> {
         Ok(self.clone())
     }
 }
@@ -102,7 +103,8 @@ pub trait Decode {
 }
 
 impl Decode for Vec<u8> {
-    fn decode(buffer: &[u8]) -> Result<Vec<u8>, Exception> {
+    #[inline]
+    fn decode(buffer: &[u8]) -> Result<Self, Exception> {
         Ok(buffer.to_vec())
     }
 }
@@ -113,20 +115,23 @@ pub struct Exception {
 }
 
 impl Exception {
-    pub fn new(details: &str) -> Exception {
-        Exception {
+    #[inline]
+    pub fn new(details: &str) -> Self {
+        Self {
             details: details.to_string(),
         }
     }
 }
 
 impl Display for Exception {
+    #[inline]
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
         write!(f, "{}", self.details)
     }
 }
 
 impl Error for Exception {
+    #[inline]
     fn description(&self) -> &str {
         &self.details
     }
