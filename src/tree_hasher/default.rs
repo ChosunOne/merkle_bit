@@ -10,10 +10,12 @@ impl crate::traits::Hasher for DefaultHasher {
     fn new(_size: usize) -> Self {
         Self::new()
     }
+
     #[inline]
     fn update(&mut self, data: &[u8]) {
         Self::write(self, data)
     }
+
     #[inline]
     fn finalize(self) -> [u8; KEY_LEN] {
         let value = Self::finish(&self).to_le_bytes();
