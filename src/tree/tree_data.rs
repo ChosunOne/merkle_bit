@@ -19,21 +19,26 @@ use crate::traits::Data;
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode};
 
+/// `TreeData` represents the data to be stored in the tree for a given key.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeData {
+    /// The value to be stored in the tree.
     value: Vec<u8>,
 }
 
 impl TreeData {
+    /// Creates a new `TreeData` node.
     fn new() -> Self {
         Self { value: vec![] }
     }
 
+    /// Gets the value for this node.
     fn get_value(&self) -> &[u8] {
         &self.value
     }
 
+    /// Sets the value for this node.
     fn set_value(&mut self, value: Vec<u8>) {
         self.value = value
     }

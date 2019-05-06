@@ -4,7 +4,7 @@ use std::collections::HashMap;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
-use crate::constants::{KEY_LEN, KEY_LEN_BITS};
+use crate::constants::{KEY_LEN, KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
@@ -138,6 +138,3 @@ pub const fn fast_log_2(num: u8) -> u8 {
     log |= log >> 4;
     MULTIPLY_DE_BRUIJN_BIT_POSITION[((0x1d_usize * log as usize) as u8 >> 5) as usize]
 }
-
-/// These constants are used to quickly calculate the values of log2.
-const MULTIPLY_DE_BRUIJN_BIT_POSITION: [u8; 8] = [0, 5, 1, 6, 4, 3, 2, 7];

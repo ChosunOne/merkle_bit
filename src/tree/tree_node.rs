@@ -24,14 +24,18 @@ use crate::tree::tree_leaf::TreeLeaf;
 #[cfg(feature = "use_rayon")]
 use evmap::ShallowCopy;
 
+/// A node in the tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeNode {
+    /// The number of references to this node.
     pub references: u64,
+    /// The `NodeVariant` of the node.
     pub node: NodeVariant<TreeBranch, TreeLeaf, TreeData>,
 }
 
 impl TreeNode {
+    /// Creates a new `TreeNode`.
     #[inline]
     pub const fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
         Self {
@@ -40,20 +44,27 @@ impl TreeNode {
         }
     }
 
+    /// Gets the number of references to the node.
     const fn get_references(&self) -> u64 {
         self.references
     }
 
+    /// Sets the number of references to the node.
     fn set_references(&mut self, references: u64) {
         self.references = references;
     }
+
+    /// Sets the node as a `NodeVariant::Branch`.
     fn set_branch(&mut self, branch: TreeBranch) {
         self.node = NodeVariant::Branch(branch);
     }
 
+    /// Sets the node as a `NodeVariant::Leaf`.
     fn set_leaf(&mut self, leaf: TreeLeaf) {
         self.node = NodeVariant::Leaf(leaf);
     }
+
+    /// Sets the node as a `NodeVariant::Data`.
     fn set_data(&mut self, data: TreeData) {
         self.node = NodeVariant::Data(data);
     }

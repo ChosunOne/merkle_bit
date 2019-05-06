@@ -14,6 +14,7 @@ pub mod default;
 pub mod groestl;
 #[cfg(feature = "use_keccak")]
 pub mod keccak;
+/// Holds the implementation of `crate::traits::Hasher` for `SeaHasher`
 #[cfg(feature = "use_seahash")]
 pub mod seahasher;
 #[cfg(feature = "use_sha2")]
@@ -43,5 +44,7 @@ pub type TreeHasher = sha256::Sha256Hasher;
 pub type TreeHasher = sha3::Sha3Hasher;
 #[cfg(feature = "use_keccak")]
 pub type TreeHasher = keccak::KeccakHasher;
+
+/// The kind of hasher to use in the tree.
 #[cfg(feature = "use_seahash")]
 pub type TreeHasher = seahash::SeaHasher;

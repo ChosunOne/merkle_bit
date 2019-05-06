@@ -49,13 +49,21 @@ where
     HasherType: Hasher,
     ValueType: Decode + Encode,
 {
+    /// The database to store tree nodes.
     db: DatabaseType,
+    /// The maximum depth of the tree.
     depth: usize,
+    /// Marker for dealing with `BranchType`.
     branch: PhantomData<*const BranchType>,
+    /// Marker for dealing with `LeafType`.
     leaf: PhantomData<*const LeafType>,
+    /// Marker for dealing with `DataType`.
     data: PhantomData<*const DataType>,
+    /// Marker for dealing with `NodeType`.
     node: PhantomData<*const NodeType>,
+    /// Marker for dealing with `HasherType`.
     hasher: PhantomData<*const HasherType>,
+    /// Marker for dealing with `ValueType`.
     value: PhantomData<*const ValueType>,
 }
 
@@ -92,7 +100,7 @@ where
     HasherType: Hasher<HashType = HasherType>,
     ValueType: Decode + Encode,
 {
-    /// Create a new MerkleBIT from a saved database
+    /// Create a new `MerkleBIT` from a saved database
     #[inline]
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
@@ -108,7 +116,7 @@ where
         })
     }
 
-    /// Create a new MerkleBIT from an already opened database
+    /// Create a new `MerkleBIT` from an already opened database
     #[inline]
     pub fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
         Ok(Self {
@@ -123,7 +131,7 @@ where
         })
     }
 
-    /// Get items from the MerkleBIT.  Returns a map of Options which may include the corresponding values.
+    /// Get items from the `MerkleBIT`.  Returns a map of `Option`s which may include the corresponding values.
     #[inline]
     pub fn get<'a>(
         &self,
@@ -231,7 +239,7 @@ where
         Ok(leaf_map)
     }
 
-    /// Insert items into the MerkleBIT.  Keys must be sorted.  Returns a new root hash for the MerkleBIT.
+    /// Insert items into the `MerkleBIT`.  Keys must be sorted.  Returns a new root hash for the `MerkleBIT`.
     #[inline]
     pub fn insert(
         &mut self,
@@ -273,6 +281,7 @@ where
         Ok(new_root)
     }
 
+    /// Traverses the tree and searches for nodes to include in the merkle proof.
     fn generate_treerefs(
         &mut self,
         root: &[u8; KEY_LEN],
@@ -459,6 +468,8 @@ where
         Ok(proof_nodes)
     }
 
+    /// Inserts all the new leaves into the database.
+    /// Updates reference count if a leaf already exists.
     fn insert_leaves(
         &mut self,
         keys: &[&[u8; KEY_LEN]],
@@ -511,6 +522,8 @@ where
         Ok(nodes)
     }
 
+    /// This function generates the queue of `TreeRef`s and merges the queue together to create a
+    /// new tree root.
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef>,
@@ -542,6 +555,7 @@ where
         Ok(root.expect("Failed to get root"))
     }
 
+    /// Performs the merging of `TreeRef`s until a single new root is left.
     fn merge_nodes(
         &mut self,
         tree_refs_raw: *mut TreeRef,
@@ -612,6 +626,7 @@ where
         Ok(Some(root))
     }
 
+    /// Generates the `TreeRef`s that will be made into the new tree.
     fn generate_tree_ref_queue(
         tree_refs: &mut Vec<TreeRef>,
         tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, usize)>>,
@@ -910,6 +925,7 @@ where
         Ok(new_root)
     }
 
+    /// Traverses the tree and searches for nodes to include in the merkle proof.
     fn generate_treerefs(
         &mut self,
         root: &[u8; KEY_LEN],
@@ -1096,6 +1112,8 @@ where
         Ok(proof_nodes)
     }
 
+    /// Inserts all the new leaves into the database.
+    /// Updates reference count if a leaf already exists.
     fn insert_leaves(
         &mut self,
         keys: &[&[u8; KEY_LEN]],
@@ -1164,6 +1182,8 @@ where
         Ok(node_locations)
     }
 
+    /// This function generates the queue of `TreeRef`s and merges the queue together to create a
+    /// new tree root.
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef>,
@@ -1196,6 +1216,7 @@ where
         Ok(root)
     }
 
+    /// Performs the merging of `TreeRef`s until a single new root is left.
     fn merge_nodes(
         &mut self,
         tree_rcs_raw: *mut TreeRef,
@@ -1285,6 +1306,7 @@ where
         Err(Exception::new("Failed to make tree root"))
     }
 
+    /// Generates the `TreeRef`s that will be made into the new tree.
     fn generate_tree_ref_queue(
         tree_refs: &mut Vec<TreeRef>,
         tree_ref_queue: &mut HashMap<u8, Vec<MergeCell>>,

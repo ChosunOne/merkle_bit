@@ -25,17 +25,24 @@ use crate::traits::Branch;
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};
 
+/// A struct representing a branch in the tree.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
 pub struct TreeBranch {
+    /// The number of leaf nodes under this branch.
     count: u64,
+    /// The location of the next node when traversing the zero branch.
     zero: [u8; KEY_LEN],
+    /// The location of the next node when traversing the one branch.
     one: [u8; KEY_LEN],
+    /// The index bit of the associated key on which to make a decision to go down the zero or one branch.
     split_index: u8,
+    /// The associated key with this branch.
     key: [u8; KEY_LEN],
 }
 
 impl TreeBranch {
+    /// Create a new `TreeBranch`
     const fn new() -> Self {
         Self {
             count: 0,
@@ -46,38 +53,57 @@ impl TreeBranch {
         }
     }
 
+    /// Get the count of leaf nodes under this branch.
     const fn get_count(&self) -> u64 {
         self.count
     }
+
+    /// Get the location of the next node when going down the zero side.
     const fn get_zero(&self) -> &[u8; KEY_LEN] {
         &self.zero
     }
+
+    /// Get the location of the next node when going down the one side.
     const fn get_one(&self) -> &[u8; KEY_LEN] {
         &self.one
     }
+
+    /// Get the index to split on when deciding which child to traverse.
     const fn get_split_index(&self) -> u8 {
         self.split_index
     }
+
+    /// Get the associated key with this branch.
     const fn get_key(&self) -> &[u8; KEY_LEN] {
         &self.key
     }
 
+    /// Set the number of leaf nodes under this branch.
     fn set_count(&mut self, count: u64) {
         self.count = count;
     }
+
+    /// Set the location of the next node to traverse when going down the zero side.
     fn set_zero(&mut self, zero: [u8; KEY_LEN]) {
         self.zero = zero;
     }
+
+    /// Set the location of the next node to traverse when going down the one side.
     fn set_one(&mut self, one: [u8; KEY_LEN]) {
         self.one = one;;
     }
+
+    /// Sets the index of the key to split on when deciding which child to traverse.
     fn set_split_index(&mut self, split_index: u8) {
         self.split_index = split_index;
     }
+
+    /// Sets the associated key for this node.
     fn set_key(&mut self, key: [u8; KEY_LEN]) {
         self.key = key;
     }
 
+    /// Decomposes the `TreeBranch` into its constituent parts.
     const fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
         (self.count, self.zero, self.one, self.split_index, self.key)
     }

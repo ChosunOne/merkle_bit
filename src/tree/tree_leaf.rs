@@ -20,14 +20,18 @@ use crate::traits::Leaf;
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
 
+/// Represents a leaf of the tree.  Holds a pointer to the location of the underlying `Data` node.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
 pub struct TreeLeaf {
+    /// The associated key with this node.
     key: [u8; KEY_LEN],
+    /// The location of the `Data` node in the tree.
     data: [u8; KEY_LEN],
 }
 
 impl TreeLeaf {
+    /// Creates a new `TreeLeaf`.
     #[inline]
     pub const fn new() -> Self {
         Self {
@@ -36,49 +40,64 @@ impl TreeLeaf {
         }
     }
 
+    /// Gets the associated key with the node.
     const fn get_key(&self) -> &[u8; KEY_LEN] {
         &self.key
     }
+
+    /// Gets the location of the `Data` node from this node.
     const fn get_data(&self) -> &[u8; KEY_LEN] {
         &self.data
     }
 
+    /// Sets the associated key with the node.
     fn set_key(&mut self, key: [u8; KEY_LEN]) {
         self.key = key;
     }
+
+    /// Sets the location of the `Data` node.
     fn set_data(&mut self, data: [u8; KEY_LEN]) {
         self.data = data;
     }
 
+    /// Decomposes the `TreeLeaf` into its constituent parts.
     const fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
         (self.key, self.data)
     }
 }
 
 impl Leaf for TreeLeaf {
+    /// Creates a new `TreeLeaf`
     #[inline]
     fn new() -> Self {
         Self::new()
     }
 
+    /// Gets the associated key with this node.
     #[inline]
     fn get_key(&self) -> &[u8; KEY_LEN] {
         Self::get_key(self)
     }
+
+    /// Gets the location of the `Data` node.
     #[inline]
     fn get_data(&self) -> &[u8; KEY_LEN] {
         Self::get_data(self)
     }
 
+    /// Sets the associated key with this node.
     #[inline]
     fn set_key(&mut self, key: [u8; KEY_LEN]) {
         Self::set_key(self, key)
     }
+
+    /// Sets the location for the `Data` node.
     #[inline]
     fn set_data(&mut self, data: [u8; KEY_LEN]) {
         Self::set_data(self, data)
     }
 
+    /// Decomposes the struct into its constituent parts.
     #[inline]
     fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
         Self::deconstruct(self)
