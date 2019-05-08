@@ -68,6 +68,7 @@ impl TreeNode {
     fn set_data(&mut self, data: TreeData) {
         self.node = NodeVariant::Data(data);
     }
+    
     #[cfg(feature = "use_rayon")]
     unsafe fn from_raw(
         node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>,

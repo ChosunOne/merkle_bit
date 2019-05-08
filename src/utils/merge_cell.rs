@@ -31,7 +31,7 @@ impl MergeCell {
 
     /// Decomposes the structure into its constituent parts
     #[inline]
-    pub const fn deconstruct(self) -> (u8, *mut TreeRef, *mut TreeRef, usize) {
+    pub const fn decompose(self) -> (u8, *mut TreeRef, *mut TreeRef, usize) {
         (
             self.split_index,
             self.tree_ref_pointer,

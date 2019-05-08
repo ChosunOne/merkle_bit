@@ -149,12 +149,11 @@ where
         #[cfg(feature = "use_rayon")]
         keys.par_sort();
 
-        let root_node;
-        if let Some(n) = self.db.get_node(root_hash)? {
-            root_node = n;
+        let root_node = if let Some(n) = self.db.get_node(root_hash)? {
+            n
         } else {
             return Ok(leaf_map);
-        }
+        };
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
 
@@ -172,7 +171,7 @@ where
 
             match node.get_variant() {
                 NodeVariant::Branch(branch) => {
-                    let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
+                    let (_, zero, one, branch_split_index, branch_key) = branch.decompose();
                     let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
                     let descendants = check_descendants(
                         tree_cell.keys,
@@ -356,7 +355,7 @@ where
             }
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
-                branch.deconstruct();
+                branch.decompose();
 
             let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
 
@@ -674,18 +673,13 @@ where
         nodes.push_front(*root_hash);
 
         while !nodes.is_empty() {
-            let node_location = if let Some(l) = nodes.pop_front() {
-                l
-            } else {
-                return Err(Exception::new("Empty node queue"));
-            };
+            let node_location = nodes.pop_front().expect("Node queue should not be empty");
 
-            let mut node;
-            if let Some(n) = self.db.get_node(&node_location)? {
-                node = n;
+            let node = if let Some(n) = self.db.get_node(&node_location)? {
+                n
             } else {
                 continue;
-            }
+            };
 
             let mut refs = node.get_references();
             if refs > 0 {
@@ -816,7 +810,7 @@ where
 
             match node.get_variant() {
                 NodeVariant::Branch(branch) => {
-                    let (_, zero, one, branch_split_index, branch_key) = branch.deconstruct();
+                    let (_, zero, one, branch_split_index, branch_key) = branch.decompose();
                     let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
                     let descendants = check_descendants(
                         tree_cell.keys,
@@ -1000,7 +994,7 @@ where
             }
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
-                branch.deconstruct();
+                branch.decompose();
 
             let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
 
@@ -1227,7 +1221,7 @@ where
             .into_par_iter()
             .map(|merge_cell| {
                 let (split_index, tree_ref_pointer, next_tree_ref_pointer, index) =
-                    merge_cell.deconstruct();
+                    merge_cell.decompose();
                 let mut branch = BranchType::new();
 
                 let tree_ref_key = unsafe { (*tree_ref_pointer).key };

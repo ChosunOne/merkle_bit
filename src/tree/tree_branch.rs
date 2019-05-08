@@ -104,7 +104,7 @@ impl TreeBranch {
     }
 
     /// Decomposes the `TreeBranch` into its constituent parts.
-    const fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
+    const fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
         (self.count, self.zero, self.one, self.split_index, self.key)
     }
 }
@@ -158,8 +158,8 @@ impl Branch for TreeBranch {
     }
 
     #[inline]
-    fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
-        Self::deconstruct(self)
+    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
+        Self::decompose(self)
     }
 }
 

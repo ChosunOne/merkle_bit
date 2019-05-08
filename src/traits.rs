@@ -44,7 +44,7 @@ pub trait Branch {
     /// Sets the associated key for this node.
     fn set_key(&mut self, key: [u8; KEY_LEN]);
     /// Decomposes the `Branch` into its constituent parts.
-    fn deconstruct(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]);
+    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]);
 }
 
 /// The required interface for structs representing leaves in the tree.
@@ -60,7 +60,7 @@ pub trait Leaf {
     /// Sets the location of the `Data` node.
     fn set_data(&mut self, data: [u8; KEY_LEN]);
     /// Decomposes the `Leaf` into its constituent parts.
-    fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]);
+    fn decompose(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]);
 }
 
 /// The required interface for structs representing data stored in the tree.

@@ -61,7 +61,7 @@ impl TreeLeaf {
     }
 
     /// Decomposes the `TreeLeaf` into its constituent parts.
-    const fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
+    const fn decompose(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
         (self.key, self.data)
     }
 }
@@ -99,8 +99,8 @@ impl Leaf for TreeLeaf {
 
     /// Decomposes the struct into its constituent parts.
     #[inline]
-    fn deconstruct(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
-        Self::deconstruct(self)
+    fn decompose(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
+        Self::decompose(self)
     }
 }
 
