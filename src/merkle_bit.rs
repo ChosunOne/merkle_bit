@@ -1501,8 +1501,8 @@ pub mod tests {
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
-        for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
+        for &res in result.0 {
+            assert_eq!(*res, [0x00u8; KEY_LEN]);
         }
     }
 
@@ -1516,8 +1516,8 @@ pub mod tests {
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
-        for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
+        for &res in result.1 {
+            assert_eq!(*res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -1532,11 +1532,11 @@ pub mod tests {
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
-        for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
+        for &res in result.0 {
+            assert_eq!(*res, [0x00u8; KEY_LEN]);
         }
-        for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
+        for &res in result.1 {
+            assert_eq!(*res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -1551,11 +1551,11 @@ pub mod tests {
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
-        for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
+        for &res in result.0 {
+            assert_eq!(*res, [0x00u8; KEY_LEN]);
         }
-        for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
+        for &res in result.1 {
+            assert_eq!(*res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -1571,11 +1571,11 @@ pub mod tests {
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
-        for i in 0..result.0.len() {
-            assert_eq!(*result.0[i], [0x00u8; KEY_LEN]);
+        for &res in result.0 {
+            assert_eq!(*res, [0x00u8; KEY_LEN]);
         }
-        for i in 0..result.1.len() {
-            assert_eq!(*result.1[i], [0xFFu8; KEY_LEN]);
+        for &res in result.1 {
+            assert_eq!(*res, [0xFFu8; KEY_LEN]);
         }
     }
 }

@@ -82,8 +82,8 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
         let root = bmt.insert(None, &mut [&key], &mut vec![&value])?;
         let result = bmt.get(&root, &mut vec![&key])?;
-        assert_eq!(result[&key], Some(vec![0xFFu8]));
         tear_down(&path);
+        assert_eq!(result[&key], Some(vec![0xFFu8]));
         Ok(())
     }
 
@@ -97,8 +97,8 @@ pub mod integration_tests {
         let bmt = Tree::open(&path, 160)?;
         let items = bmt.get(&root_key, &mut [&key])?;
         let expected_item = None;
-        assert_eq!(items[&key], expected_item);
         tear_down(&path);
+        assert_eq!(items[&key], expected_item);
         Ok(())
     }
 
@@ -114,8 +114,8 @@ pub mod integration_tests {
 
         let nonexistent_key = [0xAB; KEY_LEN];
         let items = bmt.get(&root, &mut [&nonexistent_key])?;
-        assert_eq!(items[&nonexistent_key], None);
         tear_down(&path);
+        assert_eq!(items[&nonexistent_key], None);
         Ok(())
     }
 
@@ -136,10 +136,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in get_keys.into_iter().zip(values.iter()) {
-            assert_eq!(Some(value.clone()), items[&key])
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(Some(value), items[key])
+        }
         Ok(())
     }
 
@@ -159,10 +159,10 @@ pub mod integration_tests {
 
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -186,10 +186,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -200,7 +200,7 @@ pub mod integration_tests {
 
         let num_leaves = 24;
         let mut keys = Vec::with_capacity(num_leaves);
-        let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
+        let mut values = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
             keys.push([i as u8; KEY_LEN]);
             values.push(vec![i as u8; KEY_LEN]);
@@ -213,10 +213,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -240,10 +240,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -267,10 +267,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -293,10 +293,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -327,10 +327,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -360,10 +360,10 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut get_keys, &mut insert_values)?;
 
         let items = bmt.get(&root_hash, &mut get_keys)?;
-        for (key, value) in keys.iter().zip(values.iter()) {
-            assert_eq!(items[&key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in get_keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -435,10 +435,10 @@ pub mod integration_tests {
         ];
 
         let items = bmt.get(&root_node, &mut keys)?;
-        for (key, value) in keys.iter().zip(expected_values.into_iter()) {
+        tear_down(&path);
+        for (key, value) in keys.into_iter().zip(expected_values.into_iter()) {
             assert_eq!(items[key], value);
         }
-        tear_down(&path);
         Ok(())
     }
 
@@ -461,15 +461,16 @@ pub mod integration_tests {
         let root_node = bmt.insert(None, &mut [&initial_key], &mut vec![&initial_value])?;
 
         let items = bmt.get(&root_node, &mut get_keys)?;
-        for key in get_keys.iter() {
-            if *key == &initial_key {
-                assert_eq!(items[key], Some(initial_value.clone()));
+        tear_down(&path);
+        let first_value = Some(initial_value);
+        for key in get_keys.into_iter() {
+            if *key == initial_key {
+                assert_eq!(items[key], first_value);
             } else {
                 assert_eq!(items[key], None);
             }
         }
         assert_eq!(items.len(), 256);
-        tear_down(&path);
         Ok(())
     }
 
@@ -486,10 +487,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 3)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -507,10 +508,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 3)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -525,8 +526,8 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 3)?;
         let new_root_hash = bmt.insert(None, &mut [&key], &mut vec![&data])?;
         let items = bmt.get(&new_root_hash, &mut vec![&key])?;
-        assert_eq!(items[&key], Some(data));
         tear_down(&path);
+        assert_eq!(items[&key], Some(data));
         Ok(())
     }
 
@@ -547,10 +548,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 3)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -572,10 +573,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 16)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data.into_iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -597,10 +598,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 16)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -622,10 +623,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 16)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -647,10 +648,10 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 16)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -672,13 +673,13 @@ pub mod integration_tests {
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
-        let mut bmt = Tree::open(&path, 16)?;
+        let mut bmt = Tree::open(&path, 18)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -700,13 +701,13 @@ pub mod integration_tests {
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
 
-        let mut bmt = Tree::open(&path, 16)?;
+        let mut bmt = Tree::open(&path, 18)?;
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let items = bmt.get(&root_hash, &mut keys)?;
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(items[key], Some(value.clone()))
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(data_values.into_iter()) {
+            assert_eq!(items[key], Some(value))
+        }
         Ok(())
     }
 
@@ -730,9 +731,9 @@ pub mod integration_tests {
         )?;
 
         let items = bmt.get(&second_root_hash, &mut [&first_key, &second_key])?;
+        tear_down(&path);
         assert_eq!(items[&first_key], Some(first_data));
         assert_eq!(items[&second_key], Some(second_data));
-        tear_down(&path);
         Ok(())
     }
 
@@ -767,13 +768,13 @@ pub mod integration_tests {
         let first_items = bmt.get(&first_root_hash, &mut initial_keys)?;
         let second_items = bmt.get(&second_root_hash, &mut added_keys)?;
 
-        for (key, value) in initial_keys.iter().zip(initial_data_values.iter()) {
-            assert_eq!(first_items[key], Some(value.clone()));
-        }
-        for (key, value) in added_keys.iter().zip(added_data_values.iter()) {
-            assert_eq!(second_items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in initial_keys.into_iter().zip(initial_data_values.into_iter()) {
+            assert_eq!(first_items[key], Some(value));
+        }
+        for (key, value) in added_keys.into_iter().zip(added_data_values.into_iter()) {
+            assert_eq!(second_items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -811,13 +812,13 @@ pub mod integration_tests {
         let first_items = bmt.get(&first_root_hash, &mut initial_keys)?;
         let second_items = bmt.get(&second_root_hash, &mut added_keys)?;
 
-        for (key, value) in initial_keys.iter().zip(initial_data_values.iter()) {
-            assert_eq!(first_items[key], Some(value.clone()));
-        }
-        for (key, value) in added_keys.iter().zip(added_data_values.iter()) {
-            assert_eq!(second_items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in initial_keys.into_iter().zip(initial_data_values.into_iter()) {
+            assert_eq!(first_items[key], Some(value));
+        }
+        for (key, value) in added_keys.into_iter().zip(added_data_values.into_iter()) {
+            assert_eq!(second_items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -841,9 +842,9 @@ pub mod integration_tests {
         let first_item = bmt.get(&first_root_hash, &mut [&key])?;
         let second_item = bmt.get(&second_root_hash, &mut [&key])?;
 
+        tear_down(&path);
         assert_eq!(first_item[&key], Some(first_value));
         assert_eq!(second_item[&key], Some(second_value));
-        tear_down(&path);
         Ok(())
     }
 
@@ -867,11 +868,9 @@ pub mod integration_tests {
 
         let mut updated_data_values = vec![];
         let mut updated_data = vec![];
-        let mut expected_updated_data_values = vec![];
         for i in 0..initial_key_values.len() {
             let num = vec![i as u8; KEY_LEN];
-            updated_data_values.push(num.clone());
-            expected_updated_data_values.push(Some(num));
+            updated_data_values.push(num);
         }
 
         for i in 0..initial_key_values.len() {
@@ -886,13 +885,13 @@ pub mod integration_tests {
         let initial_items = bmt.get(&first_root_hash, &mut initial_keys)?;
         let updated_items = bmt.get(&second_root_hash, &mut initial_keys)?;
 
-        for (key, value) in initial_keys.iter().zip(initial_data.into_iter()) {
-            assert_eq!(initial_items[key], Some(value.clone()));
-        }
-        for (key, value) in initial_keys.iter().zip(updated_data.into_iter()) {
-            assert_eq!(updated_items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in initial_keys.iter().zip(initial_data_values.into_iter()) {
+            assert_eq!(initial_items[key], Some(value));
+        }
+        for (key, value) in initial_keys.into_iter().zip(updated_data_values.into_iter()) {
+            assert_eq!(updated_items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -954,17 +953,18 @@ pub mod integration_tests {
         let root_hash = bmt.insert(None, &mut keys, &mut data)?;
         let inserted_items = bmt.get(&root_hash, &mut keys)?;
 
-        for (key, value) in keys.iter().zip(data_values.iter()) {
-            assert_eq!(inserted_items[key], Some(value.clone()));
+        for (key, value) in keys.iter().zip(data_values.into_iter()) {
+            assert_eq!(inserted_items[key], Some(value));
         }
 
         bmt.remove(&root_hash)?;
         let removed_items = bmt.get(&root_hash, &mut keys)?;
 
-        for key in keys.iter() {
+        tear_down(&path);
+
+        for key in keys.into_iter() {
             assert_eq!(removed_items[key], None);
         }
-        tear_down(&path);
         Ok(())
     }
 
@@ -990,9 +990,9 @@ pub mod integration_tests {
         bmt.remove(&first_root_hash)?;
 
         let retrieved_items = bmt.get(&second_root_hash, &mut vec![&first_key, &second_key])?;
+        tear_down(&path);
         assert_eq!(retrieved_items[&first_key], Some(first_data));
         assert_eq!(retrieved_items[&second_key], Some(second_data));
-        tear_down(&path);
         Ok(())
     }
 
@@ -1029,13 +1029,21 @@ pub mod integration_tests {
             &second_root_hash,
             &mut vec![&first_key, &second_key, &third_key, &fourth_key],
         )?;
+        tear_down(&path);
         for (key, value) in first_keys.iter().zip(first_entries.into_iter()) {
-            assert_eq!(items[key], Some(value.clone()));
+            if let Some(v) = &items[key] {
+                assert_eq!(*v, *value);
+            } else {
+                panic!("None value found");
+            }
         }
         for (key, value) in second_keys.iter().zip(second_entries.into_iter()) {
-            assert_eq!(items[key], Some(value.clone()));
+            if let Some(v) = &items[key] {
+                assert_eq!(*v, *value);
+            } else {
+                panic!("None value found");
+            }
         }
-        tear_down(&path);
         Ok(())
     }
 
@@ -1068,13 +1076,13 @@ pub mod integration_tests {
         bmt.remove(&first_root_hash)?;
         let initial_items = bmt.get(&second_root_hash, &mut initial_keys)?;
         let added_items = bmt.get(&second_root_hash, &mut added_keys)?;
-        for (key, value) in initial_keys.iter().zip(initial_data.into_iter()) {
-            assert_eq!(initial_items[key], Some(value.clone()));
-        }
-        for (key, value) in added_keys.iter().zip(added_data.into_iter()) {
-            assert_eq!(added_items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in initial_keys.into_iter().zip(initial_data_values.into_iter()) {
+            assert_eq!(initial_items[key], Some(value));
+        }
+        for (key, value) in added_keys.into_iter().zip(added_data_values.into_iter()) {
+            assert_eq!(added_items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -1124,10 +1132,10 @@ pub mod integration_tests {
         let second_root = bmt.insert(Some(&first_root), &mut keys[2..], &mut data[2..].to_vec())?;
 
         let items = bmt.get(&second_root, &mut keys)?;
-        for (key, value) in keys.iter().zip(data.into_iter()) {
-            assert_eq!(items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(values.into_iter()) {
+            assert_eq!(items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -1167,10 +1175,10 @@ pub mod integration_tests {
         let second_root = bmt.insert(Some(&first_root), &mut keys[2..], &mut data[2..].to_vec())?;
 
         let items = bmt.get(&second_root, &mut keys)?;
-        for (key, value) in keys.iter().zip(sorted_data.into_iter()) {
-            assert_eq!(items[key], Some(value.clone()));
-        }
         tear_down(&path);
+        for (key, value) in keys.into_iter().zip(sorted_data.into_iter()) {
+            assert_eq!(items[key], Some(value));
+        }
         Ok(())
     }
 
@@ -1205,8 +1213,9 @@ pub mod integration_tests {
         let second_root = bmt.insert(Some(&first_root), &mut [&key], &mut vec![&data])?;
         bmt.remove(&first_root)?;
         let item = bmt.get(&second_root, &mut [&key])?;
-        assert_eq!(item[&key], Some(data));
+
         tear_down(&path);
+        assert_eq!(item[&key], Some(data));
         Ok(())
     }
 
@@ -1233,9 +1242,10 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let mut data_value = [0u8; KEY_LEN];
-            rng.fill(data_value.as_mut());
-            data.push(data_value.to_vec());
+            let data_value = (0..KEY_LEN).map(|_| {
+                rng.gen()
+            }).collect();
+            data.push(data_value);
         }
 
         keys.sort();
@@ -1261,14 +1271,15 @@ pub mod integration_tests {
         for i in 0..iterations {
             let prepare = prepare_inserts(entries_per_insert, rng);
             let key_values = prepare.0;
-            key_groups.push(key_values.clone());
             let data_values = prepare.1;
-            data_groups.push(data_values.clone());
 
-            let mut keys = key_values.iter().collect::<Vec<_>>();
-            let mut data = data_values.iter().collect::<Vec<_>>();
+            key_groups.push(key_values);
+            data_groups.push(data_values);
 
-            let previous_state_root = &state_roots[i].clone();
+            let mut keys = key_groups[key_groups.len() - 1].iter().collect::<Vec<_>>();
+            let mut data = data_groups[data_groups.len() - 1].iter().collect::<Vec<_>>();
+
+            let previous_state_root = &state_roots[i];
             let previous_root;
             match previous_state_root {
                 Some(r) => previous_root = Some(r),
@@ -1279,8 +1290,12 @@ pub mod integration_tests {
             state_roots.push(Some(new_root.clone()));
 
             let retrieved_items = bmt.get(&new_root, &mut keys)?;
-            for (key, value) in keys.iter().zip(data.into_iter()) {
-                assert_eq!(retrieved_items[key], Some(value.clone()));
+            for (key, value) in keys.into_iter().zip(data.into_iter()) {
+                if let Some(v) = &retrieved_items[key] {
+                    assert_eq!(*v, *value);
+                } else {
+                    panic!("None value found");
+                }
             }
 
             for j in 0..key_groups.len() {
@@ -1289,8 +1304,12 @@ pub mod integration_tests {
                     key_block.push(&key_groups[j][k]);
                 }
                 let items = bmt.get(&new_root, &mut key_block)?;
-                for (key, value) in key_block.iter().zip(data_groups[j].iter()) {
-                    assert_eq!(items[key], Some(value.clone()));
+                for (key, value) in key_block.into_iter().zip(data_groups[j].iter()) {
+                    if let Some(v) = &items[key] {
+                        assert_eq!(*v, *value);
+                    } else {
+                        panic!("None value found");
+                    }
                 }
             }
         }
@@ -1312,7 +1331,7 @@ pub mod integration_tests {
         for i in 1..iterations {
             if i % removal_frequency == 0 {
                 let root;
-                if let Some(r) = state_roots[i].clone() {
+                if let Some(r) = state_roots[i] {
                     root = r;
                 } else {
                     panic!("state_roots[{}] is None", i);
@@ -1329,8 +1348,12 @@ pub mod integration_tests {
                             assert_eq!(items[key], None);
                         }
                     } else {
-                        for (key, value) in keys.iter().zip(data_groups[i].iter()) {
-                            assert_eq!(items[key], Some(value.clone()));
+                        for (key, value) in keys.into_iter().zip(data_groups[i].iter()) {
+                            if let Some(v) = &items[key] {
+                                assert_eq!(*v, *value);
+                            } else {
+                                panic!("None value found")
+                            }
                         }
                     }
                 }
