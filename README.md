@@ -40,21 +40,23 @@ Starling supports a number of serialization and hashing schemes for use in the t
 your performance and application needs.
 
 Currently integrated serialization schemes include:
-* ```bincode```
-* ```serde-json```
-* ```serde-cbor```
-* ```serde-yaml```
-* ```serde-pickle```
-* ```ron```
+* `bincode`
+* `serde-json`
+* `serde-cbor`
+* `serde-yaml`
+* `serde-pickle`
+* `ron`
 
 It should be noted that any serialization scheme will work with starling, provided you implement the ```Encode``` and ```Decode``` traits for the node types.
 
 Currently integrated tree hashing schemes include:
-* ```blake2_rfc```
-* ```groestl```
-* ```SHA2``` via ```openssl```
-* ```SHA3``` via ```tiny-keccak```
-* ```Keccak``` via ```tiny-keccak```
+* `Blake2b` via `blake2_rfc`
+* `Groestl` via `groestl`
+* `SHA2` via `openssl`
+* `SHA3` via `tiny-keccak`
+* `Keccak` via `tiny-keccak`
+* `SeaHash` via `seahash`
+* `FxHash` via `fxhash`
 
 You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme.
 
@@ -94,7 +96,7 @@ If you provide your own implementation of the traits for each component of the t
                              HasherType, 
                              ValueType>::from_db(db, depth);
                              
-        // Keys must be slices of u8 arrays or vectors
+        // Keys must be 32 bytes long
         let key: [u8; 32] = [0xFF; 32];
         
         // An example value created from ValueType.  
