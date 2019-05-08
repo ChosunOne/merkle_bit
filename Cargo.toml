@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "2.5.2"
+version = "2.5.3"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -45,6 +45,7 @@ rayon = { version = "1.0.3", optional = true }
 evmap = { version = "5.0.0", optional = true }
 parking_lot = { version = "0.8.0", optional = true }
 seahash = { version = "3.0.6", optional = true }
+fxhash = { version = "0.2.1", optional = true }
 
 [features]
 default = []
@@ -63,6 +64,7 @@ use_sha2 = ["openssl"]
 use_sha3 = ["tiny-keccak"]
 use_keccak = ["tiny-keccak"]
 use_seahash = ["seahash"]
+use_fx = ["fxhash"]
 
 use_hashbrown = ["hashbrown"]
 use_rayon = ["rayon", "evmap", "parking_lot"]

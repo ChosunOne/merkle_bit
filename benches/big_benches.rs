@@ -27,7 +27,7 @@ fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
     let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function_over_inputs(
-        "Tree Empty Insert",
+        "Big Tree Empty Insert",
         move |b, index| {
             let prepare = prepare_inserts(10000, &mut rng);
             let key_values = prepare.0;
@@ -56,7 +56,7 @@ fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
     let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function_over_inputs(
-        "Tree Non Empty Insert",
+        "Big Tree Non Empty Insert",
         move |b, index| {
             let prepare = prepare_inserts(10000, &mut rng);
             let key_values = prepare.0;
@@ -94,7 +94,7 @@ fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
     let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
-    c.bench_function("Tree Get Benchmark/10000", move |b| {
+    c.bench_function("Big Tree Get Benchmark/10000", move |b| {
         let prepare = prepare_inserts(10000, &mut rng);
         let key_values = prepare.0;
         let mut keys = key_values.iter().collect::<Vec<_>>();
@@ -121,7 +121,7 @@ fn remove_from_tree_big_benchmark(c: &mut Criterion) {
     let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-    c.bench_function("Tree Remove Benchmark/10000", move |b| {
+    c.bench_function("Big Tree Remove Benchmark/10000", move |b| {
         let prepare = prepare_inserts(10000, &mut rng);
         let mut tree = Tree::open(&path.clone(), 160).unwrap();
         let key_values = prepare.0;

@@ -8,6 +8,7 @@ pub mod blake2b;
     feature = "use_sha3",
     feature = "use_keccak",
     feature = "use_seahash",
+    feature = "use_fx",
 )))]
 pub mod default;
 #[cfg(feature = "use_groestl")]
@@ -21,6 +22,8 @@ pub mod seahasher;
 pub mod sha256;
 #[cfg(feature = "use_sha3")]
 pub mod sha3;
+#[cfg(feature = "use_fx")]
+pub mod fx;
 
 /// The kind of hasher to use in the tree.
 #[cfg(not(any(
@@ -30,6 +33,7 @@ pub mod sha3;
     feature = "use_sha3",
     feature = "use_keccak",
     feature = "use_seahash",
+    feature = "use_fx",
 )))]
 pub type TreeHasher = std::collections::hash_map::DefaultHasher;
 
@@ -48,3 +52,5 @@ pub type TreeHasher = keccak::KeccakHasher;
 /// The kind of hasher to use in the tree.
 #[cfg(feature = "use_seahash")]
 pub type TreeHasher = seahash::SeaHasher;
+#[cfg(feature = "use_fx")]
+pub type TreeHasher = fxhash::FxHasher;

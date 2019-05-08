@@ -1,3 +1,7 @@
+#2.5.3
+* Add `FxHash` support via `use_fx` feature.
+* LTO has been enabled, giving a 10-15% performance boost across the board.
+* `deconstruct` has been renamed `decompose`.
 #2.5.2
 * Add `SeaHash` support via `use_seahash` feature.
 * Improve performance of `use_rayon`, though it is still slower than any other feature.
