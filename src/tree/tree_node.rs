@@ -21,7 +21,7 @@ use crate::traits::{Node, NodeVariant};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
-#[cfg(feature = "use_rayon")]
+#[cfg(feature = "use_evmap")]
 use evmap::ShallowCopy;
 
 /// A node in the tree.
@@ -69,7 +69,7 @@ impl TreeNode {
         self.node = NodeVariant::Data(data);
     }
     
-    #[cfg(feature = "use_rayon")]
+    #[cfg(feature = "use_evmap")]
     unsafe fn from_raw(
         node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>,
         references: u64,
@@ -211,7 +211,7 @@ impl Decode for TreeNode {
     }
 }
 
-#[cfg(feature = "use_rayon")]
+#[cfg(feature = "use_evmap")]
 impl ShallowCopy for TreeNode {
     #[inline]
     unsafe fn shallow_copy(&mut self) -> Self {

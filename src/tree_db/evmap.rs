@@ -6,11 +6,10 @@ use crate::traits::{Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
 use evmap::{ReadHandle, WriteHandle};
-use parking_lot::Mutex;
 
 pub struct HashDB {
     read: ReadHandle<[u8; KEY_LEN], TreeNode>,
-    write: Mutex<WriteHandle<[u8; KEY_LEN], TreeNode>>,
+    write: WriteHandle<[u8; KEY_LEN], TreeNode>,
 }
 
 impl HashDB {
@@ -19,7 +18,7 @@ impl HashDB {
         let (read, write) = evmap::new();
         Self {
             read,
-            write: Mutex::new(write),
+            write,
         }
     }
 }
@@ -44,20 +43,20 @@ impl Database for HashDB {
 
     #[inline]
     fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
-        self.write.lock().insert(key, value);
+        self.write.insert(key, value);
         Ok(())
     }
 
     #[inline]
     fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception> {
-        self.write.lock().empty(*key);
-        self.write.lock().refresh();
+        self.write.empty(*key);
+        self.write.refresh();
         Ok(())
     }
 
     #[inline]
     fn batch_write(&mut self) -> Result<(), Exception> {
-        self.write.lock().refresh();
+        self.write.refresh();
         Ok(())
     }
 }

@@ -41,7 +41,5 @@ impl MergeCell {
     }
 }
 
-#[cfg(feature = "use_rayon")]
 unsafe impl Send for MergeCell {}
-#[cfg(feature = "use_rayon")]
 unsafe impl Sync for MergeCell {}

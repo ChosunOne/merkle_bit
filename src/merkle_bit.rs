@@ -38,7 +38,7 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// # Properties
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
-#[cfg(not(feature = "use_rayon"))]
+#[cfg(not(feature = "parallel"))]
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where
     DatabaseType: Database<NodeType = NodeType>,
@@ -67,7 +67,7 @@ where
     value: PhantomData<*const ValueType>,
 }
 
-#[cfg(feature = "use_rayon")]
+#[cfg(feature = "parallel")]
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where
     DatabaseType: Database<NodeType = NodeType> + Send + Sync,
@@ -88,7 +88,7 @@ where
     value: PhantomData<*const ValueType>,
 }
 
-#[cfg(not(feature = "use_rayon"))]
+#[cfg(not(feature = "parallel"))]
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
     MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where
@@ -726,7 +726,7 @@ where
     }
 }
 
-#[cfg(feature = "use_rayon")]
+#[cfg(feature = "parallel")]
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
     MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where
@@ -1116,7 +1116,7 @@ where
         let db = &self.db;
 
         let nodes = keys
-            .par_iter()
+            .iter()
             .map(|&key| {
                 let mut data = DataType::new();
                 data.set_value(&values[key].encode().expect("Error encoding value"));
@@ -1190,14 +1190,14 @@ where
             return Ok(node.location);
         }
 
-        tree_refs.sort();
+        tree_refs.par_sort();
 
         let mut tree_ref_queue = HashMap::new();
 
         let (tree_refs_raw, unique_split_bits) =
             Self::generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
         let mut indices = unique_split_bits.into_iter().collect::<Vec<_>>();
-        indices.sort();
+        indices.par_sort();
 
         let mut root = [0; 32];
         for i in indices.into_iter().rev() {
@@ -1355,12 +1355,11 @@ where
                 return Err(Exception::new("Empty node queue"));
             };
 
-            let mut node;
-            if let Some(n) = self.db.get_node(&node_location)? {
-                node = n;
+            let node = if let Some(n) = self.db.get_node(&node_location)? {
+                n
             } else {
                 continue;
-            }
+            };
 
             let mut refs = node.get_references();
             if refs > 0 {
@@ -1417,12 +1416,7 @@ pub mod tests {
     fn it_chooses_the_right_branch_easy() {
         let key = [0x0F; KEY_LEN];
         for i in 0..8 {
-            let expected_branch;
-            if i < 4 {
-                expected_branch = true;
-            } else {
-                expected_branch = false;
-            }
+            let expected_branch= i < 4;
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
@@ -1432,23 +1426,13 @@ pub mod tests {
     fn it_chooses_the_right_branch_medium() {
         let key = [0x55; KEY_LEN];
         for i in 0..8 {
-            let expected_branch;
-            if i % 2 == 0 {
-                expected_branch = true;
-            } else {
-                expected_branch = false;
-            }
+            let expected_branch = i % 2 == 0;
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
         let key = [0xAA; KEY_LEN];
         for i in 0..8 {
-            let expected_branch;
-            if i % 2 == 0 {
-                expected_branch = false;
-            } else {
-                expected_branch = true;
-            }
+            let expected_branch = i % 2 != 0;
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
@@ -1458,24 +1442,14 @@ pub mod tests {
     fn it_chooses_the_right_branch_hard() {
         let key = [0x68; KEY_LEN];
         for i in 0..8 {
-            let expected_branch;
-            if i == 1 || i == 2 || i == 4 {
-                expected_branch = false;
-            } else {
-                expected_branch = true;
-            }
+            let expected_branch=  !(i == 1 || i == 2 || i == 4);
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }
 
         let key = [0xAB; KEY_LEN];
         for i in 0..8 {
-            let expected_branch;
-            if i == 0 || i == 2 || i == 4 || i == 6 || i == 7 {
-                expected_branch = false;
-            } else {
-                expected_branch = true;
-            }
+            let expected_branch = !(i == 0 || i == 2 || i == 4 || i == 6 || i == 7);
             let branch = choose_zero(&key, i);
             assert_eq!(branch, expected_branch);
         }

@@ -43,12 +43,11 @@ hashbrown = { version = "0.3.0", optional = true }
 rocksdb = { version = "0.12.2", optional = true }
 rayon = { version = "1.0.3", optional = true }
 evmap = { version = "5.0.0", optional = true }
-parking_lot = { version = "0.8.0", optional = true }
 seahash = { version = "3.0.6", optional = true }
 fxhash = { version = "0.2.1", optional = true }
+rand = {version = "0.6.5", optional = true }
 
 [features]
-default = []
 use_serialization = []
 use_serde = ["serde", "use_serialization"]
 use_bincode = ["use_serde", "bincode"]
@@ -67,9 +66,14 @@ use_seahash = ["seahash"]
 use_fx = ["fxhash"]
 
 use_hashbrown = ["hashbrown"]
-use_rayon = ["rayon", "evmap", "parking_lot"]
+use_rayon = ["rayon", "use_evmap", "parallel"]
+use_evmap = ["evmap"]
 
 use_rocksdb = ["rocksdb"]
+
+use_rand = ["rand"]
+
+parallel = []
 
 [[bench]]
 name = "merkle_bit_benches"
@@ -78,3 +82,8 @@ harness = false
 [[bench]]
 name = "big_benches"
 harness = false
+
+[[bin]]
+name = "insert_benchmark"
+path = "src/bin/insert_benchmark.rs"
+required-features = ["use_rand"]
