@@ -54,17 +54,17 @@ where
     /// The maximum depth of the tree.
     depth: usize,
     /// Marker for dealing with `BranchType`.
-    branch: PhantomData<*const BranchType>,
+    branch: PhantomData<BranchType>,
     /// Marker for dealing with `LeafType`.
-    leaf: PhantomData<*const LeafType>,
+    leaf: PhantomData<LeafType>,
     /// Marker for dealing with `DataType`.
-    data: PhantomData<*const DataType>,
+    data: PhantomData<DataType>,
     /// Marker for dealing with `NodeType`.
-    node: PhantomData<*const NodeType>,
+    node: PhantomData<NodeType>,
     /// Marker for dealing with `HasherType`.
-    hasher: PhantomData<*const HasherType>,
+    hasher: PhantomData<HasherType>,
     /// Marker for dealing with `ValueType`.
-    value: PhantomData<*const ValueType>,
+    value: PhantomData<ValueType>,
 }
 
 #[cfg(feature = "parallel")]
@@ -80,12 +80,12 @@ where
 {
     db: DatabaseType,
     depth: usize,
-    branch: PhantomData<*const BranchType>,
-    leaf: PhantomData<*const LeafType>,
-    data: PhantomData<*const DataType>,
-    node: PhantomData<*const NodeType>,
-    hasher: PhantomData<*const HasherType>,
-    value: PhantomData<*const ValueType>,
+    branch: PhantomData<BranchType>,
+    leaf: PhantomData<LeafType>,
+    data: PhantomData<DataType>,
+    node: PhantomData<NodeType>,
+    hasher: PhantomData<HasherType>,
+    value: PhantomData<ValueType>,
 }
 
 #[cfg(not(feature = "parallel"))]
@@ -557,31 +557,31 @@ where
     /// Performs the merging of `TreeRef`s until a single new root is left.
     fn merge_nodes(
         &mut self,
-        tree_refs_raw: *mut TreeRef,
-        level: Vec<(u8, *mut TreeRef, *mut TreeRef, usize)>,
+        tree_refs: &mut Vec<TreeRef>,
+        level: Vec<(u8, usize, usize)>,
     ) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
         let mut root = [0; 32];
-        for (split_index, tree_ref_pointer, next_tree_ref_pointer, index) in level {
+        for (split_index, tree_ref_pointer, next_tree_ref_pointer) in level {
             let mut branch = BranchType::new();
 
-            let tree_ref_key = unsafe { (*tree_ref_pointer).key };
-            let tree_ref_location = unsafe { (*tree_ref_pointer).location };
-            let tree_ref_count = unsafe { (*tree_ref_pointer).node_count };
+            let tree_ref_key = tree_refs[tree_ref_pointer].key;
+            let tree_ref_location = tree_refs[tree_ref_pointer].location;
+            let tree_ref_count = tree_refs[tree_ref_pointer].node_count;
 
             // Find the rightmost edge of the adjacent subtree
             let mut lookahead_count;
             let mut lookahead_tree_ref_pointer;
-            unsafe {
-                let mut count_ = (*next_tree_ref_pointer).count;
+            {
+                let mut count_ = tree_refs[next_tree_ref_pointer].count;
 
                 if count_ > 1 {
                     // Look ahead by the count from our position
-                    lookahead_tree_ref_pointer = tree_refs_raw.add(index + count_ as usize);
-                    lookahead_count = (*lookahead_tree_ref_pointer).count;
+                    lookahead_tree_ref_pointer = tree_ref_pointer + count_ as usize;
+                    lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     while lookahead_count > count_ {
                         count_ = lookahead_count;
-                        lookahead_tree_ref_pointer = tree_refs_raw.add(index + count_ as usize);
-                        lookahead_count = (*lookahead_tree_ref_pointer).count;
+                        lookahead_tree_ref_pointer = tree_ref_pointer + count_ as usize;
+                        lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     }
                 } else {
                     lookahead_count = count_;
@@ -589,8 +589,8 @@ where
                 }
             }
 
-            let next_tree_ref_location = unsafe { (*lookahead_tree_ref_pointer).location };
-            let count = unsafe { tree_ref_count + (*lookahead_tree_ref_pointer).node_count };
+            let next_tree_ref_location = tree_refs[lookahead_tree_ref_pointer].location;
+            let count = tree_ref_count + tree_refs[lookahead_tree_ref_pointer].node_count;
             let branch_node_location;
             {
                 let mut branch_hasher = HasherType::new(KEY_LEN);
@@ -611,13 +611,12 @@ where
 
             self.db.insert(branch_node_location, branch_node)?;
 
-            unsafe {
-                (*lookahead_tree_ref_pointer).key = tree_ref_key;
-                (*lookahead_tree_ref_pointer).location = branch_node_location;
-                (*lookahead_tree_ref_pointer).count = lookahead_count + (*tree_ref_pointer).count;
-                (*lookahead_tree_ref_pointer).node_count = count;
-                let tree_rcs_raw_access = tree_refs_raw.add(index);
-                *tree_rcs_raw_access = *lookahead_tree_ref_pointer;
+             {
+                tree_refs[lookahead_tree_ref_pointer].key = tree_ref_key;
+                tree_refs[lookahead_tree_ref_pointer].location = branch_node_location;
+                tree_refs[lookahead_tree_ref_pointer].count = lookahead_count + tree_refs[tree_ref_pointer].count;
+                tree_refs[lookahead_tree_ref_pointer].node_count = count;
+                tree_refs[tree_ref_pointer] = tree_refs[lookahead_tree_ref_pointer];
             }
 
             root = branch_node_location;
@@ -626,11 +625,10 @@ where
     }
 
     /// Generates the `TreeRef`s that will be made into the new tree.
-    fn generate_tree_ref_queue(
-        tree_refs: &mut Vec<TreeRef>,
-        tree_ref_queue: &mut HashMap<u8, Vec<(u8, *mut TreeRef, *mut TreeRef, usize)>>,
-    ) -> BinaryMerkleTreeResult<(*mut TreeRef, HashSet<u8>)> {
-        let tree_rcs_raw = tree_refs.as_mut_ptr();
+    fn generate_tree_ref_queue<'a>(
+        tree_refs: &'a mut Vec<TreeRef>,
+        tree_ref_queue: &mut HashMap<u8, Vec<(u8, usize, usize)>>,
+    ) -> BinaryMerkleTreeResult<(&'a mut Vec<TreeRef>, HashSet<u8>)> {
         let mut unique_split_bits = HashSet::new();
         for i in 0..tree_refs.len() - 1 {
             let left_key = tree_refs[i].key;
@@ -653,7 +651,7 @@ where
                 let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
                 unique_split_bits.insert(split_bit);
                 let new_item =
-                    unsafe { (split_bit, tree_rcs_raw.add(i), tree_rcs_raw.add(i + 1), i) };
+                    unsafe { (split_bit, i, i + 1) };
                 if let Some(v) = tree_ref_queue.get_mut(&split_bit) {
                     v.push(new_item);
                 } else {
@@ -663,7 +661,7 @@ where
                 break;
             }
         }
-        Ok((tree_rcs_raw, unique_split_bits))
+        Ok((tree_refs, unique_split_bits))
     }
 
     /// Remove all items with less than 1 reference under the given root.
