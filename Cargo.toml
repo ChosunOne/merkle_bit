@@ -41,8 +41,6 @@ openssl = { version = "0.10.21", optional = true }
 tiny-keccak = { version = "1.4.2", optional = true }
 hashbrown = { version = "0.3.0", optional = true }
 rocksdb = { version = "0.12.2", optional = true }
-rayon = { version = "1.0.3", optional = true }
-evmap = { version = "5.0.0", optional = true }
 seahash = { version = "3.0.6", optional = true }
 fxhash = { version = "0.2.1", optional = true }
 rand = {version = "0.6.5", optional = true }
@@ -66,8 +64,6 @@ use_seahash = ["seahash"]
 use_fx = ["fxhash"]
 
 use_hashbrown = ["hashbrown"]
-use_rayon = ["rayon", "use_evmap", "parallel"]
-use_evmap = ["evmap"]
 
 use_rocksdb = ["rocksdb"]
 

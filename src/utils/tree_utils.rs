@@ -5,6 +5,14 @@ use std::collections::HashMap;
 use hashbrown::HashMap;
 
 use crate::constants::{KEY_LEN, KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
+use crate::utils::tree_ref::TreeRef;
+use crate::merkle_bit::BinaryMerkleTreeResult;
+use crate::traits::Exception;
+
+#[cfg(not(feature = "use_hashbrown"))]
+use std::collections::HashSet;
+#[cfg(feature = "use_hashbrown")]
+use hashbrown::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
@@ -137,4 +145,44 @@ pub const fn fast_log_2(num: u8) -> u8 {
     log |= log >> 2;
     log |= log >> 4;
     MULTIPLY_DE_BRUIJN_BIT_POSITION[((0x1d_usize * log as usize) as u8 >> 5) as usize]
+}
+
+/// Generates the `TreeRef`s that will be made into the new tree.
+#[inline]
+pub fn generate_tree_ref_queue(
+    tree_refs: &mut Vec<TreeRef>,
+    tree_ref_queue: &mut HashMap<u8, Vec<(u8, usize, usize)>>,
+) -> BinaryMerkleTreeResult<(HashSet<u8>)> {
+    let mut unique_split_bits = HashSet::new();
+    for i in 0..tree_refs.len() - 1 {
+        let left_key = tree_refs[i].key;
+        let right_key = tree_refs[i + 1].key;
+
+        for j in 0..KEY_LEN {
+            if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+                // The keys are the same and don't diverge
+                return Err(Exception::new(
+                    "Attempted to insert item with duplicate keys",
+                ));
+            }
+            // Skip bytes until we find a difference
+            if left_key[j] == right_key[j] {
+                continue;
+            }
+
+            // Find the bit index of the first difference
+            let xor_key = left_key[j] ^ right_key[j];
+            let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+            unique_split_bits.insert(split_bit);
+            let new_item = (split_bit, i, i + 1);
+            if let Some(v) = tree_ref_queue.get_mut(&split_bit) {
+                v.push(new_item);
+            } else {
+                tree_ref_queue.insert(split_bit, vec![new_item]);
+            }
+
+            break;
+        }
+    }
+    Ok(unique_split_bits)
 }

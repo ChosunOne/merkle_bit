@@ -1,3 +1,7 @@
+#3.0.0
+* Remove `use_rayon`.  Rayon doesn't seem well suited for the kind of parallelism required for the tree building process. 
+* Change trait bounds on `MerkeBIT` to allow for auto derivation of `Sync + Send` if implemented in the underlying data types.  
+* Removed unsafe internal sections of code. 
 #2.5.3
 * Add `FxHash` support via `use_fx` feature.
 * LTO has been enabled, giving a 10-15% performance boost across the board.

@@ -70,7 +70,6 @@ script:
   - cargo test --features="use_bincode use_seahash" --verbose --all
   - cargo test --features="use_bincode use_fx" --verbose --all
   - cargo test --features="use_hashbrown" --verbose --all
-  - cargo test --features="use_rayon" --verbose --all
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
