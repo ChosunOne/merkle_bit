@@ -1219,6 +1219,22 @@ pub mod integration_tests {
         Ok(())
     }
 
+    #[test]
+    fn it_generates_a_simple_inclusion_proof() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x42u8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let key = [0x00u8; KEY_LEN];
+        let data = vec![0x00u8];
+
+        let root = bmt.insert(None, &mut [&key], &mut vec![&data])?;
+
+        let inclusion_proof = bmt.generate_inclusion_proof(&root, &key, &data)?;
+        unimplemented!();
+    }
+
     fn generate_path(seed: [u8; KEY_LEN]) -> PathBuf {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let suffix = rng.gen_range(1000, 10000);

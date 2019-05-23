@@ -673,14 +673,14 @@ where
         Ok(())
     }
 
-#[cfg(feature = "parallel")]
-impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+    /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
+    /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
-    pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
-        let db = DatabaseType::open(path)?;
-        Ok(Self {
+    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
+        let mut nodes = VecDeque::with_capacity(160);
+        nodes.push_front(*root);
 
-    /// Create a new MerkleBIT from an already opened database
+        unimplemented!();
     }
 }
 
