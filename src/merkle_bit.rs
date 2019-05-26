@@ -32,7 +32,6 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// # Properties
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
-#[cfg(not(feature = "parallel"))]
 pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where
     DatabaseType: Database<NodeType = NodeType>,
@@ -61,28 +60,6 @@ where
     value: PhantomData<ValueType>,
 }
 
-#[cfg(feature = "parallel")]
-pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-where
-    DatabaseType: Database<NodeType = NodeType> + Send + Sync,
-    BranchType: Branch,
-    LeafType: Leaf,
-    DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType> + Send + Sync,
-    HasherType: Hasher,
-    ValueType: Decode + Encode + Sync + Send,
-{
-    db: DatabaseType,
-    depth: usize,
-    branch: PhantomData<BranchType>,
-    leaf: PhantomData<LeafType>,
-    data: PhantomData<DataType>,
-    node: PhantomData<NodeType>,
-    hasher: PhantomData<HasherType>,
-    value: PhantomData<ValueType>,
-}
-
-#[cfg(not(feature = "parallel"))]
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
     MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
 where

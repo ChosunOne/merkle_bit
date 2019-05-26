@@ -69,8 +69,6 @@ use_rocksdb = ["rocksdb"]
 
 use_rand = ["rand"]
 
-parallel = []
-
 [[bench]]
 name = "merkle_bit_benches"
 harness = false
