@@ -1286,7 +1286,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(feature = "use_groestl"))]
         let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+        let num_entries = 512;
 
         let (keys, values) = prepare_inserts(num_entries, &mut rng);
 
@@ -1310,7 +1313,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
 
         let (keys, values) = prepare_inserts(num_entries, &mut rng);
 

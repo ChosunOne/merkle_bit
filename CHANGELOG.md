@@ -6,6 +6,20 @@
 generate and verify inclusion proofs of items in a given root.  Verifying an inclusion proof requires the same type of tree
 used to generate the inclusion proof.  The verifying tree may be empty.  
 * Fix issue with missing call to batch_write for `RocksTree`.
+* Implement `Hasher` for `Digest`.  This provides the following built in supports:
+    * MD2 via `use_md2`
+    * MD4 via `use_md4`
+    * MD5 via `use_md5`
+    * RIPEMD160 via `use_ripemd160`
+    * RIPEMD320 via `use_ripemd320`
+    * SHA-1 via `use_sha1`
+    * Whirlpool via `use_whirlpool`
+    * And other alternate implementations from [Rust Crypto](https://github.com/RustCrypto/hashes)
+        * Blake2b via `use_blake2b` (`blake2b_rfc` implementation has been moved to `use_blake2b_rfc`)
+        * SHA256 via `use_rust_sha2`
+        * SHA3 via `use_rust_sha3`
+        * Keccak via `use_rust_keccak`  
+* Other hashes implementing `Digest` can be used by activating the `use_digest` feature
 #2.5.3
 * Add `FxHash` support via `use_fx` feature.
 * LTO has been enabled, giving a 10-15% performance boost across the board.

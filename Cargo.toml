@@ -1,6 +1,6 @@
 [package]
 name = "starling"
-version = "2.5.3"
+version = "3.0.0"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
@@ -44,6 +44,17 @@ rocksdb = { version = "0.12.2", optional = true }
 seahash = { version = "3.0.6", optional = true }
 fxhash = { version = "0.2.1", optional = true }
 rand = { version = "0.6.5", optional = true }
+digest = { version = "0.8.0", optional = true }
+blake2 = { version = "0.8.0", optional = true }
+md2 = { version = "0.8.0", optional = true }
+md4 = { version = "0.8.0", optional = true }
+md-5 = { version = "0.8.0", optional = true }
+ripemd160 = { version = "0.8.0", optional = true }
+ripemd320 = { version = "0.8.0", optional = true }
+sha-1 = { version = "0.8.1", optional = true }
+sha2 = { version = "0.8.0", optional = true }
+sha3 = { version = "0.8.2", optional = true }
+whirlpool = { version = "0.8.1", optional = true }
 
 [features]
 use_serialization = []
@@ -55,13 +66,26 @@ use_yaml = ["use_serde", "serde_yaml"]
 use_pickle = ["use_serde", "serde-pickle"]
 use_ron = ["use_serde", "ron"]
 
-use_blake2b = ["blake2-rfc"]
-use_groestl = ["groestl"]
+use_digest = ["digest"]
+
+use_blake2b_rfc = ["blake2-rfc"]
+use_groestl = ["groestl", "use_digest"]
 use_sha2 = ["openssl"]
 use_sha3 = ["tiny-keccak"]
 use_keccak = ["tiny-keccak"]
 use_seahash = ["seahash"]
 use_fx = ["fxhash"]
+use_blake2b = ["blake2", "use_digest"]
+use_md2 = ["md2", "use_digest"]
+use_md4 = ["md4", "use_digest"]
+use_md5 = ["md-5", "use_digest"]
+use_ripemd160 = ["ripemd160", "use_digest"]
+use_ripemd320 = ["ripemd320", "use_digest"]
+use_sha1 = ["sha-1", "use_digest"]
+use_rust_sha2 = ["sha2", "use_digest"]
+use_rust_sha3 = ["sha3", "use_digest"]
+use_rust_keccak = ["sha3", "use_digest"]
+use_whirlpool = ["whirlpool", "use_digest"]
 
 use_hashbrown = ["hashbrown"]
 

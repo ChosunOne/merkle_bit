@@ -5,6 +5,9 @@ use std::path::PathBuf;
 #[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "use_digest")]
+use digest::Digest;
+
 use crate::constants::KEY_LEN;
 
 /// The required interface for structs representing a hasher.
@@ -17,6 +20,31 @@ pub trait Hasher {
     fn update(&mut self, data: &[u8]);
     /// Outputs the hash from updated data.
     fn finalize(self) -> [u8; KEY_LEN];
+}
+
+#[cfg(feature = "use_digest")]
+impl<T> Hasher for T
+    where T: Digest {
+    type HashType = T;
+
+    fn new(_size: usize) -> Self::HashType {
+        Self::HashType::new()
+    }
+
+    fn update(&mut self, data: &[u8]) {
+        self.input(data);
+    }
+
+    fn finalize(self) -> [u8; KEY_LEN] {
+        let mut finalized = [0u8; KEY_LEN];
+        let result = self.result();
+        if result.len() < KEY_LEN {
+            finalized[0..result.len()].copy_from_slice(&result[0..result.len()])
+        } else {
+            finalized.copy_from_slice(&result[0..KEY_LEN]);
+        }
+        finalized
+    }
 }
 
 /// The required interface for structs representing branches in the tree.
