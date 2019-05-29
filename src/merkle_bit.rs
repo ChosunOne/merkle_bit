@@ -734,7 +734,7 @@ where
     }
 
     #[inline]
-    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &Vec<([u8; KEY_LEN], bool)>) -> BinaryMerkleTreeResult<()> {
+    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &[([u8; KEY_LEN], bool)]) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
             return Err(Exception::new("Proof is too short to be valid"));
         }
@@ -761,14 +761,14 @@ where
 
         let mut current_hash = leaf_hash;
 
-        for i in 2..proof.len() {
+        for item in proof.iter().skip(2) {
             let mut branch_hasher = HasherType::new(KEY_LEN);
             branch_hasher.update(b"b");
-            if proof[i].1 {
+            if item.1 {
                 branch_hasher.update(&current_hash);
-                branch_hasher.update(&proof[i].0);
+                branch_hasher.update(&item.0);
             } else {
-                branch_hasher.update(&proof[i].0);
+                branch_hasher.update(&item.0);
                 branch_hasher.update(&current_hash);
             }
             let branch_hash = branch_hasher.finalize();
