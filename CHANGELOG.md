@@ -1,4 +1,4 @@
-#3.0.0
+# 3.0.0 
 * Remove `use_rayon`.  Rayon doesn't seem well suited for the kind of parallelism required for the tree building process. 
 * Change trait bounds on `MerkeBIT` to allow for auto derivation of `Sync + Send` if implemented in the underlying data types.  
 * Removed unsafe internal sections of code. 
@@ -20,15 +20,15 @@ used to generate the inclusion proof.  The verifying tree may be empty.
         * SHA3 via `use_rust_sha3`
         * Keccak via `use_rust_keccak`  
 * Other hashes implementing `Digest` can be used by activating the `use_digest` feature
-#2.5.3
+# 2.5.3
 * Add `FxHash` support via `use_fx` feature.
 * LTO has been enabled, giving a 10-15% performance boost across the board.
 * `deconstruct` has been renamed `decompose`.
-#2.5.2
+# 2.5.2
 * Add `SeaHash` support via `use_seahash` feature.
 * Improve performance of `use_rayon`, though it is still slower than any other feature.
 * Improve inlining support when LTO is disabled.
-#2.5.1
+# 2.5.1
 * Futher performance improvements across the board, this time by around 20-30%.
 * Added new unstable feature `use_rayon`.  It currently is much slower than any other feature, but will be receiving
 attention in coming updates.  

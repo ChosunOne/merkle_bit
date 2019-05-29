@@ -8,7 +8,7 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
 
 ```rust
     use std::error::Error;
-    use starling::tree::HashTree;
+    use starling::hash_tree::HashTree;
     
     fn main() -> Result<Ok(), Error> {
         let tree = HashTree::new(8)?;
@@ -33,7 +33,7 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
 This structure can be used for small amounts of data, but all the data in the tree will persist in memory unless explicitly pruned.
 
 For larger numbers of items to store in the tree, it is recommended to connect the structure to a database by implementing the 
-Database trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
+`Database` trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
 
 ## Features
 Starling supports a number of serialization and hashing schemes for use in the tree, which should be selected based on 
@@ -57,8 +57,10 @@ Currently integrated tree hashing schemes include:
 * `Keccak` via `tiny-keccak`
 * `SeaHash` via `seahash`
 * `FxHash` via `fxhash`
+* and most updated hashes from [RustCrypto](https://github.com/RustCrypto/hashes)
 
-You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme.
+You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme (unless using a hash from 
+RustCrypto, then you will want to enable the `use_digest` feature, which implements `Hasher` for `Digest`).
 
 You can also use RocksDB to handle storing and loading from disk.
 You can use the ```RocksTree``` with a serialization scheme via the ```--features="use_rocksdb use_bincode"``` command line flags 
@@ -73,6 +75,7 @@ providing up to 10% performance gains.  This feature will be deprecated once ```
 ## Full Customization
 
 To use the full power of the Merkle-BIT structure, you should customize the structures stored in the tree to match your needs.  
+
 If you provide your own implementation of the traits for each component of the tree structure, the tree can utilize them over the default implementation.
 ```rust
     use starling::merkle_bit::MerkleBIT;
@@ -110,6 +113,33 @@ If you provide your own implementation of the traits for each component of the t
         
         // Removing a tree root
         mbit.remove(&root)?;
+        Ok(())
+    }
+```
+
+## Verification
+
+The `MerkleBIT` also supports generating and verifying merkle inclusion proofs, and may be used like below:
+```rust
+    use starling::hash_tree::HashTree;
+    use std::error::Error;
+    
+    fn main() -> Result<Ok, Error> {
+        let tree = HashTree::new(8)?;
+        
+        let mut key: [u8; 32] = [0xFF; 32];
+        let value: Vec<u8> = vec![0xDDu8];
+        
+        let root: [u8; 32] = tree.insert(None, &mut [&key], &mut [&value])?;
+        
+        // An inclusion proof that proves membership of a key in the tree
+        let proof: Vec<([u8; 32], bool)> = tree.generate_inclusion_proof(&root, &key)?;
+        
+        // The verifying tree may be empty
+        let empty_tree = HashTree::new(8)?;
+        
+        // If the proof is valid, it will return Ok(())
+        empty_tree.verify_inclusion_proof(&root, &key, &value, &proof)?;
         Ok(())
     }
 ```
