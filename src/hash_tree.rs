@@ -75,7 +75,12 @@ where
     }
 
     #[inline]
-    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], data: &ValueType) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
-        self.tree.generate_inclusion_proof(root, key, data)
+    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
+        self.tree.generate_inclusion_proof(root, key)
+    }
+
+    #[inline]
+    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &Vec<([u8; KEY_LEN], bool)>) -> BinaryMerkleTreeResult<()> {
+        self.tree.verify_inclusion_proof(root, key, value, proof)
     }
 }

@@ -13,6 +13,7 @@ pub mod integration_tests {
     use starling::merkle_bit::BinaryMerkleTreeResult;
     #[cfg(feature = "use_rocksdb")]
     use starling::rocks_tree::RocksTree;
+    use starling::traits::Exception;
 
     #[cfg(feature = "use_rocksdb")]
     type Tree = RocksTree<Vec<u8>>;
@@ -1231,13 +1232,107 @@ pub mod integration_tests {
 
         let root = bmt.insert(None, &mut [&key], &mut vec![&data])?;
 
-        let inclusion_proof = bmt.generate_inclusion_proof(&root, &key, &data)?;
-        unimplemented!();
+        let inclusion_proof = bmt.generate_inclusion_proof(&root, &key)?;
+        bmt.verify_inclusion_proof(&root, &key, &data, &inclusion_proof)?;
+        Ok(())
+    }
+
+    #[test]
+    fn it_fails_an_invalid_simple_proof() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x4Cu8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let key = [0x00u8; KEY_LEN];
+        let data = vec![0x00u8];
+
+        let root = bmt.insert(None, &mut [&key], &mut vec![&data])?;
+
+        let inclusion_proof = bmt.generate_inclusion_proof(&root, &key)?;
+        match bmt.verify_inclusion_proof(&[01u8; KEY_LEN], &key, &data, &inclusion_proof) {
+            Ok(_) => return Err(Exception::new("Failed to detect invalid proof")),
+            Err(_) => return Ok(())
+        }
+    }
+
+    #[test]
+    fn it_generates_a_medium_size_inclusion_proof() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xE8u8; KEY_LEN];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 256;
+
+        let (keys, values) = prepare_inserts(num_entries, &mut rng);
+
+        let mut insert_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let root = bmt.insert(None, &mut insert_keys, &mut insert_values)?;
+
+        for i in 0..num_entries {
+            let inclusion_proof = bmt.generate_inclusion_proof(&root, insert_keys[i])?;
+            bmt.verify_inclusion_proof(&root, insert_keys[i], insert_values[i], &inclusion_proof)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn it_generates_a_large_size_inclusion_proof() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xFCu8; KEY_LEN];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+
+        let (keys, values) = prepare_inserts(num_entries, &mut rng);
+
+        let mut insert_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let root = bmt.insert(None, &mut insert_keys, &mut insert_values)?;
+
+        for i in 0..num_entries {
+            let inclusion_proof = bmt.generate_inclusion_proof(&root, insert_keys[i])?;
+            bmt.verify_inclusion_proof(&root, insert_keys[i], insert_values[i], &inclusion_proof)?;
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn it_fails_a_large_size_invalid_proof() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x61u8; KEY_LEN];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+
+        let (keys, values) = prepare_inserts(num_entries, &mut rng);
+
+        let mut insert_keys = keys.iter().collect::<Vec<_>>();
+        let mut insert_values = values.iter().collect::<Vec<_>>();
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let root = bmt.insert(None, &mut insert_keys, &mut insert_values)?;
+
+        for i in 0..num_entries {
+            let inclusion_proof = bmt.generate_inclusion_proof(&root, insert_keys[i])?;
+            if let Ok(_) =  bmt.verify_inclusion_proof(&[0x03; KEY_LEN], insert_keys[i], insert_values[i], &inclusion_proof) {
+                return Err(Exception::new("Failed to detect an invalid proof"));
+            }
+        }
+        Ok(())
     }
 
     fn generate_path(seed: [u8; KEY_LEN]) -> PathBuf {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let suffix = rng.gen_range(1000, 10000);
+        let suffix = rng.gen_range(1000, 100000);
         let path_string = format!("Test_DB_{}", suffix);
         PathBuf::from(path_string)
     }

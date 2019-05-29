@@ -14,7 +14,7 @@ use crate::traits::{
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_utils::{
-    calc_min_split_index, check_descendants, generate_leaf_map, split_pairs, generate_tree_ref_queue
+    calc_min_split_index, check_descendants, choose_zero, generate_leaf_map, split_pairs, generate_tree_ref_queue
 };
 
 /// A generic `Result` from an operation involving a `MerkleBIT`
@@ -588,6 +588,7 @@ where
 
             root = branch_node_location;
         }
+        self.db.batch_write()?;
         Ok(Some(root))
     }
 
@@ -653,11 +654,132 @@ where
     /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
     /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
-    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
+    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
         let mut nodes = VecDeque::with_capacity(160);
         nodes.push_front(*root);
 
-        unimplemented!();
+        let mut proof = Vec::with_capacity(self.depth);
+
+        let mut found_leaf = false;
+        let mut depth = 0;
+        while let Some(location) = nodes.pop_front() {
+            if depth > self.depth {
+                return Err(Exception::new("Depth limit exceeded"));
+            }
+            depth += 1;
+
+            if let Some(node) = self.db.get_node(&location)? {
+                match node.get_variant() {
+                    NodeVariant::Branch(b) => {
+                        if found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"));
+                        }
+                        let index = b.get_split_index();
+                        let b_key = b.get_key();
+                        let min_split_index = calc_min_split_index(&[key], b_key);
+                        let keys = &[key];
+                        let descendants= check_descendants(keys, index, b_key, min_split_index);
+                        if descendants.is_empty() {
+                            return Err(Exception::new("Key not found in tree"));
+                        }
+
+                        if choose_zero(key, index) {
+                            proof.push((*b.get_one(), true));
+                            nodes.push_back(*b.get_zero());
+                        } else {
+                            proof.push((*b.get_zero(), false));
+                            nodes.push_back(*b.get_one());
+                        }
+                    },
+                    NodeVariant::Leaf(l) => {
+                        if found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"));
+                        }
+                        if l.get_key() != key {
+                            return Err(Exception::new("Key not found in tree"));
+                        }
+
+                        let mut leaf_hasher = HasherType::new(KEY_LEN);
+                        leaf_hasher.update(b"l");
+                        leaf_hasher.update(l.get_key());
+                        leaf_hasher.update(&l.get_data()[..]);
+                        let leaf_node_location = leaf_hasher.finalize();
+
+                        proof.push((leaf_node_location, false));
+                        nodes.push_back(*l.get_data());
+                        found_leaf = true;
+                    },
+                    NodeVariant::Data(d) => {
+                        if !found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"))
+                        }
+
+                        let mut data_hasher = HasherType::new(KEY_LEN);
+                        data_hasher.update(b"d");
+                        data_hasher.update(key);
+                        data_hasher.update(d.get_value());
+                        let data_node_location = data_hasher.finalize();
+
+                        proof.push((data_node_location, false));
+                    }
+                }
+            } else {
+                return Err(Exception::new("Failed to find node"))
+            }
+        }
+
+        proof.reverse();
+
+        Ok(proof)
+    }
+
+    #[inline]
+    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &Vec<([u8; KEY_LEN], bool)>) -> BinaryMerkleTreeResult<()> {
+        if proof.len() < 2 {
+            return Err(Exception::new("Proof is too short to be valid"));
+        }
+
+        let mut data_hasher = HasherType::new(KEY_LEN);
+        data_hasher.update(b"d");
+        data_hasher.update(key);
+        data_hasher.update(&value.encode()?);
+        let data_hash = data_hasher.finalize();
+
+        if data_hash != proof[0].0 {
+            return Err(Exception::new("Proof is invalid"));
+        }
+
+        let mut leaf_hasher = HasherType::new(KEY_LEN);
+        leaf_hasher.update(b"l");
+        leaf_hasher.update(key);
+        leaf_hasher.update(&data_hash);
+        let leaf_hash = leaf_hasher.finalize();
+
+        if leaf_hash != proof[1].0 {
+            return Err(Exception::new("Proof is invalid"));
+        }
+
+        let mut current_hash = leaf_hash;
+
+        for i in 2..proof.len() {
+            let mut branch_hasher = HasherType::new(KEY_LEN);
+            branch_hasher.update(b"b");
+            if proof[i].1 {
+                branch_hasher.update(&current_hash);
+                branch_hasher.update(&proof[i].0);
+            } else {
+                branch_hasher.update(&proof[i].0);
+                branch_hasher.update(&current_hash);
+            }
+            let branch_hash = branch_hasher.finalize();
+            current_hash = branch_hash;
+        }
+
+        if *root != current_hash {
+            return Err(Exception::new("Proof is invalid"));
+        }
+
+        Ok(())
     }
 }
 

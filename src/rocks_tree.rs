@@ -62,4 +62,14 @@ where
     pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }
+
+    #[inline]
+    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
+        self.tree.generate_inclusion_proof(root, key)
+    }
+
+    #[inline]
+    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &Vec<([u8; KEY_LEN], bool)>) -> BinaryMerkleTreeResult<()> {
+        self.tree.verify_inclusion_proof(root, key, value, proof)
+    }
 }
