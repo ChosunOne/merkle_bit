@@ -8,7 +8,7 @@ fn main() -> BinaryMerkleTreeResult<()> {
     let value = vec![0x00; KEY_LEN];
 
     // Inserting and getting from a tree
-    let new_root = tree.insert(None, &mut [key], &mut vec![&value])?;
+    let new_root = tree.insert(None, &mut [key], &vec![value.clone()])?;
     let item_map = tree.get(&new_root, &mut [key])?;
     assert_eq!(item_map[&key], Some(value));
 

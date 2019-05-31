@@ -181,7 +181,7 @@ where
                     if let Some(d) = self.db.get_node(n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant() {
                             let value = ValueType::decode(data.get_value())?;
-                            if let Ok(index) = keys.binary_search(&n.get_key()) {
+                            if let Ok(index) = keys.binary_search(n.get_key()) {
                                 leaf_map.insert(keys[index], Some(value));
                             }
                         } else {
@@ -212,7 +212,7 @@ where
         &mut self,
         previous_root: Option<&[u8; KEY_LEN]>,
         keys: &mut [[u8; KEY_LEN]],
-        values: &mut [&ValueType],
+        values: &[ValueType],
     ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
@@ -223,7 +223,7 @@ where
         }
 
         let mut value_map = HashMap::new();
-        for (&key, &value) in keys.iter().zip(values.iter()) {
+        for (&key, value) in keys.iter().zip(values.iter()) {
             value_map.insert(key, value);
         }
 

@@ -29,14 +29,12 @@ fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "Big Tree Empty Insert",
         move |b, index| {
-            let prepare = prepare_inserts(10000, &mut rng);
-            let mut keys = prepare.0;
-            let data_values = prepare.1;
-            let mut data = data_values.iter().collect::<Vec<_>>();
+            let (mut keys, values) = prepare_inserts(10000, &mut rng);
+
             let mut bmt = Tree::open(&path, 160).unwrap();
             b.iter(|| {
                 let root = bmt
-                    .insert(None, &mut keys[0..*index], &mut data[0..*index])
+                    .insert(None, &mut keys[0..*index], &values[0..*index])
                     .unwrap();
                 criterion::black_box(root);
             });
@@ -57,23 +55,18 @@ fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
     c.bench_function_over_inputs(
         "Big Tree Non Empty Insert",
         move |b, index| {
-            let prepare = prepare_inserts(10000, &mut rng);
-            let mut keys = prepare.0;
-            let data_values = prepare.1;
-            let mut data = data_values.iter().collect::<Vec<_>>();
+            let (mut keys, values) = prepare_inserts(10000, &mut rng);
 
             let mut bmt = Tree::open(&path, 160).unwrap();
-            let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
-            let second = prepare_inserts(10000, &mut rng);
-            let mut second_keys = second.0;
-            let mut second_data = second.1.iter().collect::<Vec<_>>();
+            let root_hash = bmt.insert(None, &mut keys, &values).unwrap();
+            let (mut second_keys, second_values) = prepare_inserts(10000, &mut rng);
 
             b.iter(|| {
                 let root = bmt
                     .insert(
                         Some(&root_hash),
                         &mut second_keys[0..*index],
-                        &mut second_data[0..*index],
+                        &second_values[0..*index],
                     )
                     .unwrap();
                 criterion::black_box(root);
@@ -93,12 +86,10 @@ fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
     let seed = [0xBBu8; KEY_LEN];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function("Big Tree Get Benchmark/10000", move |b| {
-        let prepare = prepare_inserts(10000, &mut rng);
-        let mut keys = prepare.0;
-        let data_values = prepare.1;
-        let mut data = data_values.iter().collect::<Vec<_>>();
+        let (mut keys, values) = prepare_inserts(10000, &mut rng);
+
         let mut bmt = Tree::open(&path, 160).unwrap();
-        let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
+        let root_hash = bmt.insert(None, &mut keys, &values).unwrap();
 
         b.iter(|| {
             let items = bmt.get(&root_hash, &mut keys).unwrap();
@@ -117,12 +108,10 @@ fn remove_from_tree_big_benchmark(c: &mut Criterion) {
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
     c.bench_function("Big Tree Remove Benchmark/10000", move |b| {
-        let prepare = prepare_inserts(10000, &mut rng);
+        let (mut keys, values) = prepare_inserts(10000, &mut rng);
         let mut tree = Tree::open(&path.clone(), 160).unwrap();
-        let mut keys = prepare.0;
-        let data_values = prepare.1;
-        let mut data = data_values.iter().collect::<Vec<_>>();
-        let root_hash = tree.insert(None, &mut keys, &mut data).unwrap();
+
+        let root_hash = tree.insert(None, &mut keys, &values).unwrap();
         b.iter(|| {
             tree.remove(&root_hash).unwrap();
         })
