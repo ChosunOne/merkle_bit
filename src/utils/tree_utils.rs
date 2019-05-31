@@ -16,7 +16,7 @@ use hashbrown::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
-pub const fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
+pub const fn choose_zero(key: [u8; KEY_LEN], bit: u8) -> bool {
     let index = (bit >> 3) as usize;
     let shift = bit % 8;
     let extracted_bit = (key[index] >> (7 - shift)) & 1;
@@ -26,10 +26,10 @@ pub const fn choose_zero(key: &[u8; KEY_LEN], bit: u8) -> bool {
 /// This function splits the list of sorted pairs into two lists, one for going down the zero branch,
 /// and the other for going down the one branch.
 #[inline]
-pub fn split_pairs<'a>(
-    sorted_pairs: &'a [&'a [u8; KEY_LEN]],
+pub fn split_pairs(
+    sorted_pairs: &[[u8; KEY_LEN]],
     bit: u8,
-) -> (&'a [&'a [u8; KEY_LEN]], &'a [&'a [u8; KEY_LEN]]) {
+) -> (& [[u8; KEY_LEN]], &[[u8; KEY_LEN]]) {
     if sorted_pairs.is_empty() {
         return (&[], &[]);
     }
@@ -60,11 +60,11 @@ pub fn split_pairs<'a>(
 /// This function checks to see if a section of keys need to go down this branch.
 #[inline]
 pub fn check_descendants<'a>(
-    keys: &'a [&'a [u8; KEY_LEN]],
+    keys: &'a[[u8; KEY_LEN]],
     branch_split_index: u8,
     branch_key: &[u8; KEY_LEN],
     min_split_index: u8,
-) -> &'a [&'a [u8; KEY_LEN]] {
+) -> &'a [[u8; KEY_LEN]] {
     let mut start = 0;
     let mut end = 0;
     let mut found_start = false;
@@ -101,15 +101,15 @@ pub fn check_descendants<'a>(
 /// This function calculates the minimum index upon which the given keys diverge.  It also includes
 /// the given branch key when calculating the minimum split index.
 #[inline]
-pub fn calc_min_split_index(keys: &[&[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> u8 {
+pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> u8 {
     assert!(!keys.is_empty());
     let mut min_key = *keys.iter().min().expect("Failed to get min key");
     let mut max_key = *keys.iter().max().expect("Failed to get max key");
 
-    if branch_key < min_key {
-        min_key = branch_key;
-    } else if branch_key > max_key {
-        max_key = branch_key;
+    if *branch_key < min_key {
+        min_key = *branch_key;
+    } else if *branch_key > max_key {
+        max_key = *branch_key;
     }
 
     let mut split_bit = KEY_LEN_BITS;
@@ -127,9 +127,9 @@ pub fn calc_min_split_index(keys: &[&[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN])
 /// This function initializes a hashmap to have entries for each provided key.  Values are initialized
 /// to `None`.
 #[inline]
-pub fn generate_leaf_map<'a, ValueType>(
-    keys: &[&'a [u8; KEY_LEN]],
-) -> HashMap<&'a [u8; KEY_LEN], Option<ValueType>> {
+pub fn generate_leaf_map<ValueType>(
+    keys: &[[u8; KEY_LEN]],
+) -> HashMap<[u8; KEY_LEN], Option<ValueType>> {
     let mut leaf_map = HashMap::new();
     for &key in keys.iter() {
         leaf_map.insert(key, None);

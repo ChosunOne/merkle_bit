@@ -6,19 +6,19 @@ pub struct TreeCell<'a, NodeType> {
     /// The location of the node being traversed.
     pub location: [u8; KEY_LEN],
     /// The keys traversing this part of the tree.
-    pub keys: &'a [&'a [u8; KEY_LEN]],
+    pub keys: &'a [[u8; KEY_LEN]],
     /// The node currently being traversed.
     pub node: NodeType,
     /// The depth of the traversal in the tree.
     pub depth: usize,
 }
 
-impl<'a, 'b, NodeType> TreeCell<'a, NodeType> {
+impl<'a, NodeType> TreeCell<'a, NodeType> {
     /// Creates a new `TreeCell`.
     #[inline]
     pub fn new<BranchType, LeafType, DataType>(
         location: [u8; KEY_LEN],
-        keys: &'a [&'a [u8; KEY_LEN]],
+        keys: &'a [[u8; KEY_LEN]],
         node: NodeType,
         depth: usize,
     ) -> Self

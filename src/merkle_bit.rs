@@ -104,11 +104,11 @@ where
 
     /// Get items from the `MerkleBIT`.  Returns a map of `Option`s which may include the corresponding values.
     #[inline]
-    pub fn get<'a>(
+    pub fn get(
         &self,
         root_hash: &[u8; KEY_LEN],
-        keys: &mut [&'a [u8; KEY_LEN]],
-    ) -> BinaryMerkleTreeResult<HashMap<&'a [u8; KEY_LEN], Option<ValueType>>> {
+        keys: &mut [[u8; KEY_LEN]],
+    ) -> BinaryMerkleTreeResult<HashMap<[u8; KEY_LEN], Option<ValueType>>> {
         if keys.is_empty() {
             return Ok(HashMap::new());
         }
@@ -211,7 +211,7 @@ where
     pub fn insert(
         &mut self,
         previous_root: Option<&[u8; KEY_LEN]>,
-        keys: &mut [&[u8; KEY_LEN]],
+        keys: &mut [[u8; KEY_LEN]],
         values: &mut [&ValueType],
     ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
         if keys.len() != values.len() {
@@ -233,7 +233,7 @@ where
 
         let mut tree_refs = Vec::with_capacity(keys.len());
         let mut key_map = HashMap::new();
-        for (loc, &&key) in nodes.into_iter().zip(keys.iter()) {
+        for (loc, &key) in nodes.into_iter().zip(keys.iter()) {
             key_map.insert(key, loc);
             let tree_ref = TreeRef::new(key, loc, 1, 1);
             tree_refs.push(tree_ref);
@@ -252,7 +252,7 @@ where
     fn generate_treerefs(
         &mut self,
         root: &[u8; KEY_LEN],
-        keys: &mut [&[u8; KEY_LEN]],
+        keys: &mut [[u8; KEY_LEN]],
         key_map: &HashMap<[u8; KEY_LEN], [u8; KEY_LEN]>,
     ) -> BinaryMerkleTreeResult<Vec<TreeRef>> {
         // Nodes that form the merkle proof for the new tree
@@ -439,11 +439,11 @@ where
     /// Updates reference count if a leaf already exists.
     fn insert_leaves(
         &mut self,
-        keys: &[&[u8; KEY_LEN]],
-        values: &HashMap<&[u8; KEY_LEN], &ValueType>,
+        keys: &[[u8; KEY_LEN]],
+        values: &HashMap<[u8; KEY_LEN], &ValueType>,
     ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
         let mut nodes = Vec::with_capacity(keys.len());
-        for &key in keys.iter() {
+        for key in keys.iter() {
             // Create data node
             let mut data = DataType::new();
             data.set_value(&values[key].encode()?);
@@ -654,7 +654,7 @@ where
     /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
     /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
-    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
+    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
         let mut nodes = VecDeque::with_capacity(160);
         nodes.push_front(*root);
 
@@ -695,7 +695,7 @@ where
                         if found_leaf {
                             return Err(Exception::new("Corrupt Merkle Tree"));
                         }
-                        if l.get_key() != key {
+                        if *l.get_key() != key {
                             return Err(Exception::new("Key not found in tree"));
                         }
 
@@ -716,7 +716,7 @@ where
 
                         let mut data_hasher = HasherType::new(KEY_LEN);
                         data_hasher.update(b"d");
-                        data_hasher.update(key);
+                        data_hasher.update(&key);
                         data_hasher.update(d.get_value());
                         let data_node_location = data_hasher.finalize();
 
@@ -734,14 +734,14 @@ where
     }
 
     #[inline]
-    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN], value: &ValueType, proof: &[([u8; KEY_LEN], bool)]) -> BinaryMerkleTreeResult<()> {
+    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN], value: &ValueType, proof: &[([u8; KEY_LEN], bool)]) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
             return Err(Exception::new("Proof is too short to be valid"));
         }
 
         let mut data_hasher = HasherType::new(KEY_LEN);
         data_hasher.update(b"d");
-        data_hasher.update(key);
+        data_hasher.update(&key);
         data_hasher.update(&value.encode()?);
         let data_hash = data_hasher.finalize();
 
@@ -751,7 +751,7 @@ where
 
         let mut leaf_hasher = HasherType::new(KEY_LEN);
         leaf_hasher.update(b"l");
-        leaf_hasher.update(key);
+        leaf_hasher.update(&key);
         leaf_hasher.update(&data_hash);
         let leaf_hash = leaf_hasher.finalize();
 
@@ -794,7 +794,7 @@ pub mod tests {
         let key = [0x0F; KEY_LEN];
         for i in 0..8 {
             let expected_branch= i < 4;
-            let branch = choose_zero(&key, i);
+            let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -804,13 +804,13 @@ pub mod tests {
         let key = [0x55; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 == 0;
-            let branch = choose_zero(&key, i);
+            let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
         let key = [0xAA; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 != 0;
-            let branch = choose_zero(&key, i);
+            let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -820,14 +820,14 @@ pub mod tests {
         let key = [0x68; KEY_LEN];
         for i in 0..8 {
             let expected_branch=  !(i == 1 || i == 2 || i == 4);
-            let branch = choose_zero(&key, i);
+            let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
 
         let key = [0xAB; KEY_LEN];
         for i in 0..8 {
             let expected_branch = !(i == 0 || i == 2 || i == 4 || i == 6 || i == 7);
-            let branch = choose_zero(&key, i);
+            let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
     }
@@ -838,8 +838,8 @@ pub mod tests {
         // tree should not require any copying or moving of memory.
         let zero_key = [0x00u8; KEY_LEN];
         let key_vec = vec![
-            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key,
-            &zero_key, &zero_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key,
+            zero_key, zero_key,
         ];
         let keys = key_vec;
 
@@ -847,7 +847,7 @@ pub mod tests {
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
         for &res in result.0 {
-            assert_eq!(*res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00u8; KEY_LEN]);
         }
     }
 
@@ -855,14 +855,14 @@ pub mod tests {
     fn it_splits_an_all_ones_sorted_list_of_pairs() {
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &one_key, &one_key, &one_key, &one_key, &one_key, &one_key, &one_key, &one_key,
-            &one_key, &one_key,
+            one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
+            one_key, one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
         for &res in result.1 {
-            assert_eq!(*res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -871,17 +871,17 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key, &one_key,
-            &one_key, &one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
+            one_key, one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
-            assert_eq!(*res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00u8; KEY_LEN]);
         }
         for &res in result.1 {
-            assert_eq!(*res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -890,17 +890,17 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key,
-            &one_key, &one_key, &one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key,
+            one_key, one_key, one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
-            assert_eq!(*res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00u8; KEY_LEN]);
         }
         for &res in result.1 {
-            assert_eq!(*res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
     }
 
@@ -909,18 +909,18 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            &zero_key, &zero_key, &zero_key, &zero_key, &zero_key, &one_key, &one_key, &one_key,
-            &one_key, &one_key, &one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
+            one_key, one_key, one_key,
         ];
 
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
         for &res in result.0 {
-            assert_eq!(*res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00u8; KEY_LEN]);
         }
         for &res in result.1 {
-            assert_eq!(*res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
     }
 }
