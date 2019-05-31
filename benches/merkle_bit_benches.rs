@@ -30,8 +30,7 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
         "Tree Empty Insert",
         move |b, index| {
             let prepare = prepare_inserts(1000, &mut rng);
-            let key_values = prepare.0;
-            let mut keys = key_values.iter().collect::<Vec<_>>();
+            let mut keys = prepare.0;
             let data_values = prepare.1;
             let mut data = data_values.iter().collect::<Vec<_>>();
             let mut bmt = Tree::open(&path, 160).unwrap();
@@ -58,15 +57,14 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
         "Tree Non Empty Insert",
         move |b, index| {
             let prepare = prepare_inserts(4096, &mut rng);
-            let key_values = prepare.0;
-            let mut keys = key_values.iter().collect::<Vec<_>>();
+            let mut keys = prepare.0;
             let data_values = prepare.1;
             let mut data = data_values.iter().collect::<Vec<_>>();
 
             let mut bmt = Tree::open(&path, 160).unwrap();
             let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
             let second = prepare_inserts(1000, &mut rng);
-            let mut second_keys = second.0.iter().collect::<Vec<_>>();
+            let mut second_keys = second.0;
             let mut second_data = second.1.iter().collect::<Vec<_>>();
 
             b.iter(|| {
@@ -95,17 +93,14 @@ fn get_from_hash_tree_benchmark(c: &mut Criterion) {
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function("Tree Get Benchmark/4096", move |b| {
         let prepare = prepare_inserts(4096, &mut rng);
-        let key_values = prepare.0;
-        let mut keys = key_values.iter().collect::<Vec<_>>();
+        let mut keys = prepare.0;
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
         let mut bmt = Tree::open(&path, 160).unwrap();
         let root_hash = bmt.insert(None, &mut keys, &mut data).unwrap();
 
-        let keys_ = key_values.clone();
-        let mut keys_to_get = keys_.iter().collect::<Vec<_>>();
         b.iter(|| {
-            let items = bmt.get(&root_hash, &mut keys_to_get).unwrap();
+            let items = bmt.get(&root_hash, &mut keys).unwrap();
             criterion::black_box(items);
         })
     });
@@ -123,13 +118,12 @@ fn remove_from_tree_benchmark(c: &mut Criterion) {
     c.bench_function("Tree Remove Benchmark/4096", move |b| {
         let prepare = prepare_inserts(4096, &mut rng);
         let mut tree = Tree::open(&path.clone(), 160).unwrap();
-        let key_values = prepare.0;
-        let mut keys = key_values.iter().collect::<Vec<_>>();
+        let mut keys = prepare.0;
         let data_values = prepare.1;
         let mut data = data_values.iter().collect::<Vec<_>>();
         let root_hash = tree.insert(None, &mut keys, &mut data).unwrap();
         b.iter(|| {
-            tree.remove(&root_hash).unwrap();
+            criterion::black_box(tree.remove(&root_hash).unwrap());
         })
     });
     #[cfg(any(feature = "use_rocksdb"))]
