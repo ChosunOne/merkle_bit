@@ -1,3 +1,6 @@
+# 3.1.0
+* Update API for `get`, `insert`, `generate_inclusion_proof`, and `verify_inclusion_proof`.  You can now use a single reference to 
+an array or vector instead of needing to create a vector or array of references.
 # 3.0.0 
 * Remove `use_rayon`.  Rayon doesn't seem well suited for the kind of parallelism required for the tree building process. 
 * Change trait bounds on `MerkeBIT` to allow for auto derivation of `Sync + Send` if implemented in the underlying data types.  

@@ -20,7 +20,7 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
         let value: Vec<u8> = vec![0xDDu8];
         
         // Inserting an element changes the root node
-        let root = tree.insert(None, &mut [&key], &mut [&value])?;
+        let root = tree.insert(None, &mut [&key], &[value])?;
         
         let retrieved_value = tree.get(&root, &mut [&key])?;
         
@@ -106,10 +106,10 @@ If you provide your own implementation of the traits for each component of the t
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: [u8; 32] = mbit.insert(None, &mut [&key], &mut [&value])?;
+        let root: [u8; 32] = mbit.insert(None, &mut [key], &[value])?;
         
         // Retrieving the inserted value
-        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [&key])?;
+        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [key])?;
         
         // Removing a tree root
         mbit.remove(&root)?;
@@ -130,16 +130,16 @@ The `MerkleBIT` also supports generating and verifying merkle inclusion proofs, 
         let mut key: [u8; 32] = [0xFF; 32];
         let value: Vec<u8> = vec![0xDDu8];
         
-        let root: [u8; 32] = tree.insert(None, &mut [&key], &mut [&value])?;
+        let root: [u8; 32] = tree.insert(None, &mut [&key], &[value])?;
         
         // An inclusion proof that proves membership of a key in the tree
-        let proof: Vec<([u8; 32], bool)> = tree.generate_inclusion_proof(&root, &key)?;
+        let proof: Vec<([u8; 32], bool)> = tree.generate_inclusion_proof(&root, key)?;
         
         // The verifying tree may be empty
         let empty_tree = HashTree::new(8)?;
         
         // If the proof is valid, it will return Ok(())
-        empty_tree.verify_inclusion_proof(&root, &key, &value, &proof)?;
+        empty_tree.verify_inclusion_proof(&root, key, &value, &proof)?;
         Ok(())
     }
 ```
