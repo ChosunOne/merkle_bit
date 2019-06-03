@@ -16,10 +16,10 @@ use hashbrown::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
-pub const fn choose_zero(key: [u8; KEY_LEN], bit: u8) -> bool {
-    let index = (bit >> 3) as usize;
+pub const fn choose_zero(key: [u8; KEY_LEN], bit: usize) -> bool {
+    let index = bit >> 3;
     let shift = bit % 8;
-    let extracted_bit = (key[index] >> (7 - shift)) & 1;
+    let extracted_bit = (key[index] as usize >> (7 - shift)) & 1;
     extracted_bit == 0
 }
 
@@ -28,7 +28,7 @@ pub const fn choose_zero(key: [u8; KEY_LEN], bit: u8) -> bool {
 #[inline]
 pub fn split_pairs(
     sorted_pairs: &[[u8; KEY_LEN]],
-    bit: u8,
+    bit: usize,
 ) -> (& [[u8; KEY_LEN]], &[[u8; KEY_LEN]]) {
     if sorted_pairs.is_empty() {
         return (&[], &[]);
@@ -61,9 +61,9 @@ pub fn split_pairs(
 #[inline]
 pub fn check_descendants<'a>(
     keys: &'a[[u8; KEY_LEN]],
-    branch_split_index: u8,
+    branch_split_index: usize,
     branch_key: &[u8; KEY_LEN],
-    min_split_index: u8,
+    min_split_index: usize,
 ) -> &'a [[u8; KEY_LEN]] {
     let mut start = 0;
     let mut end = 0;
@@ -76,7 +76,7 @@ pub fn check_descendants<'a>(
                 continue;
             }
             let xor_key = branch_key[byte] ^ key[byte];
-            let split_bit = (byte << 3) as u8 + (7 - fast_log_2(xor_key)) as u8;
+            let split_bit = (byte << 3) + 7 - fast_log_2(xor_key) as usize;
             if split_bit < branch_split_index {
                 descendant = false;
                 break;
@@ -101,7 +101,7 @@ pub fn check_descendants<'a>(
 /// This function calculates the minimum index upon which the given keys diverge.  It also includes
 /// the given branch key when calculating the minimum split index.
 #[inline]
-pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> u8 {
+pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> usize {
     assert!(!keys.is_empty());
     let mut min_key = *keys.iter().min().expect("Failed to get min key");
     let mut max_key = *keys.iter().max().expect("Failed to get max key");
@@ -118,7 +118,7 @@ pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) 
             continue;
         }
         let xor_key = min_key_byte ^ max_key[i];
-        split_bit = (i << 3) as u8 + (7 - fast_log_2(xor_key)) as u8;
+        split_bit = (i << 3) + 7 - fast_log_2(xor_key) as usize;
         break;
     }
     split_bit
@@ -151,8 +151,8 @@ pub const fn fast_log_2(num: u8) -> u8 {
 #[inline]
 pub fn generate_tree_ref_queue(
     tree_refs: &mut Vec<TreeRef>,
-    tree_ref_queue: &mut HashMap<u8, Vec<(u8, usize, usize)>>,
-) -> BinaryMerkleTreeResult<(HashSet<u8>)> {
+    tree_ref_queue: &mut HashMap<usize, Vec<(usize, usize, usize)>>,
+) -> BinaryMerkleTreeResult<(HashSet<usize>)> {
     let mut unique_split_bits = HashSet::new();
     for i in 0..tree_refs.len() - 1 {
         let left_key = tree_refs[i].key;
@@ -172,7 +172,7 @@ pub fn generate_tree_ref_queue(
 
             // Find the bit index of the first difference
             let xor_key = left_key[j] ^ right_key[j];
-            let split_bit = (j * 8) as u8 + (7 - fast_log_2(xor_key) as u8);
+            let split_bit = (j * 8) + 7 - fast_log_2(xor_key) as usize;
             unique_split_bits.insert(split_bit);
             let new_item = (split_bit, i, i + 1);
             if let Some(v) = tree_ref_queue.get_mut(&split_bit) {

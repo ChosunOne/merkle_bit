@@ -83,4 +83,9 @@ where
     pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN], value: &ValueType, proof: &[([u8; KEY_LEN], bool)]) -> BinaryMerkleTreeResult<()> {
         self.tree.verify_inclusion_proof(root, key, value, proof)
     }
+
+    #[inline]
+    pub fn get_one(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Option<ValueType>> {
+        self.tree.get_one(root, key)
+    }
 }

@@ -36,7 +36,7 @@ pub struct TreeBranch {
     /// The location of the next node when traversing the one branch.
     one: [u8; KEY_LEN],
     /// The index bit of the associated key on which to make a decision to go down the zero or one branch.
-    split_index: u8,
+    split_index: usize,
     /// The associated key with this branch.
     key: [u8; KEY_LEN],
 }
@@ -69,7 +69,7 @@ impl TreeBranch {
     }
 
     /// Get the index to split on when deciding which child to traverse.
-    const fn get_split_index(&self) -> u8 {
+    const fn get_split_index(&self) -> usize {
         self.split_index
     }
 
@@ -94,7 +94,7 @@ impl TreeBranch {
     }
 
     /// Sets the index of the key to split on when deciding which child to traverse.
-    fn set_split_index(&mut self, split_index: u8) {
+    fn set_split_index(&mut self, split_index: usize) {
         self.split_index = split_index;
     }
 
@@ -104,7 +104,7 @@ impl TreeBranch {
     }
 
     /// Decomposes the `TreeBranch` into its constituent parts.
-    const fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
+    const fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], usize, [u8; KEY_LEN]) {
         (self.count, self.zero, self.one, self.split_index, self.key)
     }
 }
@@ -128,7 +128,7 @@ impl Branch for TreeBranch {
         Self::get_one(self)
     }
     #[inline]
-    fn get_split_index(&self) -> u8 {
+    fn get_split_index(&self) -> usize {
         Self::get_split_index(self)
     }
     #[inline]
@@ -149,7 +149,7 @@ impl Branch for TreeBranch {
         Self::set_one(self, one)
     }
     #[inline]
-    fn set_split_index(&mut self, index: u8) {
+    fn set_split_index(&mut self, index: usize) {
         Self::set_split_index(self, index)
     }
     #[inline]
@@ -158,7 +158,7 @@ impl Branch for TreeBranch {
     }
 
     #[inline]
-    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]) {
+    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], usize, [u8; KEY_LEN]) {
         Self::decompose(self)
     }
 }

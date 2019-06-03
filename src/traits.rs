@@ -58,7 +58,7 @@ pub trait Branch {
     /// Gets the location of the one branch beneath this node.
     fn get_one(&self) -> &[u8; KEY_LEN];
     /// Gets the index on which to split keys when traversing this node.
-    fn get_split_index(&self) -> u8;
+    fn get_split_index(&self) -> usize;
     /// Gets the associated key with this node.
     fn get_key(&self) -> &[u8; KEY_LEN];
     /// Sets the count of leaves below this node.
@@ -68,11 +68,11 @@ pub trait Branch {
     /// Sets the location of the one branch beneath this node..
     fn set_one(&mut self, one: [u8; KEY_LEN]);
     /// Sets the index on which to split keys when traversing this node.
-    fn set_split_index(&mut self, index: u8);
+    fn set_split_index(&mut self, index: usize);
     /// Sets the associated key for this node.
     fn set_key(&mut self, key: [u8; KEY_LEN]);
     /// Decomposes the `Branch` into its constituent parts.
-    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], u8, [u8; KEY_LEN]);
+    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], usize, [u8; KEY_LEN]);
 }
 
 /// The required interface for structs representing leaves in the tree.
