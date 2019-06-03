@@ -525,7 +525,7 @@ where
     fn merge_nodes(
         &mut self,
         tree_refs: &mut Vec<TreeRef>,
-        level: Vec<(u8, usize, usize)>,
+        level: Vec<(usize, usize, usize)>,
     ) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
         let mut root = [0; 32];
         for (split_index, tree_ref_pointer, next_tree_ref_pointer) in level {
@@ -655,7 +655,7 @@ where
     /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
     pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
-        let mut nodes = VecDeque::with_capacity(160);
+        let mut nodes = VecDeque::with_capacity(self.depth);
         nodes.push_front(*root);
 
         let mut proof = Vec::with_capacity(self.depth);
@@ -780,6 +780,76 @@ where
         }
 
         Ok(())
+    }
+
+    /// Gets a single key from the tree.
+    #[inline]
+    pub fn get_one(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Option<ValueType>> {
+        let mut nodes = VecDeque::with_capacity(3);
+        nodes.push_front(*root);
+
+        let mut found_leaf = false;
+        let mut depth = 0;
+
+        while let Some(location) = nodes.pop_front() {
+            if depth > self.depth {
+                return Err(Exception::new("Depth limit exceeded"))
+            }
+            depth += 1;
+
+            if let Some(node) = self.db.get_node(&location)? {
+                match node.get_variant() {
+                    NodeVariant::Branch(b) => {
+                        if found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"))
+                        }
+
+                        let index = b.get_split_index();
+                        let b_key = b.get_key();
+                        let min_split_index = calc_min_split_index(&[*key], b_key);
+                        let keys = &[*key];
+                        let descendants= check_descendants(keys, index, b_key, min_split_index);
+                        if descendants.is_empty() {
+                            return Ok(None);
+                        }
+
+                        if choose_zero(*key, index) {
+                            nodes.push_back(*b.get_zero());
+                        } else {
+                            nodes.push_back(*b.get_one());
+                        }
+                    },
+                    NodeVariant::Leaf(l) => {
+                        if found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"))
+                        }
+
+                        if l.get_key() != key {
+                            return Ok(None);
+                        }
+
+                        found_leaf = true;
+                        nodes.push_back(*l.get_data());
+                    },
+                    NodeVariant::Data(d) => {
+                        if !found_leaf {
+                            return Err(Exception::new("Corrupt Merkle Tree"))
+                        }
+
+                        let buffer = d.get_value();
+                        let value = ValueType::decode(buffer)?;
+                        return Ok(Some(value))
+                    }
+                }
+            }
+
+        }
+        return Ok(None)
+    }
+
+    #[inline]
+    pub fn insert_one(&mut self, _key: [u8; KEY_LEN], _value: &ValueType) -> BinaryMerkleTreeResult<()> {
+        unimplemented!();
     }
 }
 

@@ -49,6 +49,11 @@ where
     }
 
     #[inline]
+    pub fn get_one(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Option<ValueType>> {
+        self.tree.get_one(&root, &key)
+    }
+
+    #[inline]
     pub fn insert(
         &mut self,
         previous_root: Option<&[u8; KEY_LEN]>,
