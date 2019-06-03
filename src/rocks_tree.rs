@@ -64,6 +64,11 @@ where
     }
 
     #[inline]
+    pub fn insert_one(&mut self, previous_root: Option<&[u8; KEY_LEN]>, key: &[u8; KEY_LEN], value: &ValueType) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        self.tree.insert_one(previous_root, key, value)
+    }
+
+    #[inline]
     pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }

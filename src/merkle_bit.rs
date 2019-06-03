@@ -847,9 +847,29 @@ where
         return Ok(None)
     }
 
+    /// Inserts a single value into a tree.
     #[inline]
-    pub fn insert_one(&mut self, _key: [u8; KEY_LEN], _value: &ValueType) -> BinaryMerkleTreeResult<()> {
-        unimplemented!();
+    pub fn insert_one(&mut self, previous_root: Option<&[u8; KEY_LEN]>, key: &[u8; KEY_LEN], value: &ValueType) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        let mut value_map = HashMap::new();
+        value_map.insert(*key, value);
+
+        let leaf_location = self.insert_leaves(&[*key], &value_map)?[0];
+
+        let mut tree_refs = Vec::with_capacity(1);
+        let mut key_map = HashMap::new();
+        key_map.insert(*key, leaf_location);
+
+        let tree_ref = TreeRef::new(*key, leaf_location, 1, 1);
+        tree_refs.push(tree_ref);
+
+
+        if let Some(root) = previous_root {
+            let mut proof_nodes = self.generate_treerefs(root, &mut [*key], &key_map)?;
+            tree_refs.append(&mut proof_nodes);
+        }
+
+        let new_root = self.create_tree(tree_refs)?;
+        Ok(new_root)
     }
 }
 

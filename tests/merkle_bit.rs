@@ -1268,6 +1268,50 @@ pub mod integration_tests {
         Ok(())
     }
 
+    #[test]
+    fn it_inserts_one_into_an_empty_tree() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x61u8; KEY_LEN];
+        let path = generate_path(seed);
+
+        let key = [0x78u8; KEY_LEN];
+        let value = vec![0x2Bu8];
+
+        let mut bmt = Tree::open(&path, 2)?;
+        let root = bmt.insert_one(None, &key, &value)?;
+
+        let retrieved_value = bmt.get_one(&root, &key)?.unwrap();
+        assert_eq!(retrieved_value, value);
+        Ok(())
+    }
+
+    #[test]
+    fn it_inserts_one_into_a_large_tree() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x51u8; KEY_LEN];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
+
+        let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let test_key = [0x00u8; KEY_LEN];
+        let test_value = vec![0x00u8];
+
+        let new_root = bmt.insert_one(Some(&root), &test_key, &test_value)?;
+
+        let retrieved_value = bmt.get_one(&new_root, &test_key)?.unwrap();
+        assert_eq!(retrieved_value, test_value);
+
+        Ok(())
+    }
+
     fn generate_path(seed: [u8; KEY_LEN]) -> PathBuf {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let suffix = rng.gen_range(1000, 100000);
