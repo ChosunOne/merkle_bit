@@ -4,10 +4,10 @@ use std::collections::HashMap;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
-use crate::constants::{KEY_LEN, KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
+use crate::constants::{KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
 use crate::utils::tree_ref::TreeRef;
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Exception;
+use crate::traits::{Exception, Array};
 
 #[cfg(not(feature = "use_hashbrown"))]
 use std::collections::HashSet;
@@ -16,20 +16,24 @@ use hashbrown::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
-pub const fn choose_zero(key: [u8; KEY_LEN], bit: usize) -> bool {
+pub fn choose_zero<ArrayType>(key_array: ArrayType, bit: usize) -> bool
+    where ArrayType: Array
+{
+    let key = key_array.as_ref();
     let index = bit >> 3;
     let shift = bit % 8;
-    let extracted_bit = (key[index] as usize >> (7 - shift)) & 1;
+    let extracted_bit = ((key[index]) as usize >> (7 - shift)) & 1;
     extracted_bit == 0
 }
 
 /// This function splits the list of sorted pairs into two lists, one for going down the zero branch,
 /// and the other for going down the one branch.
 #[inline]
-pub fn split_pairs(
-    sorted_pairs: &[[u8; KEY_LEN]],
+pub fn split_pairs<ArrayType>(
+    sorted_pairs: &[ArrayType],
     bit: usize,
-) -> (& [[u8; KEY_LEN]], &[[u8; KEY_LEN]]) {
+) -> (& [ArrayType], &[ArrayType])
+    where ArrayType: Array {
     if sorted_pairs.is_empty() {
         return (&[], &[]);
     }
@@ -59,23 +63,26 @@ pub fn split_pairs(
 
 /// This function checks to see if a section of keys need to go down this branch.
 #[inline]
-pub fn check_descendants<'a>(
-    keys: &'a[[u8; KEY_LEN]],
+pub fn check_descendants<'a, ArrayType>(
+    keys: &'a[ArrayType],
     branch_split_index: usize,
-    branch_key: &[u8; KEY_LEN],
+    branch_key: &ArrayType,
     min_split_index: usize,
-) -> &'a [[u8; KEY_LEN]] {
+) -> &'a [ArrayType]
+    where ArrayType: Array {
+    let b_key = branch_key.as_ref();
     let mut start = 0;
     let mut end = 0;
     let mut found_start = false;
-    for (i, key) in keys.iter().enumerate() {
+    for (i, k) in keys.iter().enumerate() {
+        let key = k.as_ref();
         let mut descendant = true;
         for j in (min_split_index..branch_split_index).step_by(8) {
             let byte = (j >> 3) as usize;
-            if branch_key[byte] == key[byte] {
+            if b_key[byte] == key[byte] {
                 continue;
             }
-            let xor_key = branch_key[byte] ^ key[byte];
+            let xor_key: u8 = b_key[byte] ^ key[byte];
             let split_bit = (byte << 3) + 7 - fast_log_2(xor_key) as usize;
             if split_bit < branch_split_index {
                 descendant = false;
@@ -101,15 +108,17 @@ pub fn check_descendants<'a>(
 /// This function calculates the minimum index upon which the given keys diverge.  It also includes
 /// the given branch key when calculating the minimum split index.
 #[inline]
-pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) -> usize {
+pub fn calc_min_split_index<ArrayType>(keys: &[ArrayType], branch_key: &ArrayType) -> usize
+    where ArrayType: Array {
     assert!(!keys.is_empty());
-    let mut min_key = *keys.iter().min().expect("Failed to get min key");
-    let mut max_key = *keys.iter().max().expect("Failed to get max key");
+    let b_key = branch_key.as_ref();
+    let mut min_key = keys.iter().min().expect("Failed to get min key").as_ref();
+    let mut max_key = keys.iter().max().expect("Failed to get max key").as_ref();
 
-    if *branch_key < min_key {
-        min_key = *branch_key;
-    } else if *branch_key > max_key {
-        max_key = *branch_key;
+    if b_key < min_key {
+        min_key = b_key;
+    } else if b_key > max_key {
+        max_key = b_key;
     }
 
     let mut split_bit = KEY_LEN_BITS;
@@ -117,7 +126,7 @@ pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) 
         if min_key_byte == max_key[i] {
             continue;
         }
-        let xor_key = min_key_byte ^ max_key[i];
+        let xor_key: u8 = min_key_byte ^ max_key[i];
         split_bit = (i << 3) + 7 - fast_log_2(xor_key) as usize;
         break;
     }
@@ -127,9 +136,10 @@ pub fn calc_min_split_index(keys: &[[u8; KEY_LEN]], branch_key: &[u8; KEY_LEN]) 
 /// This function initializes a hashmap to have entries for each provided key.  Values are initialized
 /// to `None`.
 #[inline]
-pub fn generate_leaf_map<ValueType>(
-    keys: &[[u8; KEY_LEN]],
-) -> HashMap<[u8; KEY_LEN], Option<ValueType>> {
+pub fn generate_leaf_map<ArrayType, ValueType>(
+    keys: &[ArrayType],
+) -> HashMap<ArrayType, Option<ValueType>>
+    where ArrayType: Array {
     let mut leaf_map = HashMap::new();
     for &key in keys.iter() {
         leaf_map.insert(key, None);
@@ -149,17 +159,18 @@ pub const fn fast_log_2(num: u8) -> u8 {
 
 /// Generates the `TreeRef`s that will be made into the new tree.
 #[inline]
-pub fn generate_tree_ref_queue(
-    tree_refs: &mut Vec<TreeRef>,
+pub fn generate_tree_ref_queue<ArrayType: Array>(
+    tree_refs: &mut Vec<TreeRef<ArrayType>>,
     tree_ref_queue: &mut HashMap<usize, Vec<(usize, usize, usize)>>,
 ) -> BinaryMerkleTreeResult<(HashSet<usize>)> {
     let mut unique_split_bits = HashSet::new();
     for i in 0..tree_refs.len() - 1 {
-        let left_key = tree_refs[i].key;
-        let right_key = tree_refs[i + 1].key;
+        let left_key = tree_refs[i].key.as_ref();
+        let right_key = tree_refs[i + 1].key.as_ref();
+        let key_len = left_key.len();
 
-        for j in 0..KEY_LEN {
-            if j == KEY_LEN - 1 && left_key[j] == right_key[j] {
+        for j in 0..key_len {
+            if j == key_len - 1 && left_key[j] == right_key[j] {
                 // The keys are the same and don't diverge
                 return Err(Exception::new(
                     "Attempted to insert item with duplicate keys",
@@ -171,7 +182,7 @@ pub fn generate_tree_ref_queue(
             }
 
             // Find the bit index of the first difference
-            let xor_key = left_key[j] ^ right_key[j];
+            let xor_key: u8 = left_key[j] ^ right_key[j];
             let split_bit = (j * 8) + 7 - fast_log_2(xor_key) as usize;
             unique_split_bits.insert(split_bit);
             let new_item = (split_bit, i, i + 1);

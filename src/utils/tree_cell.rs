@@ -1,30 +1,31 @@
-use crate::constants::KEY_LEN;
-use crate::traits::{Branch, Data, Leaf};
+use crate::traits::{Branch, Data, Leaf, Array};
 
 /// Represents a position in the tree during tree traversal.
-pub struct TreeCell<'a, NodeType> {
+pub struct TreeCell<'a, NodeType, ArrayType>
+    where ArrayType: Array {
     /// The location of the node being traversed.
-    pub location: [u8; KEY_LEN],
+    pub location: ArrayType,
     /// The keys traversing this part of the tree.
-    pub keys: &'a [[u8; KEY_LEN]],
+    pub keys: &'a [ArrayType],
     /// The node currently being traversed.
     pub node: NodeType,
     /// The depth of the traversal in the tree.
     pub depth: usize,
 }
 
-impl<'a, NodeType> TreeCell<'a, NodeType> {
+impl<'a, NodeType, ArrayType> TreeCell<'a, NodeType, ArrayType>
+    where ArrayType: Array {
     /// Creates a new `TreeCell`.
     #[inline]
     pub fn new<BranchType, LeafType, DataType>(
-        location: [u8; KEY_LEN],
-        keys: &'a [[u8; KEY_LEN]],
+        location: ArrayType,
+        keys: &'a [ArrayType],
         node: NodeType,
         depth: usize,
     ) -> Self
     where
-        BranchType: Branch,
-        LeafType: Leaf,
+        BranchType: Branch<ArrayType>,
+        LeafType: Leaf<ArrayType>,
         DataType: Data,
     {
         Self {

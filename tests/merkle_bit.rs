@@ -19,7 +19,7 @@ pub mod integration_tests {
     type Tree = RocksTree<Vec<u8>>;
 
     #[cfg(not(any(feature = "use_rocksdb")))]
-    type Tree = HashTree<Vec<u8>>;
+    type Tree = HashTree<[u8; KEY_LEN], Vec<u8>>;
 
     #[test]
     #[cfg(feature = "use_serialization")]

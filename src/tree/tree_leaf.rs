@@ -13,60 +13,62 @@ use serde_pickle;
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
 
-use crate::constants::KEY_LEN;
 #[cfg(feature = "use_serialization")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Leaf;
+use crate::traits::{Leaf, Array};
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
 
 /// Represents a leaf of the tree.  Holds a pointer to the location of the underlying `Data` node.
 #[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "use_serde", derive(Serialize, Deserialize))]
-pub struct TreeLeaf {
+pub struct TreeLeaf<ArrayType>
+    where ArrayType: Array {
     /// The associated key with this node.
-    key: [u8; KEY_LEN],
+    key: ArrayType,
     /// The location of the `Data` node in the tree.
-    data: [u8; KEY_LEN],
+    data: ArrayType,
 }
 
-impl TreeLeaf {
+impl<ArrayType> TreeLeaf<ArrayType>
+    where ArrayType: Array {
     /// Creates a new `TreeLeaf`.
     #[inline]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            key: [0; KEY_LEN],
-            data: [0; KEY_LEN],
+            key: ArrayType::default(),
+            data: ArrayType::default(),
         }
     }
 
     /// Gets the associated key with the node.
-    const fn get_key(&self) -> &[u8; KEY_LEN] {
+    fn get_key(&self) -> &ArrayType {
         &self.key
     }
 
     /// Gets the location of the `Data` node from this node.
-    const fn get_data(&self) -> &[u8; KEY_LEN] {
+    fn get_data(&self) -> &ArrayType {
         &self.data
     }
 
     /// Sets the associated key with the node.
-    fn set_key(&mut self, key: [u8; KEY_LEN]) {
+    fn set_key(&mut self, key: ArrayType) {
         self.key = key;
     }
 
     /// Sets the location of the `Data` node.
-    fn set_data(&mut self, data: [u8; KEY_LEN]) {
+    fn set_data(&mut self, data: ArrayType) {
         self.data = data;
     }
 
     /// Decomposes the `TreeLeaf` into its constituent parts.
-    const fn decompose(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
+    fn decompose(self) -> (ArrayType, ArrayType) {
         (self.key, self.data)
     }
 }
 
-impl Leaf for TreeLeaf {
+impl<ArrayType> Leaf<ArrayType> for TreeLeaf<ArrayType>
+    where ArrayType: Array {
     /// Creates a new `TreeLeaf`
     #[inline]
     fn new() -> Self {
@@ -75,31 +77,31 @@ impl Leaf for TreeLeaf {
 
     /// Gets the associated key with this node.
     #[inline]
-    fn get_key(&self) -> &[u8; KEY_LEN] {
+    fn get_key(&self) -> &ArrayType {
         Self::get_key(self)
     }
 
     /// Gets the location of the `Data` node.
     #[inline]
-    fn get_data(&self) -> &[u8; KEY_LEN] {
+    fn get_data(&self) -> &ArrayType {
         Self::get_data(self)
     }
 
     /// Sets the associated key with this node.
     #[inline]
-    fn set_key(&mut self, key: [u8; KEY_LEN]) {
+    fn set_key(&mut self, key: ArrayType) {
         Self::set_key(self, key)
     }
 
     /// Sets the location for the `Data` node.
     #[inline]
-    fn set_data(&mut self, data: [u8; KEY_LEN]) {
+    fn set_data(&mut self, data: ArrayType) {
         Self::set_data(self, data)
     }
 
     /// Decomposes the struct into its constituent parts.
     #[inline]
-    fn decompose(self) -> ([u8; KEY_LEN], [u8; KEY_LEN]) {
+    fn decompose(self) -> (ArrayType, ArrayType) {
         Self::decompose(self)
     }
 }
