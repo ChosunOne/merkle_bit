@@ -18,63 +18,64 @@ use serde_pickle;
 #[cfg(feature = "use_yaml")]
 use serde_yaml;
 
-use crate::constants::KEY_LEN;
 #[cfg(feature = "use_serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Branch;
+use crate::traits::{Branch, Array};
 #[cfg(feature = "use_serde")]
 use crate::traits::{Decode, Encode, Exception};
 
 /// A struct representing a branch in the tree.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
-pub struct TreeBranch {
+pub struct TreeBranch<ArrayType>
+    where ArrayType: Array {
     /// The number of leaf nodes under this branch.
     count: u64,
     /// The location of the next node when traversing the zero branch.
-    zero: [u8; KEY_LEN],
+    zero: ArrayType,
     /// The location of the next node when traversing the one branch.
-    one: [u8; KEY_LEN],
+    one: ArrayType,
     /// The index bit of the associated key on which to make a decision to go down the zero or one branch.
     split_index: usize,
     /// The associated key with this branch.
-    key: [u8; KEY_LEN],
+    key: ArrayType,
 }
 
-impl TreeBranch {
+impl<ArrayType> TreeBranch<ArrayType>
+    where ArrayType: Array {
     /// Create a new `TreeBranch`
-    const fn new() -> Self {
+    fn new() -> Self {
         Self {
             count: 0,
-            zero: [0; KEY_LEN],
-            one: [0; KEY_LEN],
+            zero: ArrayType::default(),
+            one: ArrayType::default(),
             split_index: 0,
-            key: [0; KEY_LEN],
+            key: ArrayType::default(),
         }
     }
 
     /// Get the count of leaf nodes under this branch.
-    const fn get_count(&self) -> u64 {
+    fn get_count(&self) -> u64 {
         self.count
     }
 
     /// Get the location of the next node when going down the zero side.
-    const fn get_zero(&self) -> &[u8; KEY_LEN] {
+    fn get_zero(&self) -> &ArrayType {
         &self.zero
     }
 
     /// Get the location of the next node when going down the one side.
-    const fn get_one(&self) -> &[u8; KEY_LEN] {
+    fn get_one(&self) -> &ArrayType {
         &self.one
     }
 
     /// Get the index to split on when deciding which child to traverse.
-    const fn get_split_index(&self) -> usize {
+    fn get_split_index(&self) -> usize {
         self.split_index
     }
 
     /// Get the associated key with this branch.
-    const fn get_key(&self) -> &[u8; KEY_LEN] {
+    fn get_key(&self) -> &ArrayType {
         &self.key
     }
 
@@ -84,12 +85,12 @@ impl TreeBranch {
     }
 
     /// Set the location of the next node to traverse when going down the zero side.
-    fn set_zero(&mut self, zero: [u8; KEY_LEN]) {
+    fn set_zero(&mut self, zero: ArrayType) {
         self.zero = zero;
     }
 
     /// Set the location of the next node to traverse when going down the one side.
-    fn set_one(&mut self, one: [u8; KEY_LEN]) {
+    fn set_one(&mut self, one: ArrayType) {
         self.one = one;;
     }
 
@@ -99,17 +100,18 @@ impl TreeBranch {
     }
 
     /// Sets the associated key for this node.
-    fn set_key(&mut self, key: [u8; KEY_LEN]) {
+    fn set_key(&mut self, key: ArrayType) {
         self.key = key;
     }
 
     /// Decomposes the `TreeBranch` into its constituent parts.
-    const fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], usize, [u8; KEY_LEN]) {
+    fn decompose(self) -> (u64, ArrayType, ArrayType, usize, ArrayType) {
         (self.count, self.zero, self.one, self.split_index, self.key)
     }
 }
 
-impl Branch for TreeBranch {
+impl<ArrayType> Branch<ArrayType> for TreeBranch<ArrayType>
+    where ArrayType: Array {
     #[inline]
     fn new() -> Self {
         Self::new()
@@ -120,11 +122,11 @@ impl Branch for TreeBranch {
         Self::get_count(self)
     }
     #[inline]
-    fn get_zero(&self) -> &[u8; KEY_LEN] {
+    fn get_zero(&self) -> &ArrayType {
         Self::get_zero(self)
     }
     #[inline]
-    fn get_one(&self) -> &[u8; KEY_LEN] {
+    fn get_one(&self) -> &ArrayType {
         Self::get_one(self)
     }
     #[inline]
@@ -132,7 +134,7 @@ impl Branch for TreeBranch {
         Self::get_split_index(self)
     }
     #[inline]
-    fn get_key(&self) -> &[u8; KEY_LEN] {
+    fn get_key(&self) -> &ArrayType {
         Self::get_key(self)
     }
 
@@ -141,11 +143,11 @@ impl Branch for TreeBranch {
         Self::set_count(self, count)
     }
     #[inline]
-    fn set_zero(&mut self, zero: [u8; KEY_LEN]) {
+    fn set_zero(&mut self, zero: ArrayType) {
         Self::set_zero(self, zero)
     }
     #[inline]
-    fn set_one(&mut self, one: [u8; KEY_LEN]) {
+    fn set_one(&mut self, one: ArrayType) {
         Self::set_one(self, one)
     }
     #[inline]
@@ -153,12 +155,12 @@ impl Branch for TreeBranch {
         Self::set_split_index(self, index)
     }
     #[inline]
-    fn set_key(&mut self, key: [u8; KEY_LEN]) {
+    fn set_key(&mut self, key: ArrayType) {
         Self::set_key(self, key)
     }
 
     #[inline]
-    fn decompose(self) -> (u64, [u8; KEY_LEN], [u8; KEY_LEN], usize, [u8; KEY_LEN]) {
+    fn decompose(self) -> (u64, ArrayType, ArrayType, usize, ArrayType) {
         Self::decompose(self)
     }
 }

@@ -3,7 +3,7 @@ use starling::merkle_bit::BinaryMerkleTreeResult;
 use starling::hash_tree::HashTree;
 
 fn main() -> BinaryMerkleTreeResult<()> {
-    let mut tree = HashTree::new(16)?;
+    let mut tree: HashTree<[u8; KEY_LEN], Vec<u8>> = HashTree::new(16)?;
 
     let key = [0x00; KEY_LEN];
     let value = vec![0x00; KEY_LEN];
@@ -18,7 +18,7 @@ fn main() -> BinaryMerkleTreeResult<()> {
 
     // Verifying an inclusion proof.  Note that the verifying tree can be empty, though it must
     // be the same type as the tree that generated the proof.
-    let verifier: HashTree<Vec<u8>> = HashTree::new(16)?;
+    let verifier: HashTree<[u8; KEY_LEN], Vec<u8>> = HashTree::new(16)?;
     verifier.verify_inclusion_proof(&new_root, key, &value, &inclusion_proof)?;
 
     // Attempting to get from a removed root will yield None

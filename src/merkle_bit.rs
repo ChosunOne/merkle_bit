@@ -7,10 +7,7 @@ use std::path::PathBuf;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
-use crate::constants::KEY_LEN;
-use crate::traits::{
-    Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
-};
+use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant, Array};
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_utils::{
@@ -32,14 +29,15 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// # Properties
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
-pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
 where
-    DatabaseType: Database<NodeType = NodeType>,
-    BranchType: Branch,
-    LeafType: Leaf,
+    DatabaseType: Database<ArrayType, NodeType = NodeType>,
+    BranchType: Branch<ArrayType>,
+    LeafType: Leaf<ArrayType>,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
-    HasherType: Hasher,
+    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
+    HasherType: Hasher<ArrayType>,
+    ArrayType: Array,
     ValueType: Decode + Encode,
 {
     /// The database to store tree nodes.
@@ -58,18 +56,21 @@ where
     hasher: PhantomData<HasherType>,
     /// Marker for dealing with `ValueType`.
     value: PhantomData<ValueType>,
+    /// Marker for dealing with `ArrayType`.
+    array: PhantomData<ArrayType>
 }
 
-impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
-    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType>
+impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
+    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
 where
-    DatabaseType: Database<NodeType = NodeType>,
-    BranchType: Branch,
-    LeafType: Leaf,
+    DatabaseType: Database<ArrayType, NodeType = NodeType>,
+    BranchType: Branch<ArrayType>,
+    LeafType: Leaf<ArrayType>,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType>,
-    HasherType: Hasher<HashType = HasherType>,
+    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
+    HasherType: Hasher<ArrayType, HashType = HasherType>,
     ValueType: Decode + Encode,
+    ArrayType: Array
 {
     /// Create a new `MerkleBIT` from a saved database
     #[inline]
@@ -84,6 +85,7 @@ where
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
+            array: PhantomData
         })
     }
 
@@ -99,6 +101,7 @@ where
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
+            array: PhantomData
         })
     }
 
@@ -106,9 +109,9 @@ where
     #[inline]
     pub fn get(
         &self,
-        root_hash: &[u8; KEY_LEN],
-        keys: &mut [[u8; KEY_LEN]],
-    ) -> BinaryMerkleTreeResult<HashMap<[u8; KEY_LEN], Option<ValueType>>> {
+        root_hash: &ArrayType,
+        keys: &mut [ArrayType],
+    ) -> BinaryMerkleTreeResult<HashMap<ArrayType, Option<ValueType>>> {
         if keys.is_empty() {
             return Ok(HashMap::new());
         }
@@ -117,7 +120,7 @@ where
 
         keys.sort();
 
-        let root_node = if let Some(n) = self.db.get_node(root_hash)? {
+        let root_node = if let Some(n) = self.db.get_node(*root_hash)? {
             n
         } else {
             return Ok(leaf_map);
@@ -153,7 +156,7 @@ where
 
                     let (zeros, ones) = split_pairs(descendants, branch_split_index);
 
-                    if let Some(one_node) = self.db.get_node(&one)? {
+                    if let Some(one_node) = self.db.get_node(one)? {
                         if !ones.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
                                 one,
@@ -165,7 +168,7 @@ where
                         }
                     }
 
-                    if let Some(zero_node) = self.db.get_node(&zero)? {
+                    if let Some(zero_node) = self.db.get_node(zero)? {
                         if !zeros.is_empty() {
                             let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
                                 zero,
@@ -178,7 +181,7 @@ where
                     }
                 }
                 NodeVariant::Leaf(n) => {
-                    if let Some(d) = self.db.get_node(n.get_data())? {
+                    if let Some(d) = self.db.get_node(*n.get_data())? {
                         if let NodeVariant::Data(data) = d.get_variant() {
                             let value = ValueType::decode(data.get_value())?;
                             if let Ok(index) = keys.binary_search(n.get_key()) {
@@ -200,6 +203,11 @@ where
                         "Corrupt merkle tree: Found data node while traversing tree",
                     ));
                 }
+                NodeVariant::Phantom(_) => {
+                    return Err(Exception::new(
+                        "Corrupt merkle tree: Found phantom node while traversing tree",
+                    ));
+                }
             }
         }
 
@@ -210,10 +218,11 @@ where
     #[inline]
     pub fn insert(
         &mut self,
-        previous_root: Option<&[u8; KEY_LEN]>,
-        keys: &mut [[u8; KEY_LEN]],
+        previous_root: Option<&ArrayType>,
+        keys: &mut [ArrayType],
         values: &[ValueType],
-    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+    ) -> BinaryMerkleTreeResult<ArrayType> {
+
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
         }
@@ -251,21 +260,21 @@ where
     /// Traverses the tree and searches for nodes to include in the merkle proof.
     fn generate_treerefs(
         &mut self,
-        root: &[u8; KEY_LEN],
-        keys: &mut [[u8; KEY_LEN]],
-        key_map: &HashMap<[u8; KEY_LEN], [u8; KEY_LEN]>,
-    ) -> BinaryMerkleTreeResult<Vec<TreeRef>> {
+        root: &ArrayType,
+        keys: &mut [ArrayType],
+        key_map: &HashMap<ArrayType, ArrayType>,
+    ) -> BinaryMerkleTreeResult<Vec<TreeRef<ArrayType>>> {
         // Nodes that form the merkle proof for the new tree
         let mut proof_nodes = Vec::with_capacity(keys.len());
 
-        let root_node = if let Some(m) = self.db.get_node(root)? {
+        let root_node = if let Some(m) = self.db.get_node(*root)? {
             m
         } else {
             return Err(Exception::new("Could not find root"));
         };
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
-        let root_cell: TreeCell<NodeType> =
+        let root_cell: TreeCell<NodeType, ArrayType> =
             TreeCell::new::<BranchType, LeafType, DataType>(*root, keys, root_node, 0);
         cell_queue.push_front(root_cell);
 
@@ -297,7 +306,7 @@ where
                         }
                     }
 
-                    if let Some(mut l) = self.db.get_node(&tree_cell.location)? {
+                    if let Some(mut l) = self.db.get_node(tree_cell.location)? {
                         let leaf_refs = l.get_references() + 1;
                         l.set_references(leaf_refs);
                         self.db.insert(tree_cell.location, l)?;
@@ -318,6 +327,11 @@ where
                 NodeVariant::Data(_) => {
                     return Err(Exception::new(
                         "Corrupt merkle tree: Found data node while traversing tree",
+                    ))
+                }
+                NodeVariant::Phantom(_) => {
+                    return Err(Exception::new(
+                        "Corrupt merkle tree: Found phantom node while traversing tree"
                     ))
                 }
             }
@@ -356,7 +370,7 @@ where
             }
 
             let (zeros, ones) = split_pairs(descendants, branch_split_index);
-            if let Some(one_node) = self.db.get_node(&branch_one)? {
+            if let Some(one_node) = self.db.get_node(branch_one)? {
                 if ones.is_empty() {
                     let other_key;
                     let count;
@@ -378,6 +392,11 @@ where
                                 "Corrupt merkle tree: Found data node while traversing tree",
                             ));
                         }
+                        NodeVariant::Phantom(_) => {
+                            return Err(Exception::new(
+                                "Corrupt merkle tree: Found phantom node while traversing tree"
+                            ))
+                        }
                     }
                     new_one_node.set_references(one_refs);
                     self.db.insert(branch_one, new_one_node)?;
@@ -393,7 +412,7 @@ where
                     cell_queue.push_front(new_cell);
                 }
             }
-            if let Some(zero_node) = self.db.get_node(&branch_zero)? {
+            if let Some(zero_node) = self.db.get_node(branch_zero)? {
                 if zeros.is_empty() {
                     let other_key;
                     let count;
@@ -414,6 +433,11 @@ where
                             return Err(Exception::new(
                                 "Corrupt merkle tree: Found data node while traversing tree",
                             ));
+                        }
+                        NodeVariant::Phantom(_) => {
+                            return Err(Exception::new(
+                                "Corrupt merkle tree: Found phantom node while traversing tree"
+                            ))
                         }
                     }
                     new_zero_node.set_references(zero_refs);
@@ -439,20 +463,21 @@ where
     /// Updates reference count if a leaf already exists.
     fn insert_leaves(
         &mut self,
-        keys: &[[u8; KEY_LEN]],
-        values: &HashMap<[u8; KEY_LEN], &ValueType>,
-    ) -> BinaryMerkleTreeResult<Vec<[u8; KEY_LEN]>> {
+        keys: &[ArrayType],
+        values: &HashMap<ArrayType, &ValueType>,
+    ) -> BinaryMerkleTreeResult<Vec<ArrayType>> {
         let mut nodes = Vec::with_capacity(keys.len());
-        for key in keys.iter() {
+        for k in keys.iter() {
+            let key = k.as_ref();
             // Create data node
             let mut data = DataType::new();
-            data.set_value(&values[key].encode()?);
+            data.set_value(&(values[k].encode()?));
 
-            let mut data_hasher = HasherType::new(KEY_LEN);
+            let mut data_hasher = HasherType::new(key.len());
             data_hasher.update(b"d");
             data_hasher.update(key);
             data_hasher.update(data.get_value());
-            let data_node_location = data_hasher.finalize();
+            let data_node_location = data_hasher.finalize(key.len());
 
             let mut data_node = NodeType::new(NodeVariant::Data(data));
             data_node.set_references(1);
@@ -460,23 +485,23 @@ where
             // Create leaf node
             let mut leaf = LeafType::new();
             leaf.set_data(data_node_location);
-            leaf.set_key(*key);
+            leaf.set_key(*k);
 
-            let mut leaf_hasher = HasherType::new(KEY_LEN);
+            let mut leaf_hasher = HasherType::new(key.len());
             leaf_hasher.update(b"l");
-            leaf_hasher.update(key);
-            leaf_hasher.update(&leaf.get_data()[..]);
-            let leaf_node_location = leaf_hasher.finalize();
+            leaf_hasher.update(key.as_ref());
+            leaf_hasher.update(leaf.get_data().as_ref());
+            let leaf_node_location = leaf_hasher.finalize(key.len());
 
             let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
             leaf_node.set_references(1);
 
-            if let Some(n) = self.db.get_node(&data_node_location)? {
+            if let Some(n) = self.db.get_node(data_node_location)? {
                 let references = n.get_references() + 1;
                 data_node.set_references(references);
             }
 
-            if let Some(n) = self.db.get_node(&leaf_node_location)? {
+            if let Some(n) = self.db.get_node(leaf_node_location)? {
                 let references = n.get_references() + 1;
                 leaf_node.set_references(references);
             }
@@ -493,8 +518,8 @@ where
     /// new tree root.
     fn create_tree(
         &mut self,
-        mut tree_refs: Vec<TreeRef>,
-    ) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+        mut tree_refs: Vec<TreeRef<ArrayType>>,
+    ) -> BinaryMerkleTreeResult<ArrayType> {
         assert!(!tree_refs.is_empty());
 
         if tree_refs.len() == 1 {
@@ -524,10 +549,10 @@ where
     /// Performs the merging of `TreeRef`s until a single new root is left.
     fn merge_nodes(
         &mut self,
-        tree_refs: &mut Vec<TreeRef>,
+        tree_refs: &mut Vec<TreeRef<ArrayType>>,
         level: Vec<(usize, usize, usize)>,
-    ) -> BinaryMerkleTreeResult<Option<[u8; KEY_LEN]>> {
-        let mut root = [0; 32];
+    ) -> BinaryMerkleTreeResult<Option<ArrayType>> {
+        let mut root = ArrayType::default();
         for (split_index, tree_ref_pointer, next_tree_ref_pointer) in level {
             let mut branch = BranchType::new();
 
@@ -560,11 +585,11 @@ where
             let count = tree_ref_count + tree_refs[lookahead_tree_ref_pointer].node_count;
             let branch_node_location;
             {
-                let mut branch_hasher = HasherType::new(KEY_LEN);
+                let mut branch_hasher = HasherType::new(root.as_ref().len());
                 branch_hasher.update(b"b");
-                branch_hasher.update(&tree_ref_location[..]);
-                branch_hasher.update(&next_tree_ref_location[..]);
-                branch_node_location = branch_hasher.finalize();
+                branch_hasher.update(tree_ref_location.as_ref());
+                branch_hasher.update(next_tree_ref_location.as_ref());
+                branch_node_location = branch_hasher.finalize(root.as_ref().len());
 
                 branch.set_zero(tree_ref_location);
                 branch.set_one(next_tree_ref_location);
@@ -594,14 +619,14 @@ where
 
     /// Remove all items with less than 1 reference under the given root.
     #[inline]
-    pub fn remove(&mut self, root_hash: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<()> {
+    pub fn remove(&mut self, root_hash: &ArrayType) -> BinaryMerkleTreeResult<()> {
         let mut nodes = VecDeque::with_capacity(128);
         nodes.push_front(*root_hash);
 
         while !nodes.is_empty() {
             let node_location = nodes.pop_front().expect("Node queue should not be empty");
 
-            let node = if let Some(n) = self.db.get_node(&node_location)? {
+            let node = if let Some(n) = self.db.get_node(node_location)? {
                 n
             } else {
                 continue;
@@ -641,6 +666,11 @@ where
                     }
                     new_node = NodeType::new(NodeVariant::Data(d))
                 }
+                NodeVariant::Phantom(_) => {
+                    return Err(Exception::new(
+                        "Corrupt merkle tree: Found phantom node while traversing tree"
+                    ))
+                }
             }
 
             new_node.set_references(refs);
@@ -654,7 +684,7 @@ where
     /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
     /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
-    pub fn generate_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN]) -> BinaryMerkleTreeResult<Vec<([u8; KEY_LEN], bool)>> {
+    pub fn generate_inclusion_proof(&self, root: &ArrayType, key: ArrayType) -> BinaryMerkleTreeResult<Vec<(ArrayType, bool)>> {
         let mut nodes = VecDeque::with_capacity(self.depth);
         nodes.push_front(*root);
 
@@ -668,7 +698,7 @@ where
             }
             depth += 1;
 
-            if let Some(node) = self.db.get_node(&location)? {
+            if let Some(node) = self.db.get_node(location)? {
                 match node.get_variant() {
                     NodeVariant::Branch(b) => {
                         if found_leaf {
@@ -699,11 +729,11 @@ where
                             return Err(Exception::new("Key not found in tree"));
                         }
 
-                        let mut leaf_hasher = HasherType::new(KEY_LEN);
+                        let mut leaf_hasher = HasherType::new(location.as_ref().len());
                         leaf_hasher.update(b"l");
-                        leaf_hasher.update(l.get_key());
-                        leaf_hasher.update(&l.get_data()[..]);
-                        let leaf_node_location = leaf_hasher.finalize();
+                        leaf_hasher.update(l.get_key().as_ref());
+                        leaf_hasher.update(l.get_data().as_ref());
+                        let leaf_node_location = leaf_hasher.finalize(location.as_ref().len());
 
                         proof.push((leaf_node_location, false));
                         nodes.push_back(*l.get_data());
@@ -714,13 +744,18 @@ where
                             return Err(Exception::new("Corrupt Merkle Tree"))
                         }
 
-                        let mut data_hasher = HasherType::new(KEY_LEN);
+                        let mut data_hasher = HasherType::new(location.as_ref().len());
                         data_hasher.update(b"d");
-                        data_hasher.update(&key);
+                        data_hasher.update(&key.as_ref());
                         data_hasher.update(d.get_value());
-                        let data_node_location = data_hasher.finalize();
+                        let data_node_location = data_hasher.finalize(location.as_ref().len());
 
                         proof.push((data_node_location, false));
+                    }
+                    NodeVariant::Phantom(_) => {
+                        return Err(Exception::new(
+                            "Corrupt merkle tree: Found phantom node while traversing tree"
+                        ))
                     }
                 }
             } else {
@@ -734,26 +769,28 @@ where
     }
 
     #[inline]
-    pub fn verify_inclusion_proof(&self, root: &[u8; KEY_LEN], key: [u8; KEY_LEN], value: &ValueType, proof: &[([u8; KEY_LEN], bool)]) -> BinaryMerkleTreeResult<()> {
+    pub fn verify_inclusion_proof(&self, root: &ArrayType, key: ArrayType, value: &ValueType, proof: &[(ArrayType, bool)]) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
             return Err(Exception::new("Proof is too short to be valid"));
         }
 
-        let mut data_hasher = HasherType::new(KEY_LEN);
+        let key_len = root.as_ref().len();
+
+        let mut data_hasher = HasherType::new(key_len);
         data_hasher.update(b"d");
-        data_hasher.update(&key);
+        data_hasher.update(key.as_ref());
         data_hasher.update(&value.encode()?);
-        let data_hash = data_hasher.finalize();
+        let data_hash = data_hasher.finalize(key_len);
 
         if data_hash != proof[0].0 {
             return Err(Exception::new("Proof is invalid"));
         }
 
-        let mut leaf_hasher = HasherType::new(KEY_LEN);
+        let mut leaf_hasher = HasherType::new(key_len);
         leaf_hasher.update(b"l");
-        leaf_hasher.update(&key);
-        leaf_hasher.update(&data_hash);
-        let leaf_hash = leaf_hasher.finalize();
+        leaf_hasher.update(key.as_ref());
+        leaf_hasher.update(data_hash.as_ref());
+        let leaf_hash = leaf_hasher.finalize(key_len);
 
         if leaf_hash != proof[1].0 {
             return Err(Exception::new("Proof is invalid"));
@@ -762,16 +799,16 @@ where
         let mut current_hash = leaf_hash;
 
         for item in proof.iter().skip(2) {
-            let mut branch_hasher = HasherType::new(KEY_LEN);
+            let mut branch_hasher = HasherType::new(key_len);
             branch_hasher.update(b"b");
             if item.1 {
-                branch_hasher.update(&current_hash);
-                branch_hasher.update(&item.0);
+                branch_hasher.update(current_hash.as_ref());
+                branch_hasher.update(item.0.as_ref());
             } else {
-                branch_hasher.update(&item.0);
-                branch_hasher.update(&current_hash);
+                branch_hasher.update(item.0.as_ref());
+                branch_hasher.update(current_hash.as_ref());
             }
-            let branch_hash = branch_hasher.finalize();
+            let branch_hash = branch_hasher.finalize(key_len);
             current_hash = branch_hash;
         }
 
@@ -784,7 +821,7 @@ where
 
     /// Gets a single key from the tree.
     #[inline]
-    pub fn get_one(&self, root: &[u8; KEY_LEN], key: &[u8; KEY_LEN]) -> BinaryMerkleTreeResult<Option<ValueType>> {
+    pub fn get_one(&self, root: &ArrayType, key: &ArrayType) -> BinaryMerkleTreeResult<Option<ValueType>> {
         let mut nodes = VecDeque::with_capacity(3);
         nodes.push_front(*root);
 
@@ -797,7 +834,7 @@ where
             }
             depth += 1;
 
-            if let Some(node) = self.db.get_node(&location)? {
+            if let Some(node) = self.db.get_node(location)? {
                 match node.get_variant() {
                     NodeVariant::Branch(b) => {
                         if found_leaf {
@@ -840,6 +877,11 @@ where
                         let value = ValueType::decode(buffer)?;
                         return Ok(Some(value))
                     }
+                    NodeVariant::Phantom(_) => {
+                        return Err(Exception::new(
+                            "Corrupt merkle tree: Found phantom node while traversing tree"
+                        ))
+                    }
                 }
             }
 
@@ -849,7 +891,7 @@ where
 
     /// Inserts a single value into a tree.
     #[inline]
-    pub fn insert_one(&mut self, previous_root: Option<&[u8; KEY_LEN]>, key: &[u8; KEY_LEN], value: &ValueType) -> BinaryMerkleTreeResult<[u8; KEY_LEN]> {
+    pub fn insert_one(&mut self, previous_root: Option<&ArrayType>, key: &ArrayType, value: &ValueType) -> BinaryMerkleTreeResult<ArrayType> {
         let mut value_map = HashMap::new();
         value_map.insert(*key, value);
 
@@ -879,9 +921,11 @@ pub mod tests {
 
     use super::*;
 
+    const KEY_LEN: usize = 32;
+
     #[test]
     fn it_chooses_the_right_branch_easy() {
-        let key = [0x0F; KEY_LEN];
+        let key = [0x0Fu8; KEY_LEN];
         for i in 0..8 {
             let expected_branch= i < 4;
             let branch = choose_zero(key, i);

@@ -1,9 +1,9 @@
 use std::collections::hash_map::DefaultHasher;
-use std::hash::Hasher;
+use crate::traits::{Hasher, Array};
+use std::hash::Hasher as DefaultHasherTrait;
 
-use crate::constants::KEY_LEN;
-
-impl crate::traits::Hasher for DefaultHasher {
+impl<ArrayType> Hasher<ArrayType> for DefaultHasher
+    where ArrayType: Array {
     type HashType = Self;
 
     #[inline]
@@ -13,14 +13,14 @@ impl crate::traits::Hasher for DefaultHasher {
 
     #[inline]
     fn update(&mut self, data: &[u8]) {
-        Self::write(self, data)
+        Self::write(self, data.as_ref())
     }
 
     #[inline]
-    fn finalize(self) -> [u8; KEY_LEN] {
+    fn finalize(self, _size: usize) -> ArrayType {
         let value = Self::finish(&self).to_le_bytes();
-        let mut v = [0; KEY_LEN];
-        v[..8].copy_from_slice(&value);
+        let mut v = ArrayType::default();
+        v.as_mut()[..8].copy_from_slice(&value);
         v
     }
 }

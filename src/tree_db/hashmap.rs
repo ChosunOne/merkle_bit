@@ -2,25 +2,28 @@ use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
 
 use crate::constants::KEY_LEN;
-use crate::traits::{Database, Exception};
+use crate::traits::{Database, Exception, Array};
 use crate::tree::tree_node::TreeNode;
 
 /// A database consisting of a `HashMap`.
-pub struct HashDB {
+pub struct HashDB<ArrayType>
+    where ArrayType: Array {
     /// The internal `HashMap` for storing nodes.
-    map: HashMap<[u8; KEY_LEN], TreeNode>,
+    map: HashMap<ArrayType, TreeNode<ArrayType>>,
 }
 
-impl HashDB {
+impl<ArrayType> HashDB<ArrayType>
+    where ArrayType: Array {
     /// Creates a new `HashDB`.
     #[inline]
-    pub const fn new(map: HashMap<[u8; KEY_LEN], TreeNode>) -> Self {
+    pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
         Self { map }
     }
 }
 
-impl Database for HashDB {
-    type NodeType = TreeNode;
+impl<ArrayType> Database<ArrayType> for HashDB<ArrayType>
+    where ArrayType: Array {
+    type NodeType = TreeNode<ArrayType>;
     type EntryType = ([u8; KEY_LEN], Vec<u8>);
 
     #[inline]
@@ -29,8 +32,8 @@ impl Database for HashDB {
     }
 
     #[inline]
-    fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception> {
-        if let Some(m) = self.map.get(key) {
+    fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception> {
+        if let Some(m) = self.map.get(&key) {
             let node = m.clone();
             return Ok(Some(node));
         } else {
@@ -39,13 +42,13 @@ impl Database for HashDB {
     }
 
     #[inline]
-    fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: ArrayType, value: Self::NodeType) -> Result<(), Exception> {
         self.map.insert(key, value);
         Ok(())
     }
 
     #[inline]
-    fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception> {
+    fn remove(&mut self, key: &ArrayType) -> Result<(), Exception> {
         self.map.remove(key);
         Ok(())
     }

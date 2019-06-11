@@ -17,7 +17,7 @@ use serde_yaml;
 use crate::merkle_bit::BinaryMerkleTreeResult;
 #[cfg(feature = "use_serialization")]
 use crate::traits::{Decode, Encode};
-use crate::traits::{Node, NodeVariant};
+use crate::traits::{Node, NodeVariant, Array};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
@@ -27,17 +27,19 @@ use evmap::ShallowCopy;
 /// A node in the tree.
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
-pub struct TreeNode {
+pub struct TreeNode<ArrayType>
+    where ArrayType: Array {
     /// The number of references to this node.
     pub references: u64,
     /// The `NodeVariant` of the node.
-    pub node: NodeVariant<TreeBranch, TreeLeaf, TreeData>,
+    pub node: NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>,
 }
 
-impl TreeNode {
+impl<ArrayType> TreeNode<ArrayType>
+    where ArrayType: Array {
     /// Creates a new `TreeNode`.
     #[inline]
-    pub const fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
+    pub fn new(node_variant: NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>) -> Self {
         Self {
             references: 0,
             node: node_variant,
@@ -45,7 +47,7 @@ impl TreeNode {
     }
 
     /// Gets the number of references to the node.
-    const fn get_references(&self) -> u64 {
+    fn get_references(&self) -> u64 {
         self.references
     }
 
@@ -55,12 +57,12 @@ impl TreeNode {
     }
 
     /// Sets the node as a `NodeVariant::Branch`.
-    fn set_branch(&mut self, branch: TreeBranch) {
+    fn set_branch(&mut self, branch: TreeBranch<ArrayType>) {
         self.node = NodeVariant::Branch(branch);
     }
 
     /// Sets the node as a `NodeVariant::Leaf`.
-    fn set_leaf(&mut self, leaf: TreeLeaf) {
+    fn set_leaf(&mut self, leaf: TreeLeaf<ArrayType>) {
         self.node = NodeVariant::Leaf(leaf);
     }
 
@@ -68,20 +70,12 @@ impl TreeNode {
     fn set_data(&mut self, data: TreeData) {
         self.node = NodeVariant::Data(data);
     }
-    
-    #[cfg(feature = "use_evmap")]
-    unsafe fn from_raw(
-        node_variant: *const NodeVariant<TreeBranch, TreeLeaf, TreeData>,
-        references: u64,
-    ) -> Self {
-        let node = std::ptr::read(node_variant);
-        Self { references, node }
-    }
 }
 
-impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode {
+impl<ArrayType> Node<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType> for TreeNode<ArrayType>
+    where ArrayType: Array {
     #[inline]
-    fn new(node_variant: NodeVariant<TreeBranch, TreeLeaf, TreeData>) -> Self {
+    fn new(node_variant: NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>) -> Self {
         Self::new(node_variant)
     }
 
@@ -90,7 +84,7 @@ impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode {
         Self::get_references(self)
     }
     #[inline]
-    fn get_variant(self) -> NodeVariant<TreeBranch, TreeLeaf, TreeData> {
+    fn get_variant(self) -> NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType> {
         self.node
     }
 
@@ -99,11 +93,11 @@ impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode {
         Self::set_references(self, references)
     }
     #[inline]
-    fn set_branch(&mut self, branch: TreeBranch) {
+    fn set_branch(&mut self, branch: TreeBranch<ArrayType>) {
         Self::set_branch(self, branch)
     }
     #[inline]
-    fn set_leaf(&mut self, leaf: TreeLeaf) {
+    fn set_leaf(&mut self, leaf: TreeLeaf<ArrayType>) {
         Self::set_leaf(self, leaf)
     }
     #[inline]
@@ -113,7 +107,7 @@ impl Node<TreeBranch, TreeLeaf, TreeData> for TreeNode {
 }
 
 #[cfg(feature = "use_bincode")]
-impl Encode for TreeNode {
+impl<KeyType> Encode for TreeNode<KeyType> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serialize(self)?)
@@ -121,7 +115,7 @@ impl Encode for TreeNode {
 }
 
 #[cfg(feature = "use_json")]
-impl Encode for TreeNode {
+impl<KeyType> Encode for TreeNode<KeyType> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         let encoded = serde_json::to_string(&self)?;
@@ -130,7 +124,7 @@ impl Encode for TreeNode {
 }
 
 #[cfg(feature = "use_cbor")]
-impl Encode for TreeNode {
+impl<KeyType> Encode for TreeNode<KeyType> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_cbor::to_vec(&self)?)
