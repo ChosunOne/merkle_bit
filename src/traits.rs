@@ -21,7 +21,15 @@ pub trait Array:
             Ord +
             Sized {}
 
-impl Array for [u8; 32] {}
+impl<T> Array for T
+    where T: AsRef<[u8]> +
+             AsMut<[u8]> +
+             Clone +
+             Copy +
+             Default +
+             Hash +
+             Ord +
+             Sized {}
 
 /// The required interface for structs representing a hasher.
 pub trait Hasher<ArrayType>
