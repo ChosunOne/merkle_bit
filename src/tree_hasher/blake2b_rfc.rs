@@ -1,11 +1,12 @@
 use blake2_rfc;
 
-use crate::constants::KEY_LEN;
+use crate::traits::Array;
 
 #[derive(Clone)]
 pub struct Blake2bHasher(blake2_rfc::blake2b::Blake2b);
 
-impl crate::traits::Hasher for Blake2bHasher {
+impl<ArrayType> crate::traits::Hasher<ArrayType> for Blake2bHasher
+    where ArrayType: Array{
     type HashType = Self;
 
     #[inline]
@@ -20,10 +21,10 @@ impl crate::traits::Hasher for Blake2bHasher {
     }
 
     #[inline]
-    fn finalize(self) -> [u8; KEY_LEN] {
+    fn finalize(self) -> ArrayType {
         let result = self.0.finalize();
-        let mut finalized = [0; KEY_LEN];
-        finalized.copy_from_slice(result.as_ref());
+        let mut finalized = ArrayType::default();
+        finalized.as_mut().copy_from_slice(result.as_ref());
         finalized
     }
 }

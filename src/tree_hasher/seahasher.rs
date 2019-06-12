@@ -1,9 +1,10 @@
 use seahash::SeaHasher;
 use std::hash::Hasher;
 
-use crate::constants::KEY_LEN;
+use crate::traits::Array;
 
-impl crate::traits::Hasher for SeaHasher {
+impl<ArrayType> crate::traits::Hasher<ArrayType> for SeaHasher
+    where ArrayType: Array {
     type HashType = Self;
 
     #[inline]
@@ -17,10 +18,15 @@ impl crate::traits::Hasher for SeaHasher {
     }
 
     #[inline]
-    fn finalize(self) -> [u8; KEY_LEN] {
+    fn finalize(self) -> ArrayType {
         let value = Self::finish(&self).to_le_bytes();
-        let mut v = [0; KEY_LEN];
-        v[..8].copy_from_slice(&value);
+        let mut v = ArrayType::default();
+        let length = v.as_ref().len();
+        if length >= 8 {
+            v.as_mut()[..8].copy_from_slice(&value);
+        } else {
+            v.as_mut()[..length].copy_from_slice(&value[..length]);
+        }
         v
     }
 }

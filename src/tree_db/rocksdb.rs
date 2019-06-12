@@ -3,8 +3,7 @@ use std::path::PathBuf;
 
 use rocksdb::{WriteBatch, DB};
 
-use crate::constants::KEY_LEN;
-use crate::traits::{Database, Decode, Encode, Exception};
+use crate::traits::{Database, Decode, Encode, Exception, Array};
 use crate::tree::tree_node::TreeNode;
 
 impl From<rocksdb::Error> for Exception {
@@ -29,8 +28,9 @@ impl RocksDB {
     }
 }
 
-impl Database for RocksDB {
-    type NodeType = TreeNode;
+impl<ArrayType> Database<ArrayType> for RocksDB
+    where ArrayType: Array + Encode {
+    type NodeType = TreeNode<ArrayType>;
     type EntryType = (usize, usize);
 
     #[inline]
@@ -39,8 +39,8 @@ impl Database for RocksDB {
     }
 
     #[inline]
-    fn get_node(&self, key: &[u8; KEY_LEN]) -> Result<Option<Self::NodeType>, Exception> {
-        if let Some(buffer) = self.db.get(key)? {
+    fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception> {
+        if let Some(buffer) = self.db.get(&key)? {
             Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
         } else {
             Ok(None)
@@ -48,7 +48,7 @@ impl Database for RocksDB {
     }
 
     #[inline]
-    fn insert(&mut self, key: [u8; KEY_LEN], value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: ArrayType, value: Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized)?;
@@ -61,7 +61,7 @@ impl Database for RocksDB {
     }
 
     #[inline]
-    fn remove(&mut self, key: &[u8; KEY_LEN]) -> Result<(), Exception> {
+    fn remove(&mut self, key: &ArrayType) -> Result<(), Exception> {
         Ok(self.db.delete(key)?)
     }
 

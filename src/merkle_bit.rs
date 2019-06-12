@@ -477,7 +477,7 @@ where
             data_hasher.update(b"d");
             data_hasher.update(key);
             data_hasher.update(data.get_value());
-            let data_node_location = data_hasher.finalize(key.len());
+            let data_node_location = data_hasher.finalize();
 
             let mut data_node = NodeType::new(NodeVariant::Data(data));
             data_node.set_references(1);
@@ -491,7 +491,7 @@ where
             leaf_hasher.update(b"l");
             leaf_hasher.update(key.as_ref());
             leaf_hasher.update(leaf.get_data().as_ref());
-            let leaf_node_location = leaf_hasher.finalize(key.len());
+            let leaf_node_location = leaf_hasher.finalize();
 
             let mut leaf_node = NodeType::new(NodeVariant::Leaf(leaf));
             leaf_node.set_references(1);
@@ -589,7 +589,7 @@ where
                 branch_hasher.update(b"b");
                 branch_hasher.update(tree_ref_location.as_ref());
                 branch_hasher.update(next_tree_ref_location.as_ref());
-                branch_node_location = branch_hasher.finalize(root.as_ref().len());
+                branch_node_location = branch_hasher.finalize();
 
                 branch.set_zero(tree_ref_location);
                 branch.set_one(next_tree_ref_location);
@@ -733,7 +733,7 @@ where
                         leaf_hasher.update(b"l");
                         leaf_hasher.update(l.get_key().as_ref());
                         leaf_hasher.update(l.get_data().as_ref());
-                        let leaf_node_location = leaf_hasher.finalize(location.as_ref().len());
+                        let leaf_node_location = leaf_hasher.finalize();
 
                         proof.push((leaf_node_location, false));
                         nodes.push_back(*l.get_data());
@@ -748,7 +748,7 @@ where
                         data_hasher.update(b"d");
                         data_hasher.update(&key.as_ref());
                         data_hasher.update(d.get_value());
-                        let data_node_location = data_hasher.finalize(location.as_ref().len());
+                        let data_node_location = data_hasher.finalize();
 
                         proof.push((data_node_location, false));
                     }
@@ -780,7 +780,7 @@ where
         data_hasher.update(b"d");
         data_hasher.update(key.as_ref());
         data_hasher.update(&value.encode()?);
-        let data_hash = data_hasher.finalize(key_len);
+        let data_hash = data_hasher.finalize();
 
         if data_hash != proof[0].0 {
             return Err(Exception::new("Proof is invalid"));
@@ -790,7 +790,7 @@ where
         leaf_hasher.update(b"l");
         leaf_hasher.update(key.as_ref());
         leaf_hasher.update(data_hash.as_ref());
-        let leaf_hash = leaf_hasher.finalize(key_len);
+        let leaf_hash = leaf_hasher.finalize();
 
         if leaf_hash != proof[1].0 {
             return Err(Exception::new("Proof is invalid"));
@@ -808,7 +808,7 @@ where
                 branch_hasher.update(item.0.as_ref());
                 branch_hasher.update(current_hash.as_ref());
             }
-            let branch_hash = branch_hasher.finalize(key_len);
+            let branch_hash = branch_hasher.finalize();
             current_hash = branch_hash;
         }
 
