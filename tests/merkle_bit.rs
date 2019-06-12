@@ -1537,7 +1537,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(feature = "use_groestl"))]
         let num_entries = 1024;
+        #[cfg(feature = "use_groestl")]
+        let num_entries = 512;
         const SIZE: usize = 8usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1572,7 +1575,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(feature = "use_groestl"))]
         let num_entries = 2048;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 9usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1607,7 +1613,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
+        #[cfg(not(feature = "use_groestl"))]
         let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 10usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1642,7 +1651,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 11usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1677,7 +1689,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 12usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1712,7 +1727,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 13usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1747,7 +1765,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 14usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1782,7 +1803,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 15usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1817,7 +1841,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 16usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1852,7 +1879,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 17usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1887,7 +1917,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 18usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1922,7 +1955,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 19usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1957,7 +1993,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 20usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -1992,7 +2031,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 21usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2027,7 +2069,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 22usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2062,7 +2107,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 23usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2097,7 +2145,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 24usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2132,7 +2183,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 25usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2167,7 +2221,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 26usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2202,7 +2259,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 27usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2237,7 +2297,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 28usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2272,7 +2335,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 29usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2307,7 +2373,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 30usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2342,7 +2411,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 31usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
@@ -2377,7 +2449,10 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        let num_entries = 4096;
+        #[cfg(not(feature = "use_groestl"))]
+            let num_entries = 4096;
+        #[cfg(feature = "use_groestl")]
+            let num_entries = 512;
         const SIZE: usize = 32usize;
         let mut keys = Vec::with_capacity(num_entries);
         let mut values = Vec::with_capacity(num_entries);
