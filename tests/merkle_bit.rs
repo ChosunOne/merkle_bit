@@ -4,8 +4,8 @@ pub mod integration_tests {
     use std::error::Error;
     use std::path::PathBuf;
 
-    use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
+    use rand::rngs::StdRng;
 
     use starling::constants::KEY_LEN;
     #[cfg(not(any(feature = "use_rocksdb")))]
@@ -1133,6 +1133,7 @@ pub mod integration_tests {
 
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
         bmt.verify_inclusion_proof(&root, key, &data, &inclusion_proof)?;
+        tear_down(&path);
         Ok(())
     }
 
@@ -1151,8 +1152,10 @@ pub mod integration_tests {
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
         match bmt.verify_inclusion_proof(&[01u8; KEY_LEN], key, &data, &inclusion_proof) {
             Ok(_) => return Err(Exception::new("Failed to detect invalid proof")),
-            Err(_) => return Ok(())
+            _ => {}
         }
+        tear_down(&path);
+        Ok(())
     }
 
     #[test]
@@ -1173,6 +1176,7 @@ pub mod integration_tests {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
             bmt.verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
         }
+        tear_down(&path);
         Ok(())
     }
 
@@ -1197,6 +1201,7 @@ pub mod integration_tests {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
             bmt.verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
         }
+        tear_down(&path);
         Ok(())
     }
 
@@ -1223,6 +1228,7 @@ pub mod integration_tests {
                 return Err(Exception::new("Failed to detect an invalid proof"));
             }
         }
+        tear_down(&path);
         Ok(())
     }
 
@@ -1238,6 +1244,7 @@ pub mod integration_tests {
         let root = bmt.insert(None, &mut [key], &[value.clone()])?;
 
         let retrieved_value = bmt.get_one(&root, &key)?.unwrap();
+        tear_down(&path);
         assert_eq!(retrieved_value, value);
         Ok(())
     }
@@ -1263,7 +1270,7 @@ pub mod integration_tests {
         let test_value = &values[values.len() / 2];
 
         let retrieved_value = bmt.get_one(&root, &test_key)?.unwrap();
-
+        tear_down(&path);
         assert_eq!(retrieved_value, *test_value);
         Ok(())
     }
@@ -1280,6 +1287,7 @@ pub mod integration_tests {
         let root = bmt.insert_one(None, &key, &value)?;
 
         let retrieved_value = bmt.get_one(&root, &key)?.unwrap();
+        tear_down(&path);
         assert_eq!(retrieved_value, value);
         Ok(())
     }
@@ -1307,7 +1315,1128 @@ pub mod integration_tests {
         let new_root = bmt.insert_one(Some(&root), &test_key, &test_value)?;
 
         let retrieved_value = bmt.get_one(&new_root, &test_key)?.unwrap();
+        tear_down(&path);
         assert_eq!(retrieved_value, test_value);
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_one() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x93u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 7;
+        const SIZE: usize = 1usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_two() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x94u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 16;
+        const SIZE: usize = 2usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_three() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x95u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 32;
+        const SIZE: usize = 3usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_four() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x96u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 64;
+        const SIZE: usize = 4usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_five() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x97u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 128;
+        const SIZE: usize = 5usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_six() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x98u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 256;
+        const SIZE: usize = 6usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_seven() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x99u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 512;
+        const SIZE: usize = 7usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_eight() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Au8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 1024;
+        const SIZE: usize = 8usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_nine() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Bu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 2048;
+        const SIZE: usize = 9usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_ten() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Cu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 10usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_eleven() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Du8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 11usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twelve() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Eu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 12usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_thirteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x9Fu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 13usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_fourteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA0u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 14usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_fifteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA1u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 15usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_sixteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA2u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 16usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_seventeen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA3u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 17usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_eighteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA4u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 18usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_nineteen() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA5u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 19usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA6u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 20usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_one() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA7u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 21usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_two() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA8u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 22usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_three() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xA9u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 23usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_four() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xAAu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 24usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_five() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xABu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 25usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_six() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xACu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 26usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_seven() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xADu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 27usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_eight() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xAEu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 28usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_twenty_nine() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xAFu8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 29usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_thirty() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xB0u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 30usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_thirty_one() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xB1u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 31usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn it_handles_key_size_of_thirty_two() -> BinaryMerkleTreeResult<()> {
+        let seed = [0xB2u8; 32];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        let num_entries = 4096;
+        const SIZE: usize = 32usize;
+        let mut keys = Vec::with_capacity(num_entries);
+        let mut values = Vec::with_capacity(num_entries);
+        for _ in 0..num_entries {
+            let mut key_value = [0u8; SIZE];
+            rng.fill(&mut key_value);
+            keys.push(key_value);
+
+            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            values.push(data_value);
+        }
+
+        keys.sort();
+
+        let mut bmt = HashTree::new(160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        let retrieved = bmt.get(&root, &mut keys)?;
+
+        tear_down(&path);
+        for (&key, value) in keys.iter().zip(values) {
+            assert_eq!(retrieved[&key], Some(value));
+        }
 
         Ok(())
     }
