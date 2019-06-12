@@ -8,32 +8,19 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "use_digest")]
 use digest::Digest;
 
-use std::marker::PhantomData;
 use std::hash::Hash;
+use std::marker::PhantomData;
 
-pub trait Array:
-            AsRef<[u8]> +
-            AsMut<[u8]> +
-            Clone +
-            Copy +
-            Default +
-            Hash +
-            Ord +
-            Sized {}
+/// The required interface for an object that functions like an array.
+pub trait Array: AsRef<[u8]> + AsMut<[u8]> + Clone + Copy + Default + Hash + Ord + Sized {}
 
-impl<T> Array for T
-    where T: AsRef<[u8]> +
-             AsMut<[u8]> +
-             Clone +
-             Copy +
-             Default +
-             Hash +
-             Ord +
-             Sized {}
+impl<T> Array for T where T: AsRef<[u8]> + AsMut<[u8]> + Clone + Copy + Default + Hash + Ord + Sized {}
 
 /// The required interface for structs representing a hasher.
 pub trait Hasher<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// The type of hasher.
     type HashType;
     /// Creates a new `HashType`.
@@ -46,8 +33,10 @@ pub trait Hasher<ArrayType>
 
 #[cfg(feature = "use_digest")]
 impl<T, ArrayType> Hasher<ArrayType> for T
-    where T: Digest,
-          ArrayType: Array {
+where
+    T: Digest,
+    ArrayType: Array,
+{
     type HashType = T;
 
     fn new(_size: usize) -> Self::HashType {
@@ -69,7 +58,9 @@ impl<T, ArrayType> Hasher<ArrayType> for T
 
 /// The required interface for structs representing branches in the tree.
 pub trait Branch<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// Creates a new `Branch`.
     fn new() -> Self;
     /// Gets the count of leaves beneath this node.
@@ -98,7 +89,9 @@ pub trait Branch<ArrayType>
 
 /// The required interface for structs representing leaves in the tree.
 pub trait Leaf<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// Creates a new `Leaf` node.
     fn new() -> Self;
     /// Gets the associated key with this node.
@@ -129,7 +122,7 @@ where
     BranchType: Branch<ArrayType>,
     LeafType: Leaf<ArrayType>,
     DataType: Data,
-    ArrayType: Array
+    ArrayType: Array,
 {
     /// Creates a new `Node`.
     fn new(node_variant: NodeVariant<BranchType, LeafType, DataType, ArrayType>) -> Self;
@@ -149,13 +142,13 @@ where
 
 /// Contains the distinguishing data from the node
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(feature = "use_serde", ), derive(Serialize, Deserialize))]
+#[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
 pub enum NodeVariant<BranchType, LeafType, DataType, ArrayType>
-    where
-        BranchType: Branch<ArrayType>,
-        LeafType: Leaf<ArrayType>,
-        DataType: Data,
-        ArrayType: Array
+where
+    BranchType: Branch<ArrayType>,
+    LeafType: Leaf<ArrayType>,
+    DataType: Data,
+    ArrayType: Array,
 {
     /// Variant containing a `Branch` node.
     Branch(BranchType),
@@ -169,7 +162,9 @@ pub enum NodeVariant<BranchType, LeafType, DataType, ArrayType>
 
 /// This trait defines the required interface for connecting a storage mechanism to the `MerkleBIT`.
 pub trait Database<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// The type of node to insert into the database.
     type NodeType;
     /// The type of entry for insertion.  Primarily for convenience and tracking what goes into the database.

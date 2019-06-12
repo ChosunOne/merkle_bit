@@ -1,17 +1,20 @@
 #[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
-use std::collections::{VecDeque};
+use std::collections::VecDeque;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashMap;
 
-use crate::traits::{Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant, Array};
+use crate::traits::{
+    Array, Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
+};
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_ref::TreeRef;
 use crate::utils::tree_utils::{
-    calc_min_split_index, check_descendants, choose_zero, generate_leaf_map, split_pairs, generate_tree_ref_queue
+    calc_min_split_index, check_descendants, choose_zero, generate_leaf_map,
+    generate_tree_ref_queue, split_pairs,
 };
 
 /// A generic `Result` from an operation involving a `MerkleBIT`
@@ -29,8 +32,16 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// # Properties
 /// * **db**: The database to store and retrieve values
 /// * **depth**: The maximum permitted depth of the tree.
-pub struct MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
-where
+pub struct MerkleBIT<
+    DatabaseType,
+    BranchType,
+    LeafType,
+    DataType,
+    NodeType,
+    HasherType,
+    ValueType,
+    ArrayType,
+> where
     DatabaseType: Database<ArrayType, NodeType = NodeType>,
     BranchType: Branch<ArrayType>,
     LeafType: Leaf<ArrayType>,
@@ -57,11 +68,20 @@ where
     /// Marker for dealing with `ValueType`.
     value: PhantomData<ValueType>,
     /// Marker for dealing with `ArrayType`.
-    array: PhantomData<ArrayType>
+    array: PhantomData<ArrayType>,
 }
 
 impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
-    MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
+    MerkleBIT<
+        DatabaseType,
+        BranchType,
+        LeafType,
+        DataType,
+        NodeType,
+        HasherType,
+        ValueType,
+        ArrayType,
+    >
 where
     DatabaseType: Database<ArrayType, NodeType = NodeType>,
     BranchType: Branch<ArrayType>,
@@ -70,7 +90,7 @@ where
     NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
     HasherType: Hasher<ArrayType, HashType = HasherType>,
     ValueType: Decode + Encode,
-    ArrayType: Array
+    ArrayType: Array,
 {
     /// Create a new `MerkleBIT` from a saved database
     #[inline]
@@ -85,7 +105,7 @@ where
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
-            array: PhantomData
+            array: PhantomData,
         })
     }
 
@@ -101,7 +121,7 @@ where
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
-            array: PhantomData
+            array: PhantomData,
         })
     }
 
@@ -222,7 +242,6 @@ where
         keys: &mut [ArrayType],
         values: &[ValueType],
     ) -> BinaryMerkleTreeResult<ArrayType> {
-
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
         }
@@ -331,7 +350,7 @@ where
                 }
                 NodeVariant::Phantom(_) => {
                     return Err(Exception::new(
-                        "Corrupt merkle tree: Found phantom node while traversing tree"
+                        "Corrupt merkle tree: Found phantom node while traversing tree",
                     ))
                 }
             }
@@ -394,7 +413,7 @@ where
                         }
                         NodeVariant::Phantom(_) => {
                             return Err(Exception::new(
-                                "Corrupt merkle tree: Found phantom node while traversing tree"
+                                "Corrupt merkle tree: Found phantom node while traversing tree",
                             ))
                         }
                     }
@@ -436,7 +455,7 @@ where
                         }
                         NodeVariant::Phantom(_) => {
                             return Err(Exception::new(
-                                "Corrupt merkle tree: Found phantom node while traversing tree"
+                                "Corrupt merkle tree: Found phantom node while traversing tree",
                             ))
                         }
                     }
@@ -603,10 +622,11 @@ where
 
             self.db.insert(branch_node_location, branch_node)?;
 
-             {
+            {
                 tree_refs[lookahead_tree_ref_pointer].key = tree_ref_key;
                 tree_refs[lookahead_tree_ref_pointer].location = branch_node_location;
-                tree_refs[lookahead_tree_ref_pointer].count = lookahead_count + tree_refs[tree_ref_pointer].count;
+                tree_refs[lookahead_tree_ref_pointer].count =
+                    lookahead_count + tree_refs[tree_ref_pointer].count;
                 tree_refs[lookahead_tree_ref_pointer].node_count = count;
                 tree_refs[tree_ref_pointer] = tree_refs[lookahead_tree_ref_pointer];
             }
@@ -668,7 +688,7 @@ where
                 }
                 NodeVariant::Phantom(_) => {
                     return Err(Exception::new(
-                        "Corrupt merkle tree: Found phantom node while traversing tree"
+                        "Corrupt merkle tree: Found phantom node while traversing tree",
                     ))
                 }
             }
@@ -684,7 +704,11 @@ where
     /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
     /// pair and traveling up the tree until the level below the root is reached.
     #[inline]
-    pub fn generate_inclusion_proof(&self, root: &ArrayType, key: ArrayType) -> BinaryMerkleTreeResult<Vec<(ArrayType, bool)>> {
+    pub fn generate_inclusion_proof(
+        &self,
+        root: &ArrayType,
+        key: ArrayType,
+    ) -> BinaryMerkleTreeResult<Vec<(ArrayType, bool)>> {
         let mut nodes = VecDeque::with_capacity(self.depth);
         nodes.push_front(*root);
 
@@ -708,7 +732,7 @@ where
                         let b_key = b.get_key();
                         let min_split_index = calc_min_split_index(&[key], b_key);
                         let keys = &[key];
-                        let descendants= check_descendants(keys, index, b_key, min_split_index);
+                        let descendants = check_descendants(keys, index, b_key, min_split_index);
                         if descendants.is_empty() {
                             return Err(Exception::new("Key not found in tree"));
                         }
@@ -720,7 +744,7 @@ where
                             proof.push((*b.get_zero(), false));
                             nodes.push_back(*b.get_one());
                         }
-                    },
+                    }
                     NodeVariant::Leaf(l) => {
                         if found_leaf {
                             return Err(Exception::new("Corrupt Merkle Tree"));
@@ -738,15 +762,15 @@ where
                         proof.push((leaf_node_location, false));
                         nodes.push_back(*l.get_data());
                         found_leaf = true;
-                    },
+                    }
                     NodeVariant::Data(d) => {
                         if !found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"))
+                            return Err(Exception::new("Corrupt Merkle Tree"));
                         }
 
                         let mut data_hasher = HasherType::new(location.as_ref().len());
                         data_hasher.update(b"d");
-                        data_hasher.update(&key.as_ref());
+                        data_hasher.update(key.as_ref());
                         data_hasher.update(d.get_value());
                         let data_node_location = data_hasher.finalize();
 
@@ -754,12 +778,12 @@ where
                     }
                     NodeVariant::Phantom(_) => {
                         return Err(Exception::new(
-                            "Corrupt merkle tree: Found phantom node while traversing tree"
+                            "Corrupt merkle tree: Found phantom node while traversing tree",
                         ))
                     }
                 }
             } else {
-                return Err(Exception::new("Failed to find node"))
+                return Err(Exception::new("Failed to find node"));
             }
         }
 
@@ -769,7 +793,13 @@ where
     }
 
     #[inline]
-    pub fn verify_inclusion_proof(&self, root: &ArrayType, key: ArrayType, value: &ValueType, proof: &[(ArrayType, bool)]) -> BinaryMerkleTreeResult<()> {
+    pub fn verify_inclusion_proof(
+        &self,
+        root: &ArrayType,
+        key: ArrayType,
+        value: &ValueType,
+        proof: &[(ArrayType, bool)],
+    ) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
             return Err(Exception::new("Proof is too short to be valid"));
         }
@@ -821,7 +851,11 @@ where
 
     /// Gets a single key from the tree.
     #[inline]
-    pub fn get_one(&self, root: &ArrayType, key: &ArrayType) -> BinaryMerkleTreeResult<Option<ValueType>> {
+    pub fn get_one(
+        &self,
+        root: &ArrayType,
+        key: &ArrayType,
+    ) -> BinaryMerkleTreeResult<Option<ValueType>> {
         let mut nodes = VecDeque::with_capacity(3);
         nodes.push_front(*root);
 
@@ -830,7 +864,7 @@ where
 
         while let Some(location) = nodes.pop_front() {
             if depth > self.depth {
-                return Err(Exception::new("Depth limit exceeded"))
+                return Err(Exception::new("Depth limit exceeded"));
             }
             depth += 1;
 
@@ -838,14 +872,14 @@ where
                 match node.get_variant() {
                     NodeVariant::Branch(b) => {
                         if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"))
+                            return Err(Exception::new("Corrupt Merkle Tree"));
                         }
 
                         let index = b.get_split_index();
                         let b_key = b.get_key();
                         let min_split_index = calc_min_split_index(&[*key], b_key);
                         let keys = &[*key];
-                        let descendants= check_descendants(keys, index, b_key, min_split_index);
+                        let descendants = check_descendants(keys, index, b_key, min_split_index);
                         if descendants.is_empty() {
                             return Ok(None);
                         }
@@ -855,10 +889,10 @@ where
                         } else {
                             nodes.push_back(*b.get_one());
                         }
-                    },
+                    }
                     NodeVariant::Leaf(l) => {
                         if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"))
+                            return Err(Exception::new("Corrupt Merkle Tree"));
                         }
 
                         if l.get_key() != key {
@@ -867,31 +901,35 @@ where
 
                         found_leaf = true;
                         nodes.push_back(*l.get_data());
-                    },
+                    }
                     NodeVariant::Data(d) => {
                         if !found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"))
+                            return Err(Exception::new("Corrupt Merkle Tree"));
                         }
 
                         let buffer = d.get_value();
                         let value = ValueType::decode(buffer)?;
-                        return Ok(Some(value))
+                        return Ok(Some(value));
                     }
                     NodeVariant::Phantom(_) => {
                         return Err(Exception::new(
-                            "Corrupt merkle tree: Found phantom node while traversing tree"
+                            "Corrupt merkle tree: Found phantom node while traversing tree",
                         ))
                     }
                 }
             }
-
         }
-        return Ok(None)
+        Ok(None)
     }
 
     /// Inserts a single value into a tree.
     #[inline]
-    pub fn insert_one(&mut self, previous_root: Option<&ArrayType>, key: &ArrayType, value: &ValueType) -> BinaryMerkleTreeResult<ArrayType> {
+    pub fn insert_one(
+        &mut self,
+        previous_root: Option<&ArrayType>,
+        key: &ArrayType,
+        value: &ValueType,
+    ) -> BinaryMerkleTreeResult<ArrayType> {
         let mut value_map = HashMap::new();
         value_map.insert(*key, value);
 
@@ -903,7 +941,6 @@ where
 
         let tree_ref = TreeRef::new(*key, leaf_location, 1, 1);
         tree_refs.push(tree_ref);
-
 
         if let Some(root) = previous_root {
             let mut proof_nodes = self.generate_treerefs(root, &mut [*key], &key_map)?;
@@ -927,7 +964,7 @@ pub mod tests {
     fn it_chooses_the_right_branch_easy() {
         let key = [0x0Fu8; KEY_LEN];
         for i in 0..8 {
-            let expected_branch= i < 4;
+            let expected_branch = i < 4;
             let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
@@ -953,7 +990,7 @@ pub mod tests {
     fn it_chooses_the_right_branch_hard() {
         let key = [0x68; KEY_LEN];
         for i in 0..8 {
-            let expected_branch=  !(i == 1 || i == 2 || i == 4);
+            let expected_branch = !(i == 1 || i == 2 || i == 4);
             let branch = choose_zero(key, i);
             assert_eq!(branch, expected_branch);
         }
@@ -989,8 +1026,8 @@ pub mod tests {
     fn it_splits_an_all_ones_sorted_list_of_pairs() {
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
-            one_key, one_key,
+            one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
+            one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 0);
@@ -1005,8 +1042,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
-            one_key, one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
+            one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 5);
@@ -1024,8 +1061,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key,
-            one_key, one_key, one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
+            one_key, one_key,
         ];
         let result = split_pairs(&keys, 0);
         assert_eq!(result.0.len(), 6);
@@ -1043,8 +1080,8 @@ pub mod tests {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
-            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
-            one_key, one_key, one_key,
+            zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
+            one_key, one_key,
         ];
 
         let result = split_pairs(&keys, 0);

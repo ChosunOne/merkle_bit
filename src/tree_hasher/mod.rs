@@ -11,6 +11,8 @@ pub mod blake2b_rfc;
     feature = "use_digest"
 )))]
 pub mod default;
+#[cfg(feature = "use_fx")]
+pub mod fx;
 #[cfg(feature = "use_keccak")]
 pub mod keccak;
 /// Holds the implementation of `crate::traits::Hasher` for `SeaHasher`
@@ -20,8 +22,6 @@ pub mod seahasher;
 pub mod sha256;
 #[cfg(feature = "use_sha3")]
 pub mod sha3_openssl;
-#[cfg(feature = "use_fx")]
-pub mod fx;
 
 /// The kind of hasher to use in the tree.
 #[cfg(not(any(

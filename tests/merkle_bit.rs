@@ -4,8 +4,8 @@ pub mod integration_tests {
     use std::error::Error;
     use std::path::PathBuf;
 
-    use rand::{Rng, SeedableRng};
     use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     use starling::constants::KEY_LEN;
     #[cfg(not(any(feature = "use_rocksdb")))]
@@ -372,7 +372,8 @@ pub mod integration_tests {
             pop_value_d.clone(),
             pop_value_e.clone(),
             pop_value_i.clone(),
-            pop_value_o.clone()];
+            pop_value_o.clone(),
+        ];
 
         let mut bmt = Tree::open(&path, 5)?;
         let root_node = bmt.insert(None, &mut populated_keys, &populated_values)?;
@@ -391,8 +392,8 @@ pub mod integration_tests {
         let key_p = [0xF8u8; KEY_LEN]; // 1111_1000   248 (Dec)
 
         let mut keys = vec![
-            key_a, key_b, key_c, pop_key_d, pop_key_e, key_f, key_g, key_h, pop_key_i,
-            key_j, key_k, key_l, key_m, key_n, pop_key_o, key_p,
+            key_a, key_b, key_c, pop_key_d, pop_key_e, key_f, key_g, key_h, pop_key_i, key_j,
+            key_k, key_l, key_m, key_n, pop_key_o, key_p,
         ];
 
         let expected_values = vec![
@@ -930,11 +931,8 @@ pub mod integration_tests {
 
         let mut second_keys = vec![third_key, fourth_key];
         let second_entries = vec![third_data, fourth_data];
-        let second_root_hash = bmt.insert(
-            Some(&first_root_hash),
-            &mut second_keys,
-            &second_entries,
-        )?;
+        let second_root_hash =
+            bmt.insert(Some(&first_root_hash), &mut second_keys, &second_entries)?;
         bmt.remove(&first_root_hash)?;
 
         let items = bmt.get(
@@ -1212,9 +1210,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(feature = "use_groestl"))]
-            let num_entries = 4096;
+        let num_entries = 4096;
         #[cfg(feature = "use_groestl")]
-            let num_entries = 512;
+        let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
 
@@ -1224,7 +1222,9 @@ pub mod integration_tests {
 
         for i in 0..num_entries {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
-            if let Ok(_) =  bmt.verify_inclusion_proof(&[0x03; KEY_LEN], keys[i], &values[i], &inclusion_proof) {
+            if let Ok(_) =
+                bmt.verify_inclusion_proof(&[0x03; KEY_LEN], keys[i], &values[i], &inclusion_proof)
+            {
                 return Err(Exception::new("Failed to detect an invalid proof"));
             }
         }
@@ -1256,9 +1256,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(feature = "use_groestl"))]
-            let num_entries = 4096;
+        let num_entries = 4096;
         #[cfg(feature = "use_groestl")]
-            let num_entries = 512;
+        let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
 
@@ -1299,9 +1299,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         #[cfg(not(feature = "use_groestl"))]
-            let num_entries = 4096;
+        let num_entries = 4096;
         #[cfg(feature = "use_groestl")]
-            let num_entries = 512;
+        let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
 
@@ -1336,7 +1336,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1371,7 +1371,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1406,7 +1406,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1441,7 +1441,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1476,7 +1476,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1511,7 +1511,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1546,7 +1546,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1581,7 +1581,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1616,7 +1616,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1651,7 +1651,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1686,7 +1686,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1721,7 +1721,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1756,7 +1756,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1791,7 +1791,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1826,7 +1826,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1861,7 +1861,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1896,7 +1896,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1931,7 +1931,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -1966,7 +1966,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2001,7 +2001,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2036,7 +2036,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2071,7 +2071,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2106,7 +2106,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2141,7 +2141,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2176,7 +2176,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2211,7 +2211,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2246,7 +2246,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2281,7 +2281,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2316,7 +2316,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2351,7 +2351,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2386,7 +2386,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
+            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
             values.push(data_value);
         }
 
@@ -2429,9 +2429,7 @@ pub mod integration_tests {
             rng.fill(&mut key_value);
             keys.push(key_value);
 
-            let data_value = (0..KEY_LEN).map(|_| {
-                rng.gen()
-            }).collect();
+            let data_value = (0..KEY_LEN).map(|_| rng.gen()).collect();
             data.push(data_value);
         }
 
@@ -2483,7 +2481,6 @@ pub mod integration_tests {
             }
 
             for j in 0..key_groups.len() {
-
                 let items = bmt.get(&new_root, &mut key_groups[j])?;
                 for (key, value) in key_groups[j].iter().zip(data_groups[j].iter()) {
                     if let Some(v) = &items[key] {

@@ -4,7 +4,9 @@ use std::hash::Hasher;
 use crate::traits::Array;
 
 impl<ArrayType> crate::traits::Hasher<ArrayType> for SeaHasher
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     type HashType = Self;
 
     #[inline]

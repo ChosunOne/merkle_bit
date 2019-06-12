@@ -5,19 +5,20 @@ use std::collections::HashMap;
 use hashbrown::HashMap;
 
 use crate::constants::{KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
-use crate::utils::tree_ref::TreeRef;
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::{Exception, Array};
+use crate::traits::{Array, Exception};
+use crate::utils::tree_ref::TreeRef;
 
-#[cfg(not(feature = "use_hashbrown"))]
-use std::collections::HashSet;
 #[cfg(feature = "use_hashbrown")]
 use hashbrown::HashSet;
+#[cfg(not(feature = "use_hashbrown"))]
+use std::collections::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
 #[inline]
 pub fn choose_zero<ArrayType>(key_array: ArrayType, bit: usize) -> bool
-    where ArrayType: Array
+where
+    ArrayType: Array,
 {
     let key = key_array.as_ref();
     let index = bit >> 3;
@@ -32,8 +33,10 @@ pub fn choose_zero<ArrayType>(key_array: ArrayType, bit: usize) -> bool
 pub fn split_pairs<ArrayType>(
     sorted_pairs: &[ArrayType],
     bit: usize,
-) -> (& [ArrayType], &[ArrayType])
-    where ArrayType: Array {
+) -> (&[ArrayType], &[ArrayType])
+where
+    ArrayType: Array,
+{
     if sorted_pairs.is_empty() {
         return (&[], &[]);
     }
@@ -64,12 +67,14 @@ pub fn split_pairs<ArrayType>(
 /// This function checks to see if a section of keys need to go down this branch.
 #[inline]
 pub fn check_descendants<'a, ArrayType>(
-    keys: &'a[ArrayType],
+    keys: &'a [ArrayType],
     branch_split_index: usize,
     branch_key: &ArrayType,
     min_split_index: usize,
 ) -> &'a [ArrayType]
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     let b_key = branch_key.as_ref();
     let mut start = 0;
     let mut end = 0;
@@ -109,7 +114,9 @@ pub fn check_descendants<'a, ArrayType>(
 /// the given branch key when calculating the minimum split index.
 #[inline]
 pub fn calc_min_split_index<ArrayType>(keys: &[ArrayType], branch_key: &ArrayType) -> usize
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     assert!(!keys.is_empty());
     let b_key = branch_key.as_ref();
     let mut min_key = keys.iter().min().expect("Failed to get min key").as_ref();
@@ -139,7 +146,9 @@ pub fn calc_min_split_index<ArrayType>(keys: &[ArrayType], branch_key: &ArrayTyp
 pub fn generate_leaf_map<ArrayType, ValueType>(
     keys: &[ArrayType],
 ) -> HashMap<ArrayType, Option<ValueType>>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     let mut leaf_map = HashMap::new();
     for &key in keys.iter() {
         leaf_map.insert(key, None);

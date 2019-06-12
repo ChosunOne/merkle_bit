@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use rocksdb::{WriteBatch, DB};
 
-use crate::traits::{Database, Decode, Encode, Exception, Array};
+use crate::traits::{Array, Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
 
 impl From<rocksdb::Error> for Exception {
@@ -29,7 +29,9 @@ impl RocksDB {
 }
 
 impl<ArrayType> Database<ArrayType> for RocksDB
-    where ArrayType: Array + Encode {
+where
+    ArrayType: Array + Encode,
+{
     type NodeType = TreeNode<ArrayType>;
     type EntryType = (usize, usize);
 

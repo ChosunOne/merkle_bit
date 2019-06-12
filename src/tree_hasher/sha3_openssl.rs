@@ -5,7 +5,9 @@ use crate::traits::Array;
 pub struct Sha3Hasher(Keccak);
 
 impl<ArrayType> crate::traits::Hasher<ArrayType> for Sha3Hasher
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     type HashType = Self;
 
     #[inline]

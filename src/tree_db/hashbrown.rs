@@ -6,12 +6,16 @@ use crate::traits::{Array, Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
 pub struct HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     map: HashMap<ArrayType, TreeNode<ArrayType>>,
 }
 
 impl<ArrayType> HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     #[inline]
     pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
         Self { map }
@@ -19,7 +23,9 @@ impl<ArrayType> HashDB<ArrayType>
 }
 
 impl<ArrayType> Database<ArrayType> for HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     type NodeType = TreeNode<ArrayType>;
     type EntryType = (Vec<u8>, TreeNode<ArrayType>);
 
