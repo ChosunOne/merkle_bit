@@ -39,7 +39,7 @@ ron = { version = "0.5.1", optional = true }
 groestl = { version = "0.8.0", optional = true }
 openssl = { version = "0.10.23", optional = true }
 tiny-keccak = { version = "1.4.3", optional = true }
-hashbrown = { version = "0.4.0", optional = true }
+hashbrown = { version = "0.5.0", optional = true }
 rocksdb = { version = "0.12.2", optional = true }
 seahash = { version = "3.0.6", optional = true }
 fxhash = { version = "0.2.1", optional = true }

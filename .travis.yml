@@ -31,6 +31,7 @@ before_install:
       sudo apt-get update
     fi
   - cargo install --force cargo-audit
+  - export NUM_TEST_THREADS=4
 
 addons:
   apt:
@@ -55,31 +56,31 @@ before_script:
 script:
   - cargo build --verbose --all
   - cargo audit
-  - cargo test --verbose --all
-  - cargo test --features="use_bincode" --verbose --all
-  - cargo test --features="use_json" --verbose --all
-  - cargo test --features="use_cbor" --verbose --all
-  - cargo test --features="use_yaml" --verbose --all
-  - cargo test --features="use_pickle" --verbose --all
-  - cargo test --features="use_ron" --verbose --all
-  - cargo test --features="use_bincode use_blake2b" --verbose --all
-  - cargo test --features="use_bincode use_groestl" --verbose --all
-  - cargo test --features="use_bincode use_sha2" --verbose --all
-  - cargo test --features="use_bincode use_sha3" --verbose --all
-  - cargo test --features="use_bincode use_keccak" --verbose --all
-  - cargo test --features="use_bincode use_seahash" --verbose --all
-  - cargo test --features="use_bincode use_fx" --verbose --all
-  - cargo test --features="use_bincode use_blake2b_rfc" --verbose --all
-  - cargo test --features="use_bincode use_md2" --verbose --all
-  - cargo test --features="use_bincode use_md4" --verbose --all
-  - cargo test --features="use_bincode use_md5" --verbose --all
-  - cargo test --features="use_bincode use_ripemd160" --verbose --all
-  - cargo test --features="use_bincode use_sha1" --verbose --all
-  - cargo test --features="use_bincode use_rust_sha2" --verbose --all
-  - cargo test --features="use_bincode use_rust_sha3" --verbose --all
-  - cargo test --features="use_bincode use_rust_keccak" --verbose --all
-  - cargo test --features="use_bincode use_whirlpool" --verbose --all
-  - cargo test --features="use_hashbrown" --verbose --all
+  - cargo test --verbose --all -- --test-threads 4
+  - cargo test --features="use_bincode" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_json" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_cbor" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_yaml" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_pickle" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_ron" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_blake2b" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_groestl" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_seahash" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_fx" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_blake2b_rfc" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_md2" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_md4" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_md5" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_ripemd160" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_sha1" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_rust_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_rust_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_rust_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_bincode use_whirlpool" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --features="use_hashbrown" --verbose --all -- --test-threads $NUM_TEST_THREADS
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
