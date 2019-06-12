@@ -13,7 +13,7 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
     fn main() -> Result<Ok(), Error> {
         let tree = HashTree::new(8)?;
         
-        // Keys must be [u8; 32]
+        // Keys must be of fixed size between 1 and 32 bytes long
         let mut key: [u8; 32] = [0xFF; 32];
         
         // Value to be put into the tree
@@ -97,9 +97,10 @@ If you provide your own implementation of the traits for each component of the t
                              DataType, 
                              NodeType, 
                              HasherType, 
-                             ValueType>::from_db(db, depth);
+                             ValueType,
+                             ArrayType>::from_db(db, depth);
                              
-        // Keys must be 32 bytes long
+        // Keys must be of fixed size between 1 and 32 bytes long
         let key: [u8; 32] = [0xFF; 32];
         
         // An example value created from ValueType.  
