@@ -1,7 +1,7 @@
 use std::error::Error;
 
-use starling::hash_tree::HashTree;
 use starling::constants::KEY_LEN;
+use starling::hash_tree::HashTree;
 
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
@@ -35,9 +35,7 @@ fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>,
         rng.fill(&mut key_value);
         keys.push(key_value);
 
-        let data_value = (0..KEY_LEN).map(|_| {
-            rng.gen()
-        }).collect();
+        let data_value = (0..KEY_LEN).map(|_| rng.gen()).collect();
         data.push(data_value);
     }
 

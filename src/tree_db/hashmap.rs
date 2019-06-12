@@ -2,18 +2,22 @@ use std::collections::hash_map::HashMap;
 use std::path::PathBuf;
 
 use crate::constants::KEY_LEN;
-use crate::traits::{Database, Exception, Array};
+use crate::traits::{Array, Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
 /// A database consisting of a `HashMap`.
 pub struct HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// The internal `HashMap` for storing nodes.
     map: HashMap<ArrayType, TreeNode<ArrayType>>,
 }
 
 impl<ArrayType> HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// Creates a new `HashDB`.
     #[inline]
     pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
@@ -22,7 +26,9 @@ impl<ArrayType> HashDB<ArrayType>
 }
 
 impl<ArrayType> Database<ArrayType> for HashDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     type NodeType = TreeNode<ArrayType>;
     type EntryType = ([u8; KEY_LEN], Vec<u8>);
 

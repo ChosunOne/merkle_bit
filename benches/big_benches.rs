@@ -16,10 +16,10 @@ use starling::hash_tree::HashTree;
 use starling::rocks_tree::RocksTree;
 
 #[cfg(not(any(feature = "use_rocksdb")))]
-type Tree = HashTree<Vec<u8>>;
+type Tree = HashTree<[u8; KEY_LEN], Vec<u8>>;
 
 #[cfg(feature = "use_rocksdb")]
-type Tree = RocksTree<Vec<u8>>;
+type Tree = RocksTree<[u8; KEY_LEN], Vec<u8>>;
 
 /** Benchmarks 1000, 2000, 5000, 10000 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {

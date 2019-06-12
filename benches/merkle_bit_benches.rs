@@ -16,10 +16,10 @@ use starling::hash_tree::HashTree;
 use starling::rocks_tree::RocksTree;
 
 #[cfg(not(any(feature = "use_rocksdb")))]
-type Tree = HashTree<Vec<u8>>;
+type Tree = HashTree<[u8; KEY_LEN], Vec<u8>>;
 
 #[cfg(feature = "use_rocksdb")]
-type Tree = RocksTree<Vec<u8>>;
+type Tree = RocksTree<[u8; KEY_LEN], Vec<u8>>;
 
 /** Benchmarks 1, 10 , and 100 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
@@ -32,7 +32,8 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
             let (mut keys, values) = prepare_inserts(1000, &mut rng);
             let mut bmt = Tree::open(&path, 160).unwrap();
             b.iter(|| {
-                let root = bmt.insert(None, &mut keys[0..*index], &values[0..*index])
+                let root = bmt
+                    .insert(None, &mut keys[0..*index], &values[0..*index])
                     .unwrap();
                 criterion::black_box(root);
             });
@@ -135,9 +136,7 @@ fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>,
         rng.fill(&mut key_value);
         keys.push(key_value);
 
-        let data_value = (0..KEY_LEN).map(|_| {
-            rng.gen()
-        }).collect();
+        let data_value = (0..KEY_LEN).map(|_| rng.gen()).collect();
         data.push(data_value);
     }
 

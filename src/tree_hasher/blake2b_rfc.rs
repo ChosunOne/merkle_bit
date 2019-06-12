@@ -6,7 +6,9 @@ use crate::traits::Array;
 pub struct Blake2bHasher(blake2_rfc::blake2b::Blake2b);
 
 impl<ArrayType> crate::traits::Hasher<ArrayType> for Blake2bHasher
-    where ArrayType: Array{
+where
+    ArrayType: Array,
+{
     type HashType = Self;
 
     #[inline]

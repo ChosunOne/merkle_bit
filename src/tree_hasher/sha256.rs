@@ -5,7 +5,9 @@ use crate::traits::Array;
 pub struct Sha256Hasher(Sha256);
 
 impl<ArrayType> crate::traits::Hasher<ArrayType> for Sha256Hasher
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     type HashType = Self;
 
     #[inline]

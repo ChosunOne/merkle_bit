@@ -1,8 +1,10 @@
-use crate::traits::{Branch, Data, Leaf, Array};
+use crate::traits::{Array, Branch, Data, Leaf};
 
 /// Represents a position in the tree during tree traversal.
 pub struct TreeCell<'a, NodeType, ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// The location of the node being traversed.
     pub location: ArrayType,
     /// The keys traversing this part of the tree.
@@ -14,7 +16,9 @@ pub struct TreeCell<'a, NodeType, ArrayType>
 }
 
 impl<'a, NodeType, ArrayType> TreeCell<'a, NodeType, ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     /// Creates a new `TreeCell`.
     #[inline]
     pub fn new<BranchType, LeafType, DataType>(
