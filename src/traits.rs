@@ -41,7 +41,7 @@ pub trait Hasher<ArrayType>
     /// Adds data to be hashed.
     fn update(&mut self, data: &[u8]);
     /// Outputs the hash from updated data.
-    fn finalize(self, size: usize) -> ArrayType;
+    fn finalize(self) -> ArrayType;
 }
 
 #[cfg(feature = "use_digest")]
@@ -54,18 +54,15 @@ impl<T, ArrayType> Hasher<ArrayType> for T
         Self::HashType::new()
     }
 
-    fn update(&mut self, data: &[KeyType]) {
+    fn update(&mut self, data: &[u8]) {
         self.input(data);
     }
 
-    fn finalize(self, size: usize) -> ArrayType {
+    fn finalize(self) -> ArrayType {
         let mut finalized = ArrayType::default();
         let result = self.result();
-        if result.len() < size {
-            finalized[0..result.len()].copy_from_slice(&result[0..result.len()])
-        } else {
-            finalized.copy_from_slice(&result[0..size]);
-        }
+        let size = finalized.as_ref().len();
+        finalized.as_mut()[..size].copy_from_slice(&result[..size]);
         finalized
     }
 }

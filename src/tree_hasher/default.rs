@@ -17,7 +17,7 @@ impl<ArrayType> Hasher<ArrayType> for DefaultHasher
     }
 
     #[inline]
-    fn finalize(self, _size: usize) -> ArrayType {
+    fn finalize(self) -> ArrayType {
         let value = Self::finish(&self).to_le_bytes();
         let mut v = ArrayType::default();
         let length = v.as_ref().len();

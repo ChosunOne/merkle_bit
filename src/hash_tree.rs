@@ -25,7 +25,7 @@ where
     tree: MerkleBIT<HashTreeDB<ArrayType>, TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, TreeNode<ArrayType>, TreeHasher, ValueType, ArrayType>,
 }
 
-impl<'a, ValueType, ArrayType> HashTree<ArrayType, ValueType>
+impl<ValueType, ArrayType> HashTree<ArrayType, ValueType>
 where
     ValueType: Encode + Decode,
     ArrayType: Array

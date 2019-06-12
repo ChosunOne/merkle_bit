@@ -2,8 +2,10 @@
 use bincode::{deserialize, serialize};
 #[cfg(feature = "use_ron")]
 use ron;
-#[cfg(feature = "use_serialization")]
+#[cfg(feature = "use_serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "use_serde")]
+use serde::de::DeserializeOwned;
 #[cfg(feature = "use_cbor")]
 use serde_cbor;
 #[cfg(feature = "use_json")]
@@ -107,7 +109,8 @@ impl<ArrayType> Leaf<ArrayType> for TreeLeaf<ArrayType>
 }
 
 #[cfg(feature = "use_bincode")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serialize(self)?)
@@ -115,7 +118,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_json")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         let encoded = serde_json::to_string(&self)?;
@@ -124,7 +128,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_cbor")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_cbor::to_vec(&self)?)
@@ -132,7 +137,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_yaml")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_yaml::to_vec(&self)?)
@@ -140,7 +146,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_pickle")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_pickle::to_vec(&self, true)?)
@@ -148,7 +155,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_ron")]
-impl Encode for TreeLeaf {
+impl<ArrayType> Encode for TreeLeaf<ArrayType>
+    where ArrayType: Array + Serialize {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
@@ -156,7 +164,8 @@ impl Encode for TreeLeaf {
 }
 
 #[cfg(feature = "use_bincode")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(deserialize(buffer)?)
@@ -164,7 +173,8 @@ impl Decode for TreeLeaf {
 }
 
 #[cfg(feature = "use_json")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         let decoded_string = String::from_utf8(buffer.to_vec())?;
@@ -174,7 +184,8 @@ impl Decode for TreeLeaf {
 }
 
 #[cfg(feature = "use_cbor")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_cbor::from_slice(buffer)?)
@@ -182,7 +193,8 @@ impl Decode for TreeLeaf {
 }
 
 #[cfg(feature = "use_yaml")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_yaml::from_slice(buffer)?)
@@ -190,7 +202,8 @@ impl Decode for TreeLeaf {
 }
 
 #[cfg(feature = "use_pickle")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_pickle::from_slice(buffer)?)
@@ -198,7 +211,8 @@ impl Decode for TreeLeaf {
 }
 
 #[cfg(feature = "use_ron")]
-impl Decode for TreeLeaf {
+impl<ArrayType> Decode for TreeLeaf<ArrayType>
+    where ArrayType: Array + DeserializeOwned {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(ron::de::from_bytes(buffer)?)
