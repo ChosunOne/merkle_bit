@@ -29,8 +29,9 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// * **`NodeType`**: The type used for the outer node that can be either a branch, leaf, or data.  `NodeType` must implement the `Node` trait.
 /// * **`HasherType`**: The type of hasher to use for hashing locations on the tree.  `HasherType` must implement the `Hasher` trait.
 /// * **`ValueType`**: The type to return from a get.  `ValueType` must implement the `Encode` and `Decode` traits.
+/// * **`ArrayType`**: The type that stores the keys and hash results.  `ArrayType` must implement the `Array` trait.
 /// # Properties
-/// * **db**: The database to store and retrieve values
+/// * **db**: The database to store and retrieve values.
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<
     DatabaseType,
