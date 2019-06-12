@@ -1322,41 +1322,6 @@ pub mod integration_tests {
     }
 
     #[test]
-    fn it_handles_key_size_of_one() -> BinaryMerkleTreeResult<()> {
-        let seed = [0x93u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 7;
-        const SIZE: usize = 1usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| { rng.gen() }).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = HashTree::new(160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
     fn it_handles_key_size_of_two() -> BinaryMerkleTreeResult<()> {
         let seed = [0x94u8; 32];
         let path = generate_path(seed);
