@@ -50,7 +50,10 @@ where
     fn finalize(self) -> ArrayType {
         let mut finalized = ArrayType::default();
         let result = self.result();
-        let size = finalized.as_ref().len();
+        let mut size = finalized.as_ref().len();
+        if size > result.len() {
+            size = result.len();
+        }
         finalized.as_mut()[..size].copy_from_slice(&result[..size]);
         finalized
     }
