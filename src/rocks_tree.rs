@@ -13,27 +13,22 @@ use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_node::TreeNode;
 use crate::tree_db::rocksdb::RocksDB;
 use crate::tree_hasher::TreeHasher;
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
+#[cfg(feature = "use_serde")]
+use serde::de::DeserializeOwned;
 
-pub struct RocksTree<ArrayType, ValueType>
+pub struct RocksTree<ArrayType = [u8; 32], ValueType = Vec<u8>>
 where
-    ArrayType: Array,
+    ArrayType: Array + Serialize + DeserializeOwned,
     ValueType: Encode + Decode,
 {
-    tree: MerkleBIT<
-        RocksDB,
-        TreeBranch<ArrayType>,
-        TreeLeaf<ArrayType>,
-        TreeData,
-        TreeNode<ArrayType>,
-        TreeHasher,
-        ValueType,
-        ArrayType,
-    >,
+    tree: MerkleBIT<RocksDB<ArrayType>, TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, TreeNode<ArrayType>, TreeHasher, ValueType, ArrayType>
 }
 
 impl<ArrayType, ValueType> RocksTree<ArrayType, ValueType>
 where
-    ArrayType: Array,
+    ArrayType: Array + Serialize + DeserializeOwned,
     ValueType: Encode + Decode,
 {
     #[inline]
@@ -44,7 +39,7 @@ where
     }
 
     #[inline]
-    pub fn from_db(db: RocksDB, depth: usize) -> BinaryMerkleTreeResult<Self> {
+    pub fn from_db(db: RocksDB<ArrayType>, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let tree = MerkleBIT::from_db(db, depth)?;
         Ok(Self { tree })
     }

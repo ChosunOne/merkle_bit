@@ -28,7 +28,7 @@ type Tree<ArrayType, ValueType> = MerkleBIT<
 
 /// A `MerkleBIT` implemented with a `HashMap`.  Can be used for quickly storing items in memory, though
 /// larger sets of items should be stored on disk or over the network in a real database.
-pub struct HashTree<ArrayType, ValueType>
+pub struct HashTree<ArrayType = [u8; 32], ValueType = Vec<u8>>
 where
     ValueType: Encode + Decode,
     ArrayType: Array,
