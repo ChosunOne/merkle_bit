@@ -15,9 +15,19 @@ os:
   - osx
   - windows
 matrix:
+  include:
+    - name: Hash Tests 1
+      env: TEST_HASHES_SEC_1='true'
+    - name: Hash Tests 2
+      env: TEST_HASHES_SEC_2='true'
+    - name: SerializationTests
+      env: TEST_SERIALIZE='true'
+    - name: StructureTests
+      env: TEST_BACKEND='true'
   allow_failures:
     - rust: nightly
     - os: windows
+    - name: StructureTests
   fast_finish: true
 
 env:
@@ -31,7 +41,7 @@ before_install:
       sudo apt-get update
     fi
   - cargo install --force cargo-audit
-  - export NUM_TEST_THREADS=4
+  - export NUM_TEST_THREADS=8
 
 addons:
   apt:
@@ -56,31 +66,107 @@ before_script:
 script:
   - cargo build --verbose --all
   - cargo audit
-  - cargo test --verbose --all -- --test-threads 4
-  - cargo test --features="use_bincode" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_json" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_cbor" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_yaml" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_pickle" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_ron" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_blake2b" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_groestl" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_seahash" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_fx" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_blake2b_rfc" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_md2" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_md4" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_md5" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_ripemd160" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_sha1" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_rust_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_rust_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_rust_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_bincode use_whirlpool" --verbose --all -- --test-threads $NUM_TEST_THREADS
-  - cargo test --features="use_hashbrown" --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - cargo test --verbose --all -- --test-threads $NUM_TEST_THREADS
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_bincode" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_json" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_cbor" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_yaml" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_pickle" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_SERIALIZE" == "true" ]]; then
+      ( cargo test --features="use_ron" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_blake2b" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_groestl" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_seahash" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_fx" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_1" == "true" ]]; then
+      ( cargo test --features="use_blake2b_rfc" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_md2" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_md4" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_md5" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_ripemd160" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_sha1" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_rust_sha2" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_rust_sha3" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_rust_keccak" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_HASHES_SEC_2" == "true" ]]; then
+      ( cargo test --features="use_whirlpool" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_BACKEND" == "true" ]]; then
+      ( cargo test --features="use_hashbrown" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
+  - |
+    if [[ "$TEST_BACKEND" == "true" ]]; then
+      ( cargo test --features="use_rocksdb use_bincode use_fx" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+    fi
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
         cargo clippy
