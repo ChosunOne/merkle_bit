@@ -5,6 +5,7 @@ use rocksdb::{WriteBatch, DB};
 
 use crate::traits::{Array, Database, Decode, Encode, Exception};
 use crate::tree::tree_node::TreeNode;
+use std::marker::PhantomData;
 
 impl From<rocksdb::Error> for Exception {
     #[inline]
@@ -13,24 +14,29 @@ impl From<rocksdb::Error> for Exception {
     }
 }
 
-pub struct RocksDB {
+pub struct RocksDB<ArrayType>
+    where ArrayType: Array {
     db: DB,
     pending_inserts: Option<WriteBatch>,
+    array: PhantomData<ArrayType>
 }
 
-impl RocksDB {
+impl<ArrayType> RocksDB<ArrayType>
+    where ArrayType: Array {
     #[inline]
     pub fn new(db: DB) -> Self {
         Self {
             db,
             pending_inserts: Some(WriteBatch::default()),
+            array: PhantomData
         }
     }
 }
 
-impl<ArrayType> Database<ArrayType> for RocksDB
+impl<ArrayType> Database<ArrayType> for RocksDB<ArrayType>
 where
-    ArrayType: Array + Encode,
+    ArrayType: Array,
+    TreeNode<ArrayType>: Encode + Decode
 {
     type NodeType = TreeNode<ArrayType>;
     type EntryType = (usize, usize);
