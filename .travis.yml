@@ -24,6 +24,8 @@ matrix:
       env: TEST_SERIALIZE='true'
     - name: StructureTests
       env: TEST_BACKEND='true'
+    - name: Audit
+      env: AUDIT='true'
   allow_failures:
     - rust: nightly
     - os: windows
@@ -40,7 +42,10 @@ before_install:
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
       sudo apt-get update
     fi
-  - cargo install --force cargo-audit
+  - |
+    if [[ "$AUDIT" == "true" ]]; then
+      cargo install --force cargo-audit
+    fi
   - export NUM_TEST_THREADS=8
 
 addons:
@@ -65,7 +70,10 @@ before_script:
 
 script:
   - cargo build --verbose --all
-  - cargo audit
+  - |
+    if [[ "$AUDIT" == "true" ]]; then
+    ( cargo audit );
+    fi
   - cargo test --verbose --all -- --test-threads $NUM_TEST_THREADS
   - |
     if [[ "$TEST_SERIALIZE" == "true" ]]; then
