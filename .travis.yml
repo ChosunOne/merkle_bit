@@ -173,7 +173,7 @@ script:
     fi
   - |
     if [[ "$TEST_BACKEND" == "true" ]]; then
-      ( cargo test --features="use_rocksdb use_bincode use_fx" --verbose --all -- --test-threads $NUM_TEST_THREADS );
+      ( cargo test --features="use_rocksdb use_bincode use_fx" --verbose --all -- --test-threads 1 );
     fi
   - |
       if [[ "$TRAVIS_RUST_VERSION" == "nightly" && $CLIPPY ]]; then
