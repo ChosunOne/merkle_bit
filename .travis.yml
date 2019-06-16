@@ -28,8 +28,6 @@ matrix:
       env: AUDIT='true'
   allow_failures:
     - rust: nightly
-    - os: windows
-    - name: StructureTests
   fast_finish: true
 
 env:
