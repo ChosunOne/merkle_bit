@@ -1,6 +1,11 @@
 # 3.1.0
 * Update API for `get`, `insert`, `generate_inclusion_proof`, and `verify_inclusion_proof`.  You can now use a single reference to 
 an array or vector instead of needing to create a vector or array of references.
+* Update API to support multiple size keys up to 32 bytes in length.  
+    * **Note**: This is a breaking change.  Usages of inferred types will work without breaking, but custom implementations may 
+    require some adjustment.  Specifically, the API now includes a type argument for the `ArrayType` which must implement
+    the new `Array` trait.  This has been done already for fixed sized arrays of type `[u8; N]` up to `N=32`, but must be
+    implemented for any other type.  If left unspecified, then the type `[u8; 32]` will be used by default. 
 # 3.0.0 
 * Remove `use_rayon`.  Rayon doesn't seem well suited for the kind of parallelism required for the tree building process. 
 * Change trait bounds on `MerkeBIT` to allow for auto derivation of `Sync + Send` if implemented in the underlying data types.  
