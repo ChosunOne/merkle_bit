@@ -4,7 +4,7 @@ version = "3.1.0"
 authors = ["Josiah Evans <koreanhalo@gmail.com>"]
 description = "This tree structure is a binary merkle tree with branch compression via split indexes."
 repository = "https://github.com/ChosunOne/merkle_bit"
-keywords = ["binary", "merkle", "tree", "patricia"]
+keywords = ["binary", "sparse", "merkle", "tree", "patricia"]
 categories = ["data-structures", "memory-management"]
 license = "MIT/Apache-2.0"
 readme = "README.md"
@@ -30,7 +30,7 @@ rand = "0.7.0"
 [dependencies]
 bincode = { version = "1.1.4", optional = true }
 blake2-rfc = { version = "0.2.18", optional = true }
-serde = { version = "1.0.92", features = ["derive"], optional = true }
+serde = { version = "1.0.94", features = ["derive"], optional = true }
 serde_json = { version = "1.0.39", optional = true }
 serde_cbor = { version = "0.10.0", optional = true }
 serde_yaml = { version = "0.8.9", optional = true }
@@ -38,7 +38,7 @@ serde-pickle = { version = "0.5.0", optional = true }
 ron = { version = "0.5.1", optional = true }
 groestl = { version = "0.8.0", optional = true }
 openssl = { version = "0.10.23", optional = true }
-tiny-keccak = { version = "1.4.3", optional = true }
+tiny-keccak = { version = "1.5.0", optional = true }
 hashbrown = { version = "0.6.0", optional = true }
 rocksdb = { version = "0.12.2", optional = true }
 seahash = { version = "3.0.6", optional = true }
