@@ -14,16 +14,25 @@ use crate::tree::tree_node::TreeNode;
 use crate::tree_db::rocksdb::RocksDB;
 use crate::tree_hasher::TreeHasher;
 #[cfg(feature = "use_serde")]
-use serde::Serialize;
-#[cfg(feature = "use_serde")]
 use serde::de::DeserializeOwned;
+#[cfg(feature = "use_serde")]
+use serde::Serialize;
 
 pub struct RocksTree<ArrayType = [u8; 32], ValueType = Vec<u8>>
 where
     ArrayType: Array + Serialize + DeserializeOwned,
     ValueType: Encode + Decode,
 {
-    tree: MerkleBIT<RocksDB<ArrayType>, TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, TreeNode<ArrayType>, TreeHasher, ValueType, ArrayType>
+    tree: MerkleBIT<
+        RocksDB<ArrayType>,
+        TreeBranch<ArrayType>,
+        TreeLeaf<ArrayType>,
+        TreeData,
+        TreeNode<ArrayType>,
+        TreeHasher,
+        ValueType,
+        ArrayType,
+    >,
 }
 
 impl<ArrayType, ValueType> RocksTree<ArrayType, ValueType>

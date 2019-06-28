@@ -15,20 +15,24 @@ impl From<rocksdb::Error> for Exception {
 }
 
 pub struct RocksDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     db: DB,
     pending_inserts: Option<WriteBatch>,
-    array: PhantomData<ArrayType>
+    array: PhantomData<ArrayType>,
 }
 
 impl<ArrayType> RocksDB<ArrayType>
-    where ArrayType: Array {
+where
+    ArrayType: Array,
+{
     #[inline]
     pub fn new(db: DB) -> Self {
         Self {
             db,
             pending_inserts: Some(WriteBatch::default()),
-            array: PhantomData
+            array: PhantomData,
         }
     }
 }
@@ -36,7 +40,7 @@ impl<ArrayType> RocksDB<ArrayType>
 impl<ArrayType> Database<ArrayType> for RocksDB<ArrayType>
 where
     ArrayType: Array,
-    TreeNode<ArrayType>: Encode + Decode
+    TreeNode<ArrayType>: Encode + Decode,
 {
     type NodeType = TreeNode<ArrayType>;
     type EntryType = (usize, usize);
