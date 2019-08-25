@@ -24,7 +24,7 @@ lto = true
 debug = true
 
 [dev-dependencies]
-criterion = "0.2.11"
+criterion = "0.3.0"
 rand = "0.7.0"
 
 [dependencies]
