@@ -1,3 +1,6 @@
+# 3.1.1
+* Update dependencies
+* Minor style change to align with idiomatic rust
 # 3.1.0
 * Update API for `get`, `insert`, `generate_inclusion_proof`, and `verify_inclusion_proof`.  You can now use a single reference to 
 an array or vector instead of needing to create a vector or array of references.
