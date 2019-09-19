@@ -3,7 +3,7 @@
 
 *Our security policy is to avoid leaving the ecosystem worse than we found it. Meaning we are not planning to introduce vulnerabilities into the ecosystem.*
 
-The merkle_bit/starling team and community take all security bugs in merkle_bit/starling seriously. Thank you for improving the security of "MY-PROJECT". We appreciate your efforts and responsible disclosure and will make every effort to acknowledge your contributions.
+The merkle_bit/starling team and community take all security bugs in merkle_bit/starling seriously. Thank you for improving the security of merkle_bit/starling. We appreciate your efforts and responsible disclosure and will make every effort to acknowledge your contributions.
 
 Report security bugs by emailing the lead maintainer at chosunone@protonmail.com and include the word "SECURITY" in the subject line..
 
