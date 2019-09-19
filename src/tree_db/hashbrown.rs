@@ -38,9 +38,9 @@ where
     fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception> {
         if let Some(m) = self.map.get(&key) {
             let node = m.clone();
-            return Ok(Some(node));
+            Ok(Some(node))
         } else {
-            return Ok(None);
+            Ok(None)
         }
     }
 
