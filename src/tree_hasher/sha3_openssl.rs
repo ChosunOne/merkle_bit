@@ -1,8 +1,9 @@
-use tiny_keccak::Keccak;
+use tiny_keccak::Sha3;
+use tiny_keccak::Hasher;
 
 use crate::traits::Array;
 
-pub struct Sha3Hasher(Keccak);
+pub struct Sha3Hasher(Sha3);
 
 impl<ArrayType> crate::traits::Hasher<ArrayType> for Sha3Hasher
 where
@@ -12,7 +13,7 @@ where
 
     #[inline]
     fn new(_size: usize) -> Self {
-        let hasher = Keccak::new_sha3_256();
+        let hasher = Sha3::v256();
         Self(hasher)
     }
 

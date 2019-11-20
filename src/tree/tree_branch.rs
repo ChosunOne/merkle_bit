@@ -97,7 +97,7 @@ where
 
     /// Set the location of the next node to traverse when going down the one side.
     fn set_one(&mut self, one: ArrayType) {
-        self.one = one;;
+        self.one = one;
     }
 
     /// Sets the index of the key to split on when deciding which child to traverse.
