@@ -87,6 +87,7 @@ where
         self.tree.remove(root_hash)
     }
 
+    /// Generates an inclusion proof for the given key at the specified root.
     #[inline]
     pub fn generate_inclusion_proof(
         &self,
@@ -96,6 +97,7 @@ where
         self.tree.generate_inclusion_proof(root, key)
     }
 
+    /// Verifies an inclusion proof with the given root, key, and value.
     #[inline]
     pub fn verify_inclusion_proof(
         &self,
@@ -107,6 +109,7 @@ where
         self.tree.verify_inclusion_proof(root, key, value, proof)
     }
 
+    /// Gets a single item out of the tree.
     #[inline]
     pub fn get_one(
         &self,
@@ -116,6 +119,7 @@ where
         self.tree.get_one(root, key)
     }
 
+    /// Inserts a single item into the tree.
     #[inline]
     pub fn insert_one(
         &mut self,
