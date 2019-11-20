@@ -1,4 +1,5 @@
 use tiny_keccak::Keccak;
+use tiny_keccak::Hasher;
 
 use crate::traits::Array;
 
@@ -12,7 +13,7 @@ where
 
     #[inline]
     fn new(_size: usize) -> Self {
-        let hasher = Keccak::new_keccak256();
+        let hasher = Keccak::v256();
         Self(hasher)
     }
 
