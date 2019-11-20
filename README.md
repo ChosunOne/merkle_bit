@@ -166,5 +166,9 @@ to the API.  These changes will be noted in the Changelog of each release, but i
 such a change, please [file an issue](https://github.com/ChosunOne/merkle_bit/issues/new/choose) or 
 [submit a pull request](https://github.com/ChosunOne/merkle_bit/compare) and we will review it at our earliest convenience.
 
+## Support
+Do you use this crate and would like to ensure continued support?  Please consider supporting me via Github Sponsors at 
+[my sponsor page](https://github.com/sponsors/ChosunOne).
+
 #### Acknowledgments
-Special thanks to Niall Moore for assistance with the early phases of this project. 
+Special thanks to Niall Moore and Owen Delahoy for assistance with the early phases of this project. 

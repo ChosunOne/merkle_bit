@@ -1,3 +1,5 @@
+# 3.1.2
+* Update dependencies
 # 3.1.1
 * Update dependencies
 * Minor style change to align with idiomatic rust
