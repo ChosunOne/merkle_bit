@@ -32,7 +32,7 @@ bincode = { version = "1.1.4", optional = true }
 blake2-rfc = { version = "0.2.18", optional = true }
 serde = { version = "1.0.101", features = ["derive"], optional = true }
 serde_json = { version = "1.0.40", optional = true }
-serde_cbor = { version = "0.10.1", optional = true }
+serde_cbor = { version = "0.11.1", optional = true }
 serde_yaml = { version = "0.8.9", optional = true }
 serde-pickle = { version = "0.5.1", optional = true }
 ron = { version = "0.5.1", optional = true }
