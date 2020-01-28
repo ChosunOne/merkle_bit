@@ -171,7 +171,7 @@ pub const fn fast_log_2(num: u8) -> u8 {
 pub fn generate_tree_ref_queue<ArrayType: Array>(
     tree_refs: &mut Vec<TreeRef<ArrayType>>,
     tree_ref_queue: &mut HashMap<usize, Vec<(usize, usize, usize)>>,
-) -> BinaryMerkleTreeResult<(HashSet<usize>)> {
+) -> BinaryMerkleTreeResult<HashSet<usize>> {
     let mut unique_split_bits = HashSet::new();
     for i in 0..tree_refs.len() - 1 {
         let left_key = tree_refs[i].key.as_ref();
