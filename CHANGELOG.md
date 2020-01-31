@@ -1,3 +1,5 @@
+# 3.1.4
+* Update dependencies
 # 3.1.3
 * Update dependencies
 # 3.1.2
@@ -44,7 +46,7 @@ used to generate the inclusion proof.  The verifying tree may be empty.
 * Improve performance of `use_rayon`, though it is still slower than any other feature.
 * Improve inlining support when LTO is disabled.
 # 2.5.1
-* Futher performance improvements across the board, this time by around 20-30%.
+* Further performance improvements across the board, this time by around 20-30%.
 * Added new unstable feature `use_rayon`.  It currently is much slower than any other feature, but will be receiving
 attention in coming updates.  
 # 2.5.0
