@@ -1,7 +1,7 @@
 [![GitHub release](https://img.shields.io/github/release/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/releases) [![Crates.io](https://img.shields.io/crates/v/starling.svg)](https://crates.io/crates/starling) [![Crates.io](https://img.shields.io/crates/l/starling.svg)](https://github.com/ChosunOne/merkle_bit/blob/stable/LICENSE-APACHE) [![GitHub last commit](https://img.shields.io/github/last-commit/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/commits/stable)  [![Travis (.com)](https://img.shields.io/travis/com/ChosunOne/merkle_bit.svg)](https://travis-ci.com/ChosunOne/merkle_bit/builds) [![GitHub issues](https://img.shields.io/github/issues-raw/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/issues) 
 [![Codecov branch](https://img.shields.io/codecov/c/github/ChosunOne/merkle_bit/stable.svg)](https://codecov.io/gh/ChosunOne/merkle_bit)  ![Crates.io](https://img.shields.io/crates/d/starling.svg) [![Gitter](https://img.shields.io/gitter/room/merkle_bit/merkle_bit.svg)](https://gitter.im/merkle_bit/community) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/ChosunOne?locale.x=en_US)
 # Merkle Binary Indexed Tree (Merkle-BIT)
-This tree structure is a binary merkle tree with branch compression via split indexes.  See [here](https://medium.com/@niallmoore22/binary-merkle-trie-aad76f422983) for a basic explanation of its purpose.
+This tree structure is a binary merkle tree with branch compression via split indexes.  This structure can be used to store multiple versions of tree state without any duplication of the stored data, either in memory or on disk.  See [here](https://ethereum.stackexchange.com/questions/15288/ethereum-merkle-tree-explanation) and [here](https://medium.com/@niallmoore22/binary-merkle-trie-aad76f422983) for a basic explanation of its purpose.
 
 ## Basic Usage
 To quickly get started and get a feel for the Merkle-BIT, you can use the already implemented HashTree structure.
@@ -34,6 +34,27 @@ This structure can be used for small amounts of data, but all the data in the tr
 
 For larger numbers of items to store in the tree, it is recommended to connect the structure to a database by implementing the 
 `Database` trait for your database.  This structure will also take advantage of batch writes if your database supports it.  
+
+## Benchmarks
+
+Below are the benchmarks when using ```starling``` on an in-memory database on a reasonably fast machine:
+
+| Operation   |      Num. Entries      |  Is Tree Empty? | Measured Benchmark |
+|----------|-------------:|------:|-----:|
+| insertion |  1 | yes | 0.407μs |
+| insertion |  10 | yes | 5.136μs |
+| insertion | 100 | yes | 46.796μs |
+| insertion | 1000 | yes | 480.060μs |
+| insertion | 10000 | yes | 7,219.300μs |
+| insertion | 1 | no | 6.315μs |
+| insertion | 10 | no | 19.400μs |
+| insertion | 100 | no | 149.710μs |
+| insertion | 1000 | no | 1,517.700μs |
+| insertion | 10000 | no | 15,043.000μs |
+| retrieval | 4096 | no | 2,889.100μs |
+| retreival | 10000 | no | 9,437.100μs |
+| removal | 4096 | no | 0.070μs |
+| removal | 10000 | no | 0.071μs |
 
 ## Features
 Starling supports a number of serialization and hashing schemes for use in the tree, which should be selected based on 
@@ -69,8 +90,7 @@ or by enabling the features in your Cargo.toml manifest.
 Some enabled features must be used in combination, or you must implement the required traits yourself (E.g. using the 
 ```use_rocksdb``` feature alone will generate a compiler error, you must also select a serialization scheme, such as ```use_bincode``` or implement it for your data).
 
-Finally, you can take advantage of the ```use_hashbrown``` feature to use the crate which will soon replace the existing ```HashMap```,
-providing up to 10% performance gains.  This feature will be deprecated once ```hashbrown``` is incorporated into the standard library.
+Finally, you can take advantage of the ```use_hashbrown``` to use the ```hasbrown``` crate instead of the standard library ```HashMap```.
 
 ## Full Customization
 
