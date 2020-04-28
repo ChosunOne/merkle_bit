@@ -18,21 +18,24 @@ use serde::de::DeserializeOwned;
 #[cfg(feature = "use_serde")]
 use serde::Serialize;
 
+/// Internal type alias for the underlying tree.
+type Tree<ArrayType, ValueType> = MerkleBIT<
+    RocksDB<ArrayType>,
+    TreeBranch<ArrayType>,
+    TreeLeaf<ArrayType>,
+    TreeData,
+    TreeNode<ArrayType>,
+    TreeHasher,
+    ValueType,
+    ArrayType,
+>;
+
 pub struct RocksTree<ArrayType = [u8; 32], ValueType = Vec<u8>>
 where
     ArrayType: Array + Serialize + DeserializeOwned,
     ValueType: Encode + Decode,
 {
-    tree: MerkleBIT<
-        RocksDB<ArrayType>,
-        TreeBranch<ArrayType>,
-        TreeLeaf<ArrayType>,
-        TreeData,
-        TreeNode<ArrayType>,
-        TreeHasher,
-        ValueType,
-        ArrayType,
-    >,
+    tree: Tree<ArrayType, ValueType>,
 }
 
 impl<ArrayType, ValueType> RocksTree<ArrayType, ValueType>
@@ -107,12 +110,11 @@ where
 
     #[inline]
     pub fn verify_inclusion_proof(
-        &self,
         root: &ArrayType,
         key: ArrayType,
         value: &ValueType,
         proof: &Vec<(ArrayType, bool)>,
     ) -> BinaryMerkleTreeResult<()> {
-        self.tree.verify_inclusion_proof(root, key, value, proof)
+        Tree::verify_inclusion_proof(root, key, value, proof)
     }
 }

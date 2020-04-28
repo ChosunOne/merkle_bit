@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 impl From<rocksdb::Error> for Exception {
     #[inline]
     fn from(error: rocksdb::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
