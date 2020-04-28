@@ -53,7 +53,7 @@ Below are the benchmarks when using ```starling``` on an in-memory database on a
 | insertion | 1000 | no | 1,517.700μs |
 | insertion | 10000 | no | 15,043.000μs |
 | retrieval | 4096 | no | 2,889.100μs |
-| retreival | 10000 | no | 9,437.100μs |
+| retrieval | 10000 | no | 9,437.100μs |
 | removal | 4096 | no | 0.070μs |
 | removal | 10000 | no | 0.071μs |
 

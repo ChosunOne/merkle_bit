@@ -63,10 +63,10 @@ where
     fn insert(&mut self, key: ArrayType, value: Self::NodeType) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
-            wb.put(key, serialized)?;
+            wb.put(key, serialized);
         } else {
             let mut wb = WriteBatch::default();
-            wb.put(key, serialized)?;
+            wb.put(key, serialized);
             self.pending_inserts = Some(wb);
         }
         Ok(())
