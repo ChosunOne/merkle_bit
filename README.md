@@ -129,12 +129,28 @@ If you provide your own implementation of the traits for each component of the t
         
         // You can specify a previous root to add to, in this case there is no previous root
         let root: [u8; 32] = mbit.insert(None, &mut [key], &[value])?;
+
+        // Every time an element is added or removed a new root is created.
+        let new_key: [u8; 32] = [0xEE; 32];
+        let new_value: ValueType = ValueType::new("Some new value");
+        let new_root: [u8; 32] = mbit.insert(&root, &mut [key], &[value])?;
         
         // Retrieving the inserted value
         let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [key])?;
+
+        // You must ensure that the root you supply matches a root where the key existed when retrieving items
+        // This line will fail to find the `new_value`
+        let empty_map = mbit.get(&root, &mut [new_key])?;
+
+        // This line will succeed in finding values for both `key` and `new_key`
+        let inhabited_map = mbit.get(&new_root, &mut [key, new_key])?;
+
         
         // Removing a tree root
         mbit.remove(&root)?;
+
+        // This line will fail to find a value for `key` but will succeed in finding the value for `new_key`
+        let partially_inhabited_map = mbit.get(&new_root, &mut [key, new_key])?;
         Ok(())
     }
 ```
@@ -157,11 +173,8 @@ The `MerkleBIT` also supports generating and verifying merkle inclusion proofs, 
         // An inclusion proof that proves membership of a key in the tree
         let proof: Vec<([u8; 32], bool)> = tree.generate_inclusion_proof(&root, key)?;
         
-        // The verifying tree may be empty
-        let empty_tree = HashTree::new(8)?;
-        
         // If the proof is valid, it will return Ok(())
-        empty_tree.verify_inclusion_proof(&root, key, &value, &proof)?;
+        HashTree::verify_inclusion_proof(&root, key, &value, &proof)?;
         Ok(())
     }
 ```

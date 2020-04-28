@@ -1,7 +1,5 @@
 #[cfg(test)]
 pub mod integration_tests {
-    #[cfg(any(feature = "use_serialization"))]
-    use std::error::Error;
     use std::path::PathBuf;
 
     use rand::rngs::StdRng;
@@ -39,7 +37,7 @@ pub mod integration_tests {
                 Err(e) => {
                     drop(tree);
                     tear_down(&path);
-                    panic!("{:?}", e.description());
+                    panic!("{:?}", &e.to_string());
                 }
             }
             match tree.get(&root, &mut [key]) {
@@ -47,7 +45,7 @@ pub mod integration_tests {
                 Err(e) => {
                     drop(tree);
                     tear_down(&path);
-                    panic!("{:?}", e.description());
+                    panic!("{:?}", &e.to_string());
                 }
             }
             match tree.remove(&root) {
@@ -55,7 +53,7 @@ pub mod integration_tests {
                 Err(e) => {
                     drop(tree);
                     tear_down(&path);
-                    panic!("{:?}", e.description());
+                    panic!("{:?}", &e.to_string());
                 }
             }
             match tree.get(&root, &mut [key]) {
@@ -63,7 +61,7 @@ pub mod integration_tests {
                 Err(e) => {
                     drop(tree);
                     tear_down(&path);
-                    panic!("{:?}", e.description());
+                    panic!("{:?}", &e.to_string());
                 }
             }
         }
@@ -1130,7 +1128,7 @@ pub mod integration_tests {
         let root = bmt.insert(None, &mut [key], &vec![data.clone()])?;
 
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
-        bmt.verify_inclusion_proof(&root, key, &data, &inclusion_proof)?;
+        Tree::verify_inclusion_proof(&root, key, &data, &inclusion_proof)?;
         tear_down(&path);
         Ok(())
     }
@@ -1148,7 +1146,7 @@ pub mod integration_tests {
         let root = bmt.insert(None, &mut [key], &vec![data.clone()])?;
 
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
-        match bmt.verify_inclusion_proof(&[01u8; KEY_LEN], key, &data, &inclusion_proof) {
+        match Tree::verify_inclusion_proof(&[01u8; KEY_LEN], key, &data, &inclusion_proof) {
             Ok(_) => return Err(Exception::new("Failed to detect invalid proof")),
             _ => {}
         }
@@ -1172,7 +1170,7 @@ pub mod integration_tests {
 
         for i in 0..num_entries {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
-            bmt.verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
+            Tree::verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
         }
         tear_down(&path);
         Ok(())
@@ -1197,7 +1195,7 @@ pub mod integration_tests {
 
         for i in 0..num_entries {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
-            bmt.verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
+            Tree::verify_inclusion_proof(&root, keys[i], &values[i], &inclusion_proof)?;
         }
         tear_down(&path);
         Ok(())
@@ -1222,9 +1220,12 @@ pub mod integration_tests {
 
         for i in 0..num_entries {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
-            if let Ok(_) =
-                bmt.verify_inclusion_proof(&[0x03; KEY_LEN], keys[i], &values[i], &inclusion_proof)
-            {
+            if let Ok(_) = Tree::verify_inclusion_proof(
+                &[0x03; KEY_LEN],
+                keys[i],
+                &values[i],
+                &inclusion_proof,
+            ) {
                 return Err(Exception::new("Failed to detect an invalid proof"));
             }
         }

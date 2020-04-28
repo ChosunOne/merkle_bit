@@ -1,3 +1,9 @@
+# 3.2.0
+* Updated dependencies, notably rocksdb to 0.14
+* Adjusted API for `verify_inclusion_proof`, it is now an associated function of a `Tree` and is now called via 
+`Tree::verify_inclusion_proof`. 
+* Removed cases where converting to a usize might cause a panic on non 32-bit architectures.
+* Removed panic when list of keys provided to internal function was empty.
 # 3.1.5
 * Update dependencies
 # 3.1.4

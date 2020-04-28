@@ -1,5 +1,5 @@
-use tiny_keccak::Sha3;
 use tiny_keccak::Hasher;
+use tiny_keccak::Sha3;
 
 use crate::traits::Array;
 

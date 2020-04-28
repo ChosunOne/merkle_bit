@@ -1,6 +1,7 @@
 #[cfg(not(any(feature = "use_hashbrown")))]
 use std::collections::HashMap;
 use std::collections::VecDeque;
+use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::path::PathBuf;
 
@@ -164,18 +165,18 @@ where
             match node.get_variant() {
                 NodeVariant::Branch(branch) => {
                     let (_, zero, one, branch_split_index, branch_key) = branch.decompose();
-                    let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
+                    let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key)?;
                     let descendants = check_descendants(
                         tree_cell.keys,
                         branch_split_index,
                         &branch_key,
                         min_split_index,
-                    );
+                    )?;
                     if descendants.is_empty() {
                         continue;
                     }
 
-                    let (zeros, ones) = split_pairs(descendants, branch_split_index);
+                    let (zeros, ones) = split_pairs(descendants, branch_split_index)?;
 
                     if let Some(one_node) = self.db.get_node(one)? {
                         if !ones.is_empty() {
@@ -298,16 +299,13 @@ where
             TreeCell::new::<BranchType, LeafType, DataType>(*root, keys, root_node, 0);
         cell_queue.push_front(root_cell);
 
-        while !cell_queue.is_empty() {
-            let tree_cell = cell_queue
-                .pop_front()
-                .expect("cell queue should not be empty");
-
+        while let Some(tree_cell) = cell_queue.pop_front() {
             if tree_cell.depth > self.depth {
                 return Err(Exception::new("Depth of merkle tree exceeded"));
             }
 
             let node = tree_cell.node;
+            let depth = tree_cell.depth;
 
             let branch;
             let mut refs = node.get_references();
@@ -347,19 +345,19 @@ where
                 NodeVariant::Data(_) => {
                     return Err(Exception::new(
                         "Corrupt merkle tree: Found data node while traversing tree",
-                    ))
+                    ));
                 }
                 NodeVariant::Phantom(_) => {
                     return Err(Exception::new(
                         "Corrupt merkle tree: Found phantom node while traversing tree",
-                    ))
+                    ));
                 }
             }
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
                 branch.decompose();
 
-            let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key);
+            let min_split_index = calc_min_split_index(tree_cell.keys, &branch_key)?;
 
             let mut descendants = tree_cell.keys;
 
@@ -369,7 +367,7 @@ where
                     branch_split_index,
                     &branch_key,
                     min_split_index,
-                );
+                )?;
 
                 if descendants.is_empty() {
                     let mut new_branch = BranchType::new();
@@ -389,94 +387,75 @@ where
                 }
             }
 
-            let (zeros, ones) = split_pairs(descendants, branch_split_index);
-            if let Some(one_node) = self.db.get_node(branch_one)? {
-                if ones.is_empty() {
-                    let other_key;
-                    let count;
-                    let one_refs = one_node.get_references() + 1;
-                    let mut new_one_node;
-                    match one_node.get_variant() {
-                        NodeVariant::Branch(b) => {
-                            count = b.get_count();
-                            other_key = *b.get_key();
-                            new_one_node = NodeType::new(NodeVariant::Branch(b));
-                        }
-                        NodeVariant::Leaf(l) => {
-                            count = 1;
-                            other_key = *l.get_key();
-                            new_one_node = NodeType::new(NodeVariant::Leaf(l));
-                        }
-                        NodeVariant::Data(_) => {
-                            return Err(Exception::new(
-                                "Corrupt merkle tree: Found data node while traversing tree",
-                            ));
-                        }
-                        NodeVariant::Phantom(_) => {
-                            return Err(Exception::new(
-                                "Corrupt merkle tree: Found phantom node while traversing tree",
-                            ))
-                        }
-                    }
-                    new_one_node.set_references(one_refs);
-                    self.db.insert(branch_one, new_one_node)?;
-                    let tree_ref = TreeRef::new(other_key, branch_one, count, 1);
-                    proof_nodes.push(tree_ref);
-                } else {
-                    let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                        branch_one,
-                        ones,
-                        one_node,
-                        tree_cell.depth + 1,
-                    );
-                    cell_queue.push_front(new_cell);
+            let (zeros, ones) = split_pairs(descendants, branch_split_index)?;
+            {
+                match self.split_nodes(depth, branch_one, ones)? {
+                    SplitNodeType::Ref(tree_ref) => proof_nodes.push(tree_ref),
+                    SplitNodeType::Cell(cell) => cell_queue.push_front(cell),
+                    _ => (),
                 }
             }
-            if let Some(zero_node) = self.db.get_node(branch_zero)? {
-                if zeros.is_empty() {
-                    let other_key;
-                    let count;
-                    let zero_refs = zero_node.get_references() + 1;
-                    let mut new_zero_node;
-                    match zero_node.get_variant() {
-                        NodeVariant::Branch(b) => {
-                            count = b.get_count();
-                            other_key = *b.get_key();
-                            new_zero_node = NodeType::new(NodeVariant::Branch(b));
-                        }
-                        NodeVariant::Leaf(l) => {
-                            count = 1;
-                            other_key = *l.get_key();
-                            new_zero_node = NodeType::new(NodeVariant::Leaf(l));
-                        }
-                        NodeVariant::Data(_) => {
-                            return Err(Exception::new(
-                                "Corrupt merkle tree: Found data node while traversing tree",
-                            ));
-                        }
-                        NodeVariant::Phantom(_) => {
-                            return Err(Exception::new(
-                                "Corrupt merkle tree: Found phantom node while traversing tree",
-                            ))
-                        }
-                    }
-                    new_zero_node.set_references(zero_refs);
-                    self.db.insert(branch_zero, new_zero_node)?;
-                    let tree_ref = TreeRef::new(other_key, branch_zero, count, 1);
-                    proof_nodes.push(tree_ref);
-                } else {
-                    let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                        branch_zero,
-                        zeros,
-                        zero_node,
-                        tree_cell.depth + 1,
-                    );
-                    cell_queue.push_front(new_cell);
+            {
+                match self.split_nodes(depth, branch_zero, zeros)? {
+                    SplitNodeType::Ref(tree_ref) => proof_nodes.push(tree_ref),
+                    SplitNodeType::Cell(cell) => cell_queue.push_front(cell),
+                    _ => (),
                 }
             }
         }
-
         Ok(proof_nodes)
+    }
+
+    fn split_nodes<'a>(
+        &mut self,
+        depth: usize,
+        branch: ArrayType,
+        node_list: &'a [ArrayType],
+    ) -> Result<SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>, Exception>
+    {
+        if let Some(node) = self.db.get_node(branch)? {
+            if node_list.is_empty() {
+                let other_key;
+                let count;
+                let refs = node.get_references() + 1;
+                let mut new_node;
+                match node.get_variant() {
+                    NodeVariant::Branch(b) => {
+                        count = b.get_count();
+                        other_key = *b.get_key();
+                        new_node = NodeType::new(NodeVariant::Branch(b));
+                    }
+                    NodeVariant::Leaf(l) => {
+                        count = 1;
+                        other_key = *l.get_key();
+                        new_node = NodeType::new(NodeVariant::Leaf(l));
+                    }
+                    NodeVariant::Data(_) => {
+                        return Err(Exception::new(
+                            "Corrupt merkle tree: Found data node while traversing tree",
+                        ));
+                    }
+                    NodeVariant::Phantom(_) => {
+                        return Err(Exception::new(
+                            "Corrupt merkle tree: Found phantom node while traversing tree",
+                        ));
+                    }
+                }
+                new_node.set_references(refs);
+                self.db.insert(branch, new_node)?;
+                let tree_ref = TreeRef::new(other_key, branch, count, 1);
+                return Ok(SplitNodeType::Ref(tree_ref));
+            } else {
+                let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                    branch,
+                    node_list,
+                    node,
+                    depth + 1,
+                );
+                return Ok(SplitNodeType::Cell(new_cell));
+            }
+        }
+        Err(Exception::new("Failed to find node in database."))
     }
 
     /// Inserts all the new leaves into the database.
@@ -582,17 +561,17 @@ where
 
             // Find the rightmost edge of the adjacent subtree
             let mut lookahead_count;
-            let mut lookahead_tree_ref_pointer;
+            let mut lookahead_tree_ref_pointer: usize;
             {
                 let mut count_ = tree_refs[next_tree_ref_pointer].count;
 
                 if count_ > 1 {
                     // Look ahead by the count from our position
-                    lookahead_tree_ref_pointer = tree_ref_pointer + count_ as usize;
+                    lookahead_tree_ref_pointer = tree_ref_pointer + usize::try_from(count_)?;
                     lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     while lookahead_count > count_ {
                         count_ = lookahead_count;
-                        lookahead_tree_ref_pointer = tree_ref_pointer + count_ as usize;
+                        lookahead_tree_ref_pointer = tree_ref_pointer + usize::try_from(count_)?;
                         lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     }
                 } else {
@@ -645,7 +624,12 @@ where
         nodes.push_front(*root_hash);
 
         while !nodes.is_empty() {
-            let node_location = nodes.pop_front().expect("Node queue should not be empty");
+            let node_location;
+            if let Some(location) = nodes.pop_front() {
+                node_location = location;
+            } else {
+                return Err(Exception::new("Nodes should not be empty."));
+            }
 
             let node = if let Some(n) = self.db.get_node(node_location)? {
                 n
@@ -690,7 +674,7 @@ where
                 NodeVariant::Phantom(_) => {
                     return Err(Exception::new(
                         "Corrupt merkle tree: Found phantom node while traversing tree",
-                    ))
+                    ));
                 }
             }
 
@@ -731,14 +715,14 @@ where
                         }
                         let index = b.get_split_index();
                         let b_key = b.get_key();
-                        let min_split_index = calc_min_split_index(&[key], b_key);
+                        let min_split_index = calc_min_split_index(&[key], b_key)?;
                         let keys = &[key];
-                        let descendants = check_descendants(keys, index, b_key, min_split_index);
+                        let descendants = check_descendants(keys, index, b_key, min_split_index)?;
                         if descendants.is_empty() {
                             return Err(Exception::new("Key not found in tree"));
                         }
 
-                        if choose_zero(key, index) {
+                        if choose_zero(key, index)? {
                             proof.push((*b.get_one(), true));
                             nodes.push_back(*b.get_zero());
                         } else {
@@ -780,7 +764,7 @@ where
                     NodeVariant::Phantom(_) => {
                         return Err(Exception::new(
                             "Corrupt merkle tree: Found phantom node while traversing tree",
-                        ))
+                        ));
                     }
                 }
             } else {
@@ -795,7 +779,6 @@ where
 
     #[inline]
     pub fn verify_inclusion_proof(
-        &self,
         root: &ArrayType,
         key: ArrayType,
         value: &ValueType,
@@ -878,14 +861,14 @@ where
 
                         let index = b.get_split_index();
                         let b_key = b.get_key();
-                        let min_split_index = calc_min_split_index(&[*key], b_key);
+                        let min_split_index = calc_min_split_index(&[*key], b_key)?;
                         let keys = &[*key];
-                        let descendants = check_descendants(keys, index, b_key, min_split_index);
+                        let descendants = check_descendants(keys, index, b_key, min_split_index)?;
                         if descendants.is_empty() {
                             return Ok(None);
                         }
 
-                        if choose_zero(*key, index) {
+                        if choose_zero(*key, index)? {
                             nodes.push_back(*b.get_zero());
                         } else {
                             nodes.push_back(*b.get_one());
@@ -915,7 +898,7 @@ where
                     NodeVariant::Phantom(_) => {
                         return Err(Exception::new(
                             "Corrupt merkle tree: Found phantom node while traversing tree",
-                        ))
+                        ));
                     }
                 }
             }
@@ -953,6 +936,21 @@ where
     }
 }
 
+enum SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>
+where
+    BranchType: Branch<ArrayType>,
+    LeafType: Leaf<ArrayType>,
+    DataType: Data,
+    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
+    ArrayType: Array,
+{
+    Ref(TreeRef<ArrayType>),
+    Cell(TreeCell<'a, NodeType, ArrayType>),
+    _UnusedBranch(PhantomData<BranchType>),
+    _UnusedLeaf(PhantomData<LeafType>),
+    _UnusedData(PhantomData<DataType>),
+}
+
 #[cfg(test)]
 pub mod tests {
     use crate::utils::tree_utils::choose_zero;
@@ -962,50 +960,55 @@ pub mod tests {
     const KEY_LEN: usize = 32;
 
     #[test]
-    fn it_chooses_the_right_branch_easy() {
+    fn it_chooses_the_right_branch_easy() -> Result<(), Exception> {
         let key = [0x0Fu8; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i < 4;
-            let branch = choose_zero(key, i);
+            let branch = choose_zero(key, i)?;
             assert_eq!(branch, expected_branch);
         }
+        Ok(())
     }
 
     #[test]
-    fn it_chooses_the_right_branch_medium() {
+    fn it_chooses_the_right_branch_medium() -> Result<(), Exception> {
         let key = [0x55; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 == 0;
-            let branch = choose_zero(key, i);
+            let branch = choose_zero(key, i)?;
             assert_eq!(branch, expected_branch);
         }
         let key = [0xAA; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 != 0;
-            let branch = choose_zero(key, i);
+            let branch = choose_zero(key, i)?;
             assert_eq!(branch, expected_branch);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn it_chooses_the_right_branch_hard() {
+    fn it_chooses_the_right_branch_hard() -> Result<(), Exception> {
         let key = [0x68; KEY_LEN];
         for i in 0..8 {
             let expected_branch = !(i == 1 || i == 2 || i == 4);
-            let branch = choose_zero(key, i);
+            let branch = choose_zero(key, i)?;
             assert_eq!(branch, expected_branch);
         }
 
         let key = [0xAB; KEY_LEN];
         for i in 0..8 {
             let expected_branch = !(i == 0 || i == 2 || i == 4 || i == 6 || i == 7);
-            let branch = choose_zero(key, i);
+            let branch = choose_zero(key, i)?;
             assert_eq!(branch, expected_branch);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn it_splits_an_all_zeros_sorted_list_of_pairs() {
+    fn it_splits_an_all_zeros_sorted_list_of_pairs() -> Result<(), Exception> {
         // The complexity of these tests result from the fact that getting a key and splitting the
         // tree should not require any copying or moving of memory.
         let zero_key = [0x00u8; KEY_LEN];
@@ -1015,38 +1018,41 @@ pub mod tests {
         ];
         let keys = key_vec;
 
-        let result = split_pairs(&keys, 0);
+        let result = split_pairs(&keys, 0)?;
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
         for &res in result.0 {
             assert_eq!(res, [0x00u8; KEY_LEN]);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn it_splits_an_all_ones_sorted_list_of_pairs() {
+    fn it_splits_an_all_ones_sorted_list_of_pairs() -> Result<(), Exception> {
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
             one_key,
         ];
-        let result = split_pairs(&keys, 0);
+        let result = split_pairs(&keys, 0)?;
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
         for &res in result.1 {
             assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
+        Ok(())
     }
 
     #[test]
-    fn it_splits_an_even_length_sorted_list_of_pairs() {
+    fn it_splits_an_even_length_sorted_list_of_pairs() -> Result<(), Exception> {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
             one_key,
         ];
-        let result = split_pairs(&keys, 0);
+        let result = split_pairs(&keys, 0)?;
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
@@ -1055,17 +1061,18 @@ pub mod tests {
         for &res in result.1 {
             assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
+        Ok(())
     }
 
     #[test]
-    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() {
+    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() -> Result<(), Exception> {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
             one_key, one_key,
         ];
-        let result = split_pairs(&keys, 0);
+        let result = split_pairs(&keys, 0)?;
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
@@ -1074,10 +1081,12 @@ pub mod tests {
         for &res in result.1 {
             assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
+
+        Ok(())
     }
 
     #[test]
-    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() {
+    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() -> Result<(), Exception> {
         let zero_key = [0x00u8; KEY_LEN];
         let one_key = [0xFFu8; KEY_LEN];
         let keys = vec![
@@ -1085,7 +1094,7 @@ pub mod tests {
             one_key, one_key,
         ];
 
-        let result = split_pairs(&keys, 0);
+        let result = split_pairs(&keys, 0)?;
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
         for &res in result.0 {
@@ -1094,5 +1103,7 @@ pub mod tests {
         for &res in result.1 {
             assert_eq!(res, [0xFFu8; KEY_LEN]);
         }
+
+        Ok(())
     }
 }

@@ -8,8 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "use_digest")]
 use digest::Digest;
 
+use std::convert::Infallible;
 use std::hash::Hash;
 use std::marker::PhantomData;
+use std::num::TryFromIntError;
 
 /// The required interface for an object that functions like an array.
 pub trait Array: AsRef<[u8]> + AsMut<[u8]> + Clone + Copy + Default + Hash + Ord + Sized {}
@@ -243,5 +245,19 @@ impl Error for Exception {
     #[inline]
     fn description(&self) -> &str {
         &self.details
+    }
+}
+
+impl From<Infallible> for Exception {
+    #[inline]
+    fn from(_inf: Infallible) -> Self {
+        Self::new("Infallible")
+    }
+}
+
+impl From<TryFromIntError> for Exception {
+    #[inline]
+    fn from(err: TryFromIntError) -> Self {
+        Self::new(&err.to_string())
     }
 }

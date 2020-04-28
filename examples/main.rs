@@ -16,10 +16,8 @@ fn main() -> BinaryMerkleTreeResult<()> {
     // Generating an inclusion proof of an element in the tree
     let inclusion_proof = tree.generate_inclusion_proof(&new_root, key)?;
 
-    // Verifying an inclusion proof.  Note that the verifying tree can be empty, though it must
-    // be the same type as the tree that generated the proof.
-    let verifier: HashTree<[u8; KEY_LEN], Vec<u8>> = HashTree::new(16)?;
-    verifier.verify_inclusion_proof(&new_root, key, &value, &inclusion_proof)?;
+    // Verifying an inclusion proof.
+    HashTree::verify_inclusion_proof(&new_root, key, &value, &inclusion_proof)?;
 
     // Attempting to get from a removed root will yield None
     tree.remove(&new_root)?;

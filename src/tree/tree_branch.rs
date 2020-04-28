@@ -1,5 +1,3 @@
-#[cfg(feature = "use_serde")]
-use std::error::Error;
 #[cfg(feature = "use_json")]
 use std::string::FromUtf8Error;
 
@@ -188,7 +186,7 @@ where
 impl From<Box<bincode::ErrorKind>> for Exception {
     #[inline]
     fn from(error: Box<bincode::ErrorKind>) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -208,7 +206,7 @@ where
 impl From<serde_json::Error> for Exception {
     #[inline]
     fn from(error: serde_json::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -216,7 +214,7 @@ impl From<serde_json::Error> for Exception {
 impl From<FromUtf8Error> for Exception {
     #[inline]
     fn from(error: FromUtf8Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -235,7 +233,7 @@ where
 impl From<serde_cbor::error::Error> for Exception {
     #[inline]
     fn from(error: serde_cbor::error::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -254,7 +252,7 @@ where
 impl From<serde_yaml::Error> for Exception {
     #[inline]
     fn from(error: serde_yaml::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -273,7 +271,7 @@ where
 impl From<serde_pickle::Error> for Exception {
     #[inline]
     fn from(error: serde_pickle::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -292,7 +290,7 @@ where
 impl From<ron::ser::Error> for Exception {
     #[inline]
     fn from(error: ron::ser::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 
@@ -300,7 +298,7 @@ impl From<ron::ser::Error> for Exception {
 impl From<ron::de::Error> for Exception {
     #[inline]
     fn from(error: ron::de::Error) -> Self {
-        Self::new(error.description())
+        Self::new(&error.to_string())
     }
 }
 

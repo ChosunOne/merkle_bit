@@ -100,13 +100,12 @@ where
     /// Verifies an inclusion proof with the given root, key, and value.
     #[inline]
     pub fn verify_inclusion_proof(
-        &self,
         root: &ArrayType,
         key: ArrayType,
         value: &ValueType,
         proof: &[(ArrayType, bool)],
     ) -> BinaryMerkleTreeResult<()> {
-        self.tree.verify_inclusion_proof(root, key, value, proof)
+        Tree::verify_inclusion_proof(root, key, value, proof)
     }
 
     /// Gets a single item out of the tree.

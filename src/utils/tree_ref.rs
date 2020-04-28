@@ -23,7 +23,7 @@ impl<ArrayType> TreeRef<ArrayType>
 where
     ArrayType: Array,
 {
-    /// Creates a new TreeRef.
+    /// Creates a new `TreeRef`.
     #[inline]
     pub fn new(key: ArrayType, location: ArrayType, node_count: u64, count: u32) -> Self {
         Self {
