@@ -40,6 +40,7 @@ where
 {
     /// Creates a new `TreeLeaf`.
     #[inline]
+    #[must_use]
     pub fn new() -> Self {
         Self {
             key: ArrayType::default(),

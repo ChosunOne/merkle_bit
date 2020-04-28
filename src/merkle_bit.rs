@@ -95,6 +95,8 @@ where
     ArrayType: Array,
 {
     /// Create a new `MerkleBIT` from a saved database
+    /// # Errors
+    /// `Exception` generated if the `open` fails.
     #[inline]
     pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
@@ -112,6 +114,8 @@ where
     }
 
     /// Create a new `MerkleBIT` from an already opened database
+    /// # Errors
+    /// None.
     #[inline]
     pub fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
         Ok(Self {
@@ -128,6 +132,8 @@ where
     }
 
     /// Get items from the `MerkleBIT`.  Returns a map of `Option`s which may include the corresponding values.
+    /// # Errors
+    /// `Exception` generated when an invalid state is encountered during tree traversal.
     #[inline]
     pub fn get(
         &self,
@@ -237,6 +243,8 @@ where
     }
 
     /// Insert items into the `MerkleBIT`.  Keys must be sorted.  Returns a new root hash for the `MerkleBIT`.
+    /// # Errors
+    /// `Exception` generated if an invalid state is encountered during tree traversal.
     #[inline]
     pub fn insert(
         &mut self,
@@ -279,6 +287,8 @@ where
     }
 
     /// Traverses the tree and searches for nodes to include in the merkle proof.
+    /// # Errors
+    /// `Exception` generated when an invalid state is encountered during tree traversal.
     fn generate_treerefs(
         &mut self,
         root: &ArrayType,
@@ -406,6 +416,10 @@ where
         Ok(proof_nodes)
     }
 
+    /// Splits nodes during tree traversal into either zeros or ones, depending on the selected bit
+    /// from the index
+    /// # Errors
+    /// `Exception` generated when an invalid state is encountered during tree traversal.
     fn split_nodes<'a>(
         &mut self,
         depth: usize,
@@ -414,7 +428,7 @@ where
     ) -> Result<SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>, Exception>
     {
         if let Some(node) = self.db.get_node(branch)? {
-            if node_list.is_empty() {
+            return if node_list.is_empty() {
                 let other_key;
                 let count;
                 let refs = node.get_references() + 1;
@@ -444,7 +458,7 @@ where
                 new_node.set_references(refs);
                 self.db.insert(branch, new_node)?;
                 let tree_ref = TreeRef::new(other_key, branch, count, 1);
-                return Ok(SplitNodeType::Ref(tree_ref));
+                Ok(SplitNodeType::Ref(tree_ref))
             } else {
                 let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
                     branch,
@@ -452,7 +466,7 @@ where
                     node,
                     depth + 1,
                 );
-                return Ok(SplitNodeType::Cell(new_cell));
+                Ok(SplitNodeType::Cell(new_cell))
             }
         }
         Err(Exception::new("Failed to find node in database."))
@@ -515,11 +529,16 @@ where
 
     /// This function generates the queue of `TreeRef`s and merges the queue together to create a
     /// new tree root.
+    /// # Errors
+    /// `Exception` generated when `tree_refs` is empty or an invalid state is encountered during
+    /// tree traversal
     fn create_tree(
         &mut self,
         mut tree_refs: Vec<TreeRef<ArrayType>>,
     ) -> BinaryMerkleTreeResult<ArrayType> {
-        assert!(!tree_refs.is_empty());
+        if tree_refs.is_empty() {
+            return Err(Exception::new("tree_refs should not be empty!"))
+        }
 
         if tree_refs.len() == 1 {
             self.db.batch_write()?;
@@ -537,12 +556,17 @@ where
 
         let mut root = None;
         for i in indices.into_iter().rev() {
-            let level = tree_ref_queue
-                .remove(&i)
-                .expect("Level should not be empty");
-            root = self.merge_nodes(&mut tree_refs, level)?;
+            if let Some(level) = tree_ref_queue.remove(&i){
+                root = self.merge_nodes(&mut tree_refs, level)?;
+            } else {
+                return Err(Exception::new("Level should not be empty."))
+            }
         }
-        Ok(root.expect("Failed to get root"))
+        if let Some(r) = root {
+            Ok(r)
+        } else {
+            Err(Exception::new("Failed to get root."))
+        }
     }
 
     /// Performs the merging of `TreeRef`s until a single new root is left.
@@ -618,6 +642,8 @@ where
     }
 
     /// Remove all items with less than 1 reference under the given root.
+    /// # Errors
+    /// `Exception` generated when an invalid state is encountered during tree traversal.
     #[inline]
     pub fn remove(&mut self, root_hash: &ArrayType) -> BinaryMerkleTreeResult<()> {
         let mut nodes = VecDeque::with_capacity(128);
@@ -688,6 +714,8 @@ where
 
     /// Generates an inclusion proof.  The proof consists of a list of hashes beginning with the key/value
     /// pair and traveling up the tree until the level below the root is reached.
+    /// # Errors
+    /// `Exception` generated when an invalid state is encountered during tree traversal.
     #[inline]
     pub fn generate_inclusion_proof(
         &self,
@@ -777,6 +805,9 @@ where
         Ok(proof)
     }
 
+    /// Verifies an inclusion proof.
+    /// # Errors
+    /// `Exception` generated when the given proof is invalid.
     #[inline]
     pub fn verify_inclusion_proof(
         root: &ArrayType,
@@ -834,6 +865,8 @@ where
     }
 
     /// Gets a single key from the tree.
+    /// # Errors
+    /// `Exception` generated from encountering an invalid state during tree traversal.
     #[inline]
     pub fn get_one(
         &self,
@@ -907,6 +940,8 @@ where
     }
 
     /// Inserts a single value into a tree.
+    /// # Errors
+    /// `Exception` generated if an invalid state is encountered during tree traversal.
     #[inline]
     pub fn insert_one(
         &mut self,
@@ -936,6 +971,7 @@ where
     }
 }
 
+/// Enum used for splitting nodes into either the left or right path during tree traversal
 enum SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>
 where
     BranchType: Branch<ArrayType>,
@@ -944,10 +980,15 @@ where
     NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
     ArrayType: Array,
 {
+    /// Used for building the `proof_nodes` variable during tree traversal
     Ref(TreeRef<ArrayType>),
+    /// Used for appending to the `cell_queue` during tree traversal.
     Cell(TreeCell<'a, NodeType, ArrayType>),
+    /// PhantomData marker
     _UnusedBranch(PhantomData<BranchType>),
+    /// PhantomData marker
     _UnusedLeaf(PhantomData<LeafType>),
+    /// PhantomData marker
     _UnusedData(PhantomData<DataType>),
 }
 

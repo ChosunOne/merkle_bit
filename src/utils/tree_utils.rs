@@ -16,6 +16,8 @@ use hashbrown::HashSet;
 use std::collections::HashSet;
 
 /// This function checks if the given key should go down the zero branch at the given bit.
+/// # Errors
+/// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
 pub fn choose_zero<ArrayType>(key_array: ArrayType, bit: usize) -> Result<bool, Exception>
 where
@@ -30,6 +32,8 @@ where
 
 /// This function splits the list of sorted pairs into two lists, one for going down the zero branch,
 /// and the other for going down the one branch.
+/// # Errors
+/// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
 pub fn split_pairs<ArrayType>(
     sorted_pairs: &[ArrayType],
@@ -66,6 +70,8 @@ where
 }
 
 /// This function checks to see if a section of keys need to go down this branch.
+/// # Errors
+/// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
 pub fn check_descendants<'a, ArrayType>(
     keys: &'a [ArrayType],
@@ -84,7 +90,7 @@ where
         let key = k.as_ref();
         let mut descendant = true;
         for j in (min_split_index..branch_split_index).step_by(8) {
-            let byte = usize::try_from(j >> 3)?;
+            let byte = j >> 3;
             if b_key[byte] == key[byte] {
                 continue;
             }
@@ -113,6 +119,8 @@ where
 
 /// This function calculates the minimum index upon which the given keys diverge.  It also includes
 /// the given branch key when calculating the minimum split index.
+/// # Errors
+/// May return an `Exception` if the supplied `keys` is empty.
 #[inline]
 pub fn calc_min_split_index<ArrayType>(
     keys: &[ArrayType],
@@ -184,6 +192,8 @@ pub const fn fast_log_2(num: u8) -> u8 {
 }
 
 /// Generates the `TreeRef`s that will be made into the new tree.
+/// # Errors
+/// `Exception` generated from a failure to convert a `u8` to a `usize`
 #[inline]
 pub fn generate_tree_ref_queue<ArrayType: Array>(
     tree_refs: &mut Vec<TreeRef<ArrayType>>,

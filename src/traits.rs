@@ -175,22 +175,34 @@ where
     /// The type of entry for insertion.  Primarily for convenience and tracking what goes into the database.
     type EntryType;
     /// Opens an existing `Database`.
+    /// # Errors
+    /// `Exception` generated if the `open` does not succeed.
     fn open(path: &PathBuf) -> Result<Self, Exception>
     where
         Self: Sized;
     /// Gets a value from the database based on the given key.
+    /// # Errors
+    /// `Exception` generated if the `get_node` does not succeed.
     fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception>;
     /// Queues a key and its associated value for insertion to the database.
+    /// # Errors
+    /// `Exception` generated if the `insert` does not succeed.
     fn insert(&mut self, key: ArrayType, node: Self::NodeType) -> Result<(), Exception>;
     /// Removes a key and its associated value from the database.
+    /// # Errors
+    /// `Exception` generated if the `remove` does not succeed.
     fn remove(&mut self, key: &ArrayType) -> Result<(), Exception>;
     /// Confirms previous inserts and writes the changes to the database.
+    /// # Errors
+    /// `Exception` generated if the `batch_write` does not succeed.
     fn batch_write(&mut self) -> Result<(), Exception>;
 }
 
 /// This trait must be implemented to allow a struct to be serialized.
 pub trait Encode {
     /// Encodes a struct into bytes.
+    /// # Errors
+    /// `Exception` generated when the method encoding the structure fails.
     fn encode(&self) -> Result<Vec<u8>, Exception>;
 }
 
@@ -202,8 +214,12 @@ impl Encode for Vec<u8> {
 }
 
 /// This trait must be implemented to allow an arbitrary sized buffer to be deserialized.
+/// # Errors
+/// `Exception` generated when the buffer fails to be decoded to the target type.
 pub trait Decode {
     /// Decodes bytes into a `Sized` struct.
+    /// # Errors
+    /// `Exception` generated when the buffer fails to be decoded to the target type.
     fn decode(buffer: &[u8]) -> Result<Self, Exception>
     where
         Self: Sized;
@@ -227,6 +243,7 @@ pub struct Exception {
 impl Exception {
     /// Creates a new `Exception`.
     #[inline]
+    #[must_use]
     pub fn new(details: &str) -> Self {
         Self {
             details: details.to_string(),

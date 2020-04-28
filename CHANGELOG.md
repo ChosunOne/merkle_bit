@@ -1,3 +1,5 @@
+# 3.2.1
+* Expand documentation
 # 3.2.0
 * Updated dependencies, notably rocksdb to 0.14
 * Adjusted API for `verify_inclusion_proof`, it is now an associated function of a `Tree` and is now called via 

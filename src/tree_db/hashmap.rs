@@ -20,6 +20,7 @@ where
 {
     /// Creates a new `HashDB`.
     #[inline]
+    #[must_use]
     pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
         Self { map }
     }

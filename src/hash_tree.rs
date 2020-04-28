@@ -43,6 +43,8 @@ where
     ArrayType: Array,
 {
     /// Creates a new `HashTree`.  `depth` indicates the maximum depth of the tree.
+    /// # Errors
+    /// None.
     #[inline]
     pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
         let path = PathBuf::new();
@@ -52,6 +54,8 @@ where
 
     /// Creates a new `HashTree`.  This method exists for conforming with the general API for the `MerkleBIT`
     /// and does not need to be used (except for compatibility).  Prefer `new` when possible.
+    /// # Errors
+    /// None.
     #[inline]
     pub fn open(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let tree = MerkleBIT::new(path, depth)?;
@@ -59,6 +63,8 @@ where
     }
 
     /// Gets the values associated with `keys` from the tree.
+    /// # Errors
+    /// `Exception` generated if the `get` encounters an invalid state during tree traversal.
     #[inline]
     pub fn get(
         &self,
@@ -70,6 +76,8 @@ where
 
     /// Inserts elements into the tree.  Using `previous_root` specifies that the insert depends on
     /// the state from the previous root, and will update references accordingly.
+    /// # Errors
+    /// `Exception` generated if the `insert` encounters an invalid state during tree traversal.
     #[inline]
     pub fn insert(
         &mut self,
@@ -82,12 +90,16 @@ where
 
     /// Removes a root from the tree.  This will remove all elements with less than two references
     /// under the given root.
+    /// # Errors
+    /// `Exception` generated if the `remove` encounters an invalid state during tree traversal.
     #[inline]
     pub fn remove(&mut self, root_hash: &ArrayType) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }
 
     /// Generates an inclusion proof for the given key at the specified root.
+    /// # Errors
+    /// `Exception` generated if an invalid state is encountered during tree traversal
     #[inline]
     pub fn generate_inclusion_proof(
         &self,
@@ -98,6 +110,8 @@ where
     }
 
     /// Verifies an inclusion proof with the given root, key, and value.
+    /// # Errors
+    /// `Exception` generated if the given proof is invalid.
     #[inline]
     pub fn verify_inclusion_proof(
         root: &ArrayType,
@@ -109,6 +123,8 @@ where
     }
 
     /// Gets a single item out of the tree.
+    /// # Errors
+    /// `Exception` generated if the `get_one` encounters an invalid state during tree traversal.
     #[inline]
     pub fn get_one(
         &self,
@@ -119,6 +135,8 @@ where
     }
 
     /// Inserts a single item into the tree.
+    /// # Errors
+    /// `Exception` generated if the `insert_one` encounters an invalid state during tree traversal.
     #[inline]
     pub fn insert_one(
         &mut self,
