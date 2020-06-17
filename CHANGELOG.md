@@ -1,3 +1,6 @@
+# 3.2.2
+* Update dependencies for `digest` 0.6.0
+* Update dependencies for `ron`.
 # 3.2.1
 * Expand documentation
 # 3.2.0

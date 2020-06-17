@@ -14,7 +14,7 @@ os:
   - linux
   - osx
   - windows
-matrix:
+jobs:
   include:
     - name: Hash Tests 1
       env: TEST_HASHES_SEC_1='true'
@@ -33,8 +33,6 @@ matrix:
 env:
   - RUSTFLAGS='-C link-dead-code'
 
-sudo: true
-
 before_install:
   - |
     if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then
@@ -46,6 +44,7 @@ before_install:
     fi
   - export NUM_TEST_THREADS=8
 
+dist: bionic
 addons:
   apt:
     packages:
