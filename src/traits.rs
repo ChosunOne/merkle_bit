@@ -46,12 +46,12 @@ where
     }
 
     fn update(&mut self, data: &[u8]) {
-        self.input(data);
+        self.update(data);
     }
 
     fn finalize(self) -> ArrayType {
         let mut finalized = ArrayType::default();
-        let result = self.result();
+        let result = self.finalize();
         let mut size = finalized.as_ref().len();
         if size > result.len() {
             size = result.len();

@@ -287,17 +287,9 @@ where
 }
 
 #[cfg(feature = "use_ron")]
-impl From<ron::ser::Error> for Exception {
+impl From<ron::error::Error> for Exception {
     #[inline]
-    fn from(error: ron::ser::Error) -> Self {
-        Self::new(&error.to_string())
-    }
-}
-
-#[cfg(feature = "use_ron")]
-impl From<ron::de::Error> for Exception {
-    #[inline]
-    fn from(error: ron::de::Error) -> Self {
+    fn from(error: ron::error::Error) -> Self {
         Self::new(&error.to_string())
     }
 }
