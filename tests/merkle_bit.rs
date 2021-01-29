@@ -2670,7 +2670,7 @@ pub mod integration_tests {
 
     fn generate_path(seed: [u8; KEY_LEN]) -> PathBuf {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        let suffix = rng.gen_range(1000, 100000);
+        let suffix = rng.gen_range(1000..100000);
         let path_string = format!("Test_DB_{}", suffix);
         PathBuf::from(path_string)
     }
