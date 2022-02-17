@@ -53,7 +53,7 @@ ripemd160 = { version = "0.9.1", optional = true }
 ripemd320 = { version = "0.9.0", optional = true }
 sha-1 = { version = "0.9.3", optional = true }
 sha2 = { version = "0.9.3", optional = true }
-sha3 = { version = "0.9.1", optional = true }
+sha3 = { version = "0.10.1", optional = true }
 whirlpool = { version = "0.9.0", optional = true }
 
 [features]
