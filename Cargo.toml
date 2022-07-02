@@ -24,74 +24,61 @@ lto = true
 debug = true
 
 [dev-dependencies]
-criterion = "0.3.4"
-rand = "0.8.3"
+criterion = "0.3.5"
+rand = "0.8.5"
 
 [dependencies]
-bincode = { version = "1.3.1", optional = true }
+bincode = { version = "1.3.3", optional = true }
 blake2-rfc = { version = "0.2.18", optional = true }
-serde = { version = "1.0.123", features = ["derive"], optional = true }
-serde_json = { version = "1.0.62", optional = true }
-serde_cbor = { version = "0.11.1", optional = true }
-serde_yaml = { version = "0.8.16", optional = true }
-serde-pickle = { version = "0.6.2", optional = true }
-ron = { version = "0.6.4", optional = true }
-groestl = { version = "0.9.0", optional = true }
-openssl = { version = "0.10.32", optional = true }
+serde = { version = "1.0.138", features = ["derive"], optional = true }
+serde_json = { version = "1.0.82", optional = true }
+serde_cbor = { version = "0.11.2", optional = true }
+serde_yaml = { version = "0.8.24", optional = true }
+serde-pickle = { version = "1.1.1", optional = true }
+ron = { version = "0.7.1", optional = true }
+groestl = { version = "0.10.1", optional = true }
+openssl = { version = "0.10.40", optional = true }
 tiny-keccak = { version = "2.0.2", optional = true, features = ["sha3", "keccak"] }
-hashbrown = { version = "0.9.1", optional = true }
-rocksdb = { version = "0.15.0", optional = true }
+hashbrown = { version = "0.12.1", optional = true }
+rocksdb = { version = "0.18.0", optional = true }
 seahash = { version = "4.1.0", optional = true }
 fxhash = { version = "0.2.1", optional = true }
-rand = { version = "0.8.3", optional = true }
-digest = { version = "0.9.0", optional = true }
-blake2 = { version = "0.9.1", optional = true }
-md2 = { version = "0.9.0", optional = true }
-md4 = { version = "0.9.0", optional = true }
-md-5 = { version = "0.9.1", optional = true }
-ripemd160 = { version = "0.9.1", optional = true }
-ripemd320 = { version = "0.9.0", optional = true }
-sha-1 = { version = "0.9.3", optional = true }
-sha2 = { version = "0.9.3", optional = true }
-sha3 = { version = "0.9.1", optional = true }
-whirlpool = { version = "0.9.0", optional = true }
+rand = { version = "0.8.5", optional = true }
+digest = { version = "0.10.3", optional = true }
+blake2 = { version = "0.10.4", optional = true }
+md2 = { version = "0.10.1", optional = true }
+md4 = { version = "0.10.1", optional = true }
+md-5 = { version = "0.10.1", optional = true }
+ripemd160 = { version = "0.10.0", optional = true }
+ripemd320 = { version = "0.10.0", optional = true }
+sha-1 = { version = "0.10.0", optional = true }
+sha2 = { version = "0.10.2", optional = true }
+sha3 = { version = "0.10.1", optional = true }
+whirlpool = { version = "0.10.1", optional = true }
 
 [features]
-use_serialization = []
-use_serde = ["serde", "use_serialization"]
-use_bincode = ["use_serde", "bincode"]
-use_json = ["use_serde", "serde_json"]
-use_cbor = ["use_serde", "serde_cbor"]
-use_yaml = ["use_serde", "serde_yaml"]
-use_pickle = ["use_serde", "serde-pickle"]
-use_ron = ["use_serde", "ron"]
+bincode = ["serde", "dep:bincode"]
+json = ["serde", "serde_json"]
+cbor = ["serde", "serde_cbor"]
+yaml = ["serde", "serde_yaml"]
+pickle = ["serde", "serde-pickle"]
+ron = ["serde", "dep:ron"]
 
-use_digest = ["digest"]
-
-use_blake2b_rfc = ["blake2-rfc"]
-use_groestl = ["groestl", "use_digest"]
-use_sha2 = ["openssl"]
-use_sha3 = ["tiny-keccak"]
-use_keccak = ["tiny-keccak"]
-use_seahash = ["seahash"]
-use_fx = ["fxhash"]
-use_blake2b = ["blake2", "use_digest"]
-use_md2 = ["md2", "use_digest"]
-use_md4 = ["md4", "use_digest"]
-use_md5 = ["md-5", "use_digest"]
-use_ripemd160 = ["ripemd160", "use_digest"]
-use_ripemd320 = ["ripemd320", "use_digest"]
-use_sha1 = ["sha-1", "use_digest"]
-use_rust_sha2 = ["sha2", "use_digest"]
-use_rust_sha3 = ["sha3", "use_digest"]
-use_rust_keccak = ["sha3", "use_digest"]
-use_whirlpool = ["whirlpool", "use_digest"]
-
-use_hashbrown = ["hashbrown"]
-
-use_rocksdb = ["rocksdb"]
-
-use_rand = ["rand"]
+groestl = ["dep:groestl", "digest"]
+sha2 = ["openssl"]
+sha3 = ["tiny-keccak"]
+keccak = ["tiny-keccak"]
+blake2b = ["blake2", "digest"]
+md2 = ["dep:md2", "digest"]
+md4 = ["dep:md4", "digest"]
+md5 = ["md-5", "digest"]
+ripemd160 = ["dep:ripemd160", "digest"]
+ripemd320 = ["dep:ripemd320", "digest"]
+sha1 = ["sha-1", "digest"]
+rust_sha2 = ["dep:sha2", "digest"]
+rust_sha3 = ["dep:sha3", "digest"]
+rust_keccak = ["dep:sha3", "digest"]
+whirlpool = ["dep:whirlpool", "digest"]
 
 [[bench]]
 name = "merkle_bit_benches"
@@ -104,4 +91,4 @@ harness = false
 [[bin]]
 name = "insert_benchmark"
 path = "src/bin/insert_benchmark.rs"
-required-features = ["use_rand"]
+required-features = ["rand"]

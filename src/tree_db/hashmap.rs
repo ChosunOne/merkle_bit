@@ -1,51 +1,40 @@
 use std::collections::hash_map::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 use crate::constants::KEY_LEN;
 use crate::traits::{Array, Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
 /// A database consisting of a `HashMap`.
-pub struct HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+pub struct HashDB<ArrayType: Array> {
     /// The internal `HashMap` for storing nodes.
     map: HashMap<ArrayType, TreeNode<ArrayType>>,
 }
 
-impl<ArrayType> HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> HashDB<ArrayType> {
     /// Creates a new `HashDB`.
     #[inline]
     #[must_use]
-    pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
+    pub const fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
         Self { map }
     }
 }
 
-impl<ArrayType> Database<ArrayType> for HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> Database<ArrayType> for HashDB<ArrayType> {
     type NodeType = TreeNode<ArrayType>;
     type EntryType = ([u8; KEY_LEN], Vec<u8>);
 
     #[inline]
-    fn open(_path: &PathBuf) -> Result<Self, Exception> {
+    fn open(_path: &Path) -> Result<Self, Exception> {
         Ok(Self::new(HashMap::new()))
     }
 
     #[inline]
     fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception> {
-        if let Some(m) = self.map.get(&key) {
+        self.map.get(&key).map_or(Ok(None), |m| {
             let node = m.clone();
             Ok(Some(node))
-        } else {
-            Ok(None)
-        }
+        })
     }
 
     #[inline]

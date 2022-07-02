@@ -1,8 +1,8 @@
-#[cfg(not(any(feature = "use_hashbrown")))]
+#[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-#[cfg(feature = "use_hashbrown")]
+#[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
@@ -13,9 +13,9 @@ use crate::tree::tree_leaf::TreeLeaf;
 use crate::tree::tree_node::TreeNode;
 use crate::tree_db::rocksdb::RocksDB;
 use crate::tree_hasher::TreeHasher;
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use serde::de::DeserializeOwned;
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use serde::Serialize;
 
 /// Internal type alias for the underlying tree.

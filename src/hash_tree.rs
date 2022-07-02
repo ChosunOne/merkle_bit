@@ -1,8 +1,8 @@
-#[cfg(not(any(feature = "use_hashbrown")))]
+#[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::path::Path;
 
-#[cfg(feature = "use_hashbrown")]
+#[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
@@ -28,27 +28,19 @@ type Tree<ArrayType, ValueType> = MerkleBIT<
 
 /// A `MerkleBIT` implemented with a `HashMap`.  Can be used for quickly storing items in memory, though
 /// larger sets of items should be stored on disk or over the network in a real database.
-pub struct HashTree<ArrayType = [u8; 32], ValueType = Vec<u8>>
-where
-    ValueType: Encode + Decode,
-    ArrayType: Array,
-{
+pub struct HashTree<ArrayType: Array = [u8; 32], ValueType: Encode + Decode = Vec<u8>> {
     /// The underlying tree.  The type requirements have already been implemented for easy use.
     tree: Tree<ArrayType, ValueType>,
 }
 
-impl<ValueType, ArrayType> HashTree<ArrayType, ValueType>
-where
-    ValueType: Encode + Decode,
-    ArrayType: Array,
-{
+impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType> {
     /// Creates a new `HashTree`.  `depth` indicates the maximum depth of the tree.
     /// # Errors
     /// None.
     #[inline]
     pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
-        let path = PathBuf::new();
-        let tree = MerkleBIT::new(&path, depth)?;
+        let path = Path::new("");
+        let tree = MerkleBIT::new(path, depth)?;
         Ok(Self { tree })
     }
 
@@ -57,7 +49,7 @@ where
     /// # Errors
     /// None.
     #[inline]
-    pub fn open(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
+    pub fn open(path: &Path, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let tree = MerkleBIT::new(path, depth)?;
         Ok(Self { tree })
     }

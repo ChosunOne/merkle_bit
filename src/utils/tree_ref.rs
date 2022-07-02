@@ -2,11 +2,9 @@ use crate::traits::Array;
 use std::cmp::Ordering;
 
 /// A reference to a node in the tree.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd)]
-pub struct TreeRef<ArrayType>
-where
-    ArrayType: Array,
-{
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[non_exhaustive]
+pub struct TreeRef<ArrayType: Array> {
     /// The associated key with this `TreeRef`.
     pub key: ArrayType,
     /// The location of the `TreeRef` in the tree.
@@ -19,13 +17,10 @@ where
     pub count: u32,
 }
 
-impl<ArrayType> TreeRef<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> TreeRef<ArrayType> {
     /// Creates a new `TreeRef`.
     #[inline]
-    pub fn new(key: ArrayType, location: ArrayType, node_count: u64, count: u32) -> Self {
+    pub const fn new(key: ArrayType, location: ArrayType, node_count: u64, count: u32) -> Self {
         Self {
             key,
             location,
@@ -35,10 +30,14 @@ where
     }
 }
 
-impl<ArrayType> Ord for TreeRef<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> PartialOrd for TreeRef<ArrayType> {
+    #[inline]
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        self.key.partial_cmp(&other.key)
+    }
+}
+
+impl<ArrayType: Array> Ord for TreeRef<ArrayType> {
     #[inline]
     fn cmp(&self, other_ref: &Self) -> Ordering {
         self.key.cmp(&other_ref.key)

@@ -2,10 +2,7 @@ use crate::traits::{Array, Hasher};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher as DefaultHasherTrait;
 
-impl<ArrayType> Hasher<ArrayType> for DefaultHasher
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> Hasher<ArrayType> for DefaultHasher {
     type HashType = Self;
 
     #[inline]
@@ -15,7 +12,7 @@ where
 
     #[inline]
     fn update(&mut self, data: &[u8]) {
-        Self::write(self, data)
+        Self::write(self, data);
     }
 
     #[inline]

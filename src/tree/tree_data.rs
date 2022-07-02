@@ -1,67 +1,50 @@
-#[cfg(feature = "use_bincode")]
+#[cfg(feature = "bincode")]
 use bincode::{deserialize, serialize};
-#[cfg(feature = "use_ron")]
+#[cfg(feature = "ron")]
 use ron;
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "use_cbor")]
+#[cfg(feature = "cbor")]
 use serde_cbor;
-#[cfg(feature = "use_json")]
+#[cfg(feature = "json")]
 use serde_json;
-#[cfg(feature = "use_pickle")]
+#[cfg(feature = "pickle")]
 use serde_pickle;
-#[cfg(feature = "use_yaml")]
+#[cfg(feature = "yaml")]
 use serde_yaml;
 
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Data;
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use crate::traits::{Decode, Encode};
 
 /// `TreeData` represents the data to be stored in the tree for a given key.
-#[derive(Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(feature = "use_serde"), derive(Serialize, Deserialize))]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(any(feature = "serde"), derive(Serialize, Deserialize))]
 pub struct TreeData {
     /// The value to be stored in the tree.
     value: Vec<u8>,
 }
 
-impl TreeData {
-    /// Creates a new `TreeData` node.
+impl Data for TreeData {
+    #[inline]
     fn new() -> Self {
-        Self { value: vec![] }
+        Self::default()
     }
 
-    /// Gets the value for this node.
+    #[inline]
     fn get_value(&self) -> &[u8] {
         &self.value
     }
 
-    /// Sets the value for this node.
-    fn set_value(&mut self, value: Vec<u8>) {
-        self.value = value
-    }
-}
-
-impl Data for TreeData {
-    #[inline]
-    fn new() -> Self {
-        Self::new()
-    }
-
-    #[inline]
-    fn get_value(&self) -> &[u8] {
-        Self::get_value(self)
-    }
-
     #[inline]
     fn set_value(&mut self, value: &[u8]) {
-        Self::set_value(self, value.to_vec())
+        self.value = value.to_vec();
     }
 }
 
-#[cfg(feature = "use_bincode")]
+#[cfg(feature = "bincode")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -69,7 +52,7 @@ impl Encode for TreeData {
     }
 }
 
-#[cfg(feature = "use_json")]
+#[cfg(feature = "json")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -78,7 +61,7 @@ impl Encode for TreeData {
     }
 }
 
-#[cfg(feature = "use_cbor")]
+#[cfg(feature = "cbor")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -86,7 +69,7 @@ impl Encode for TreeData {
     }
 }
 
-#[cfg(feature = "use_yaml")]
+#[cfg(feature = "yaml")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -94,15 +77,15 @@ impl Encode for TreeData {
     }
 }
 
-#[cfg(feature = "use_pickle")]
+#[cfg(feature = "pickle")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_pickle::to_vec(&self, true)?)
+        Ok(serde_pickle::to_vec(&self, Default::default())?)
     }
 }
 
-#[cfg(feature = "use_ron")]
+#[cfg(feature = "ron")]
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
@@ -110,7 +93,7 @@ impl Encode for TreeData {
     }
 }
 
-#[cfg(feature = "use_bincode")]
+#[cfg(feature = "bincode")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
@@ -118,7 +101,7 @@ impl Decode for TreeData {
     }
 }
 
-#[cfg(feature = "use_json")]
+#[cfg(feature = "json")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
@@ -128,7 +111,7 @@ impl Decode for TreeData {
     }
 }
 
-#[cfg(feature = "use_cbor")]
+#[cfg(feature = "cbor")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
@@ -136,7 +119,7 @@ impl Decode for TreeData {
     }
 }
 
-#[cfg(feature = "use_yaml")]
+#[cfg(feature = "yaml")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
@@ -144,15 +127,15 @@ impl Decode for TreeData {
     }
 }
 
-#[cfg(feature = "use_pickle")]
+#[cfg(feature = "pickle")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
-        Ok(serde_pickle::from_slice(buffer)?)
+        Ok(serde_pickle::from_slice(buffer, Default::default())?)
     }
 }
 
-#[cfg(feature = "use_ron")]
+#[cfg(feature = "ron")]
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {

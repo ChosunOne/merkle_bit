@@ -20,7 +20,7 @@ pub mod integration_tests {
     type Tree = HashTree;
 
     #[test]
-    #[cfg(feature = "use_serialization")]
+    #[cfg(feature = "serde")]
     fn it_works_with_a_real_database() -> BinaryMerkleTreeResult<()> {
         let seed = [0x00u8; KEY_LEN];
         let path = generate_path(seed);

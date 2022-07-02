@@ -8,3 +8,6 @@ core
 *.gcda
 *.gcno
 \.vs/
+node_modules
+package.json
+package-lock.json

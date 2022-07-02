@@ -5,27 +5,18 @@ use hashbrown::HashMap;
 use crate::traits::{Array, Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
-pub struct HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+pub struct HashDB<ArrayType: Array> {
     map: HashMap<ArrayType, TreeNode<ArrayType>>,
 }
 
-impl<ArrayType> HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> HashDB<ArrayType> {
     #[inline]
     pub fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
         Self { map }
     }
 }
 
-impl<ArrayType> Database<ArrayType> for HashDB<ArrayType>
-where
-    ArrayType: Array,
-{
+impl<ArrayType: Array> Database<ArrayType> for HashDB<ArrayType> {
     type NodeType = TreeNode<ArrayType>;
     type EntryType = (Vec<u8>, TreeNode<ArrayType>);
 

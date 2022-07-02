@@ -1,11 +1,11 @@
-#[cfg(not(any(feature = "use_hashbrown")))]
+#[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
 use std::collections::VecDeque;
 use std::convert::TryFrom;
 use std::marker::PhantomData;
-use std::path::PathBuf;
+use std::path::Path;
 
-#[cfg(feature = "use_hashbrown")]
+#[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use crate::traits::{
@@ -35,24 +35,15 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// * **db**: The database to store and retrieve values.
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<
-    DatabaseType,
-    BranchType,
-    LeafType,
-    DataType,
-    NodeType,
-    HasherType,
-    ValueType,
-    ArrayType,
-> where
     DatabaseType: Database<ArrayType, NodeType = NodeType>,
     BranchType: Branch<ArrayType>,
     LeafType: Leaf<ArrayType>,
     DataType: Data,
     NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
     HasherType: Hasher<ArrayType>,
-    ArrayType: Array,
     ValueType: Decode + Encode,
-{
+    ArrayType: Array,
+> {
     /// The database to store tree nodes.
     db: DatabaseType,
     /// The maximum depth of the tree.
@@ -73,7 +64,16 @@ pub struct MerkleBIT<
     array: PhantomData<ArrayType>,
 }
 
-impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, ArrayType>
+impl<
+        DatabaseType: Database<ArrayType, NodeType = NodeType>,
+        BranchType: Branch<ArrayType>,
+        LeafType: Leaf<ArrayType>,
+        DataType: Data,
+        NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
+        HasherType: Hasher<ArrayType, HashType = HasherType>,
+        ValueType: Decode + Encode,
+        ArrayType: Array,
+    >
     MerkleBIT<
         DatabaseType,
         BranchType,
@@ -84,21 +84,12 @@ impl<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueTy
         ValueType,
         ArrayType,
     >
-where
-    DatabaseType: Database<ArrayType, NodeType = NodeType>,
-    BranchType: Branch<ArrayType>,
-    LeafType: Leaf<ArrayType>,
-    DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
-    HasherType: Hasher<ArrayType, HashType = HasherType>,
-    ValueType: Decode + Encode,
-    ArrayType: Array,
 {
     /// Create a new `MerkleBIT` from a saved database
     /// # Errors
     /// `Exception` generated if the `open` fails.
     #[inline]
-    pub fn new(path: &PathBuf, depth: usize) -> BinaryMerkleTreeResult<Self> {
+    pub fn new(path: &Path, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let db = DatabaseType::open(path)?;
         Ok(Self {
             db,
@@ -117,7 +108,7 @@ where
     /// # Errors
     /// None.
     #[inline]
-    pub fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
+    pub const fn from_db(db: DatabaseType, depth: usize) -> BinaryMerkleTreeResult<Self> {
         Ok(Self {
             db,
             depth,
@@ -316,39 +307,30 @@ where
 
             let node = tree_cell.node;
             let depth = tree_cell.depth;
+            let location = tree_cell.location;
 
-            let branch;
             let mut refs = node.get_references();
-            match node.get_variant() {
-                NodeVariant::Branch(n) => branch = n,
+            let branch = match node.get_variant() {
+                NodeVariant::Branch(n) => n,
                 NodeVariant::Leaf(n) => {
                     let key = n.get_key();
-
                     let mut update = false;
 
                     // Check if we are updating an existing value
                     if let Some(loc) = key_map.get(key) {
-                        update = loc == &tree_cell.location;
+                        update = loc == &location;
                         if !update {
                             continue;
                         }
                     }
 
-                    if let Some(mut l) = self.db.get_node(tree_cell.location)? {
-                        let leaf_refs = l.get_references() + 1;
-                        l.set_references(leaf_refs);
-                        self.db.insert(tree_cell.location, l)?;
-                    } else {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Failed to update leaf references",
-                        ));
-                    }
+                    self.insert_leaf(&location)?;
 
                     if update {
                         continue;
                     }
 
-                    let tree_ref = TreeRef::new(*key, tree_cell.location, 1, 1);
+                    let tree_ref = TreeRef::new(*key, location, 1, 1);
                     proof_nodes.push(tree_ref);
                     continue;
                 }
@@ -362,7 +344,7 @@ where
                         "Corrupt merkle tree: Found phantom node while traversing tree",
                     ));
                 }
-            }
+            };
 
             let (branch_count, branch_zero, branch_one, branch_split_index, branch_key) =
                 branch.decompose();
@@ -402,31 +384,50 @@ where
                 match self.split_nodes(depth, branch_one, ones)? {
                     SplitNodeType::Ref(tree_ref) => proof_nodes.push(tree_ref),
                     SplitNodeType::Cell(cell) => cell_queue.push_front(cell),
-                    _ => (),
+                    SplitNodeType::_UnusedBranch(_)
+                    | SplitNodeType::_UnusedLeaf(_)
+                    | SplitNodeType::_UnusedData(_) => (),
                 }
             }
             {
                 match self.split_nodes(depth, branch_zero, zeros)? {
                     SplitNodeType::Ref(tree_ref) => proof_nodes.push(tree_ref),
                     SplitNodeType::Cell(cell) => cell_queue.push_front(cell),
-                    _ => (),
+                    SplitNodeType::_UnusedBranch(_)
+                    | SplitNodeType::_UnusedLeaf(_)
+                    | SplitNodeType::_UnusedData(_) => (),
                 }
             }
         }
         Ok(proof_nodes)
     }
 
+    /// Inserts a leaf into the DB
+    fn insert_leaf(&mut self, location: &ArrayType) -> BinaryMerkleTreeResult<()> {
+        if let Some(mut l) = self.db.get_node(*location)? {
+            let leaf_refs = l.get_references() + 1;
+            l.set_references(leaf_refs);
+            self.db.insert(*location, l)?;
+            return Ok(());
+        }
+        Err(Exception::new(
+            "Corrupt merkle tree: Failed to update leaf references",
+        ))
+    }
+
     /// Splits nodes during tree traversal into either zeros or ones, depending on the selected bit
     /// from the index
     /// # Errors
     /// `Exception` generated when an invalid state is encountered during tree traversal.
-    fn split_nodes<'a>(
+    fn split_nodes<'node_list>(
         &mut self,
         depth: usize,
         branch: ArrayType,
-        node_list: &'a [ArrayType],
-    ) -> Result<SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>, Exception>
-    {
+        node_list: &'node_list [ArrayType],
+    ) -> Result<
+        SplitNodeType<'node_list, BranchType, LeafType, DataType, NodeType, ArrayType>,
+        Exception,
+    > {
         if let Some(node) = self.db.get_node(branch)? {
             return if node_list.is_empty() {
                 let other_key;
@@ -467,7 +468,7 @@ where
                     depth + 1,
                 );
                 Ok(SplitNodeType::Cell(new_cell))
-            }
+            };
         }
         Err(Exception::new("Failed to find node in database."))
     }
@@ -537,7 +538,7 @@ where
         mut tree_refs: Vec<TreeRef<ArrayType>>,
     ) -> BinaryMerkleTreeResult<ArrayType> {
         if tree_refs.is_empty() {
-            return Err(Exception::new("tree_refs should not be empty!"))
+            return Err(Exception::new("tree_refs should not be empty!"));
         }
 
         if tree_refs.len() == 1 {
@@ -552,27 +553,39 @@ where
 
         let unique_split_bits = generate_tree_ref_queue(&mut tree_refs, &mut tree_ref_queue)?;
         let mut indices = unique_split_bits.into_iter().collect::<Vec<_>>();
-        indices.sort();
+        indices.sort_unstable();
 
         let mut root = None;
         for i in indices.into_iter().rev() {
-            if let Some(level) = tree_ref_queue.remove(&i){
+            if let Some(level) = tree_ref_queue.remove(&i) {
                 root = self.merge_nodes(&mut tree_refs, level)?;
             } else {
-                return Err(Exception::new("Level should not be empty."))
+                return Err(Exception::new("Level should not be empty."));
             }
         }
-        if let Some(r) = root {
-            Ok(r)
-        } else {
-            Err(Exception::new("Failed to get root."))
-        }
+        root.map_or_else(|| Err(Exception::new("Failed to get root.")), |r| Ok(r))
     }
 
     /// Performs the merging of `TreeRef`s until a single new root is left.
+    /// You can visualize the algorithm like the following:  
+
+    /// If two nodes are already adjacent, then create a branch node with the two nodes as children.
+    /// After merging, update the right child to be the new node, and the left child to point to it.
+    /// ```text
+    /// nodes: [A, B, C] -> create branch node D with children A and B, update B to D and A to point to D
+    ///        [&D, D, C] -> create branch node E with children D and C, update C to be E and D to point to E
+    ///        [&E, &E, E] -> E is the root node, so return E's location
+    /// This produces the following tree:
+    ///      E
+    ///     /\
+    ///    D  C
+    ///   /\
+    ///  A  B  
+    /// ```
+    /// If the two nodes are not adjacent, find the other node by following the pointer trail.
     fn merge_nodes(
         &mut self,
-        tree_refs: &mut Vec<TreeRef<ArrayType>>,
+        tree_refs: &mut [TreeRef<ArrayType>],
         level: Vec<(usize, usize, usize)>,
     ) -> BinaryMerkleTreeResult<Option<ArrayType>> {
         let mut root = ArrayType::default();
@@ -664,9 +677,7 @@ where
             };
 
             let mut refs = node.get_references();
-            if refs > 0 {
-                refs -= 1;
-            }
+            refs = refs.saturating_sub(1);
 
             let mut new_node;
             match node.get_variant() {
@@ -679,7 +690,7 @@ where
                         self.db.remove(&node_location)?;
                         continue;
                     }
-                    new_node = NodeType::new(NodeVariant::Branch(b))
+                    new_node = NodeType::new(NodeVariant::Branch(b));
                 }
                 NodeVariant::Leaf(l) => {
                     if refs == 0 {
@@ -695,7 +706,7 @@ where
                         self.db.remove(&node_location)?;
                         continue;
                     }
-                    new_node = NodeType::new(NodeVariant::Data(d))
+                    new_node = NodeType::new(NodeVariant::Data(d));
                 }
                 NodeVariant::Phantom(_) => {
                     return Err(Exception::new(
@@ -972,18 +983,18 @@ where
 }
 
 /// Enum used for splitting nodes into either the left or right path during tree traversal
-enum SplitNodeType<'a, BranchType, LeafType, DataType, NodeType, ArrayType>
-where
+enum SplitNodeType<
+    'keys,
     BranchType: Branch<ArrayType>,
     LeafType: Leaf<ArrayType>,
     DataType: Data,
     NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
     ArrayType: Array,
-{
+> {
     /// Used for building the `proof_nodes` variable during tree traversal
     Ref(TreeRef<ArrayType>),
     /// Used for appending to the `cell_queue` during tree traversal.
-    Cell(TreeCell<'a, NodeType, ArrayType>),
+    Cell(TreeCell<'keys, NodeType, ArrayType>),
     /// PhantomData marker
     _UnusedBranch(PhantomData<BranchType>),
     /// PhantomData marker

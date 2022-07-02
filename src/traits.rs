@@ -1,8 +1,8 @@
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
-use std::path::PathBuf;
+use std::path::Path;
 
-#[cfg(feature = "use_serde")]
+#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "use_digest")]
@@ -147,14 +147,14 @@ where
 
 /// Contains the distinguishing data from the node
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-#[cfg_attr(any(feature = "use_serde",), derive(Serialize, Deserialize))]
-pub enum NodeVariant<BranchType, LeafType, DataType, ArrayType>
-where
+#[cfg_attr(any(feature = "serde",), derive(Serialize, Deserialize))]
+#[non_exhaustive]
+pub enum NodeVariant<
     BranchType: Branch<ArrayType>,
     LeafType: Leaf<ArrayType>,
     DataType: Data,
     ArrayType: Array,
-{
+> {
     /// Variant containing a `Branch` node.
     Branch(BranchType),
     /// Variant containing a `Leaf` node.
@@ -177,7 +177,7 @@ where
     /// Opens an existing `Database`.
     /// # Errors
     /// `Exception` generated if the `open` does not succeed.
-    fn open(path: &PathBuf) -> Result<Self, Exception>
+    fn open(path: &Path) -> Result<Self, Exception>
     where
         Self: Sized;
     /// Gets a value from the database based on the given key.
@@ -246,7 +246,7 @@ impl Exception {
     #[must_use]
     pub fn new(details: &str) -> Self {
         Self {
-            details: details.to_string(),
+            details: details.to_owned(),
         }
     }
 }
