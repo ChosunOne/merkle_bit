@@ -25,7 +25,7 @@ pub mod integration_tests {
             #[test]
             fn $func_name() -> BinaryMerkleTreeResult<()> {
                 #[cfg(feature = "rocksdb")]
-                type Tree = RocksTree<[u8; 32]>;
+                type Tree = RocksTree<$key_size>;
 
                 #[cfg(not(any(feature = "rocksdb")))]
                 type Tree = HashTree<$key_size>;
