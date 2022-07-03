@@ -1,13 +1,10 @@
 use openssl::sha::Sha256;
 
-use crate::traits::Array;
+use crate::Array;
 
 pub struct Sha256Hasher(Sha256);
 
-impl<ArrayType> crate::traits::Hasher<ArrayType> for Sha256Hasher
-where
-    ArrayType: Array,
-{
+impl<const N: usize> crate::traits::Hasher<N> for Sha256Hasher {
     type HashType = Self;
 
     #[inline]
@@ -22,11 +19,15 @@ where
     }
 
     #[inline]
-    fn finalize(self) -> ArrayType {
-        let mut v = ArrayType::default();
+    fn finalize(self) -> Array<N> {
+        let mut v = Array::default();
         let value = self.0.finish();
-        let length = v.as_ref().len();
-        v.as_mut()[..length].copy_from_slice(&value[..length]);
+        if N > 32 {
+            v[..32].copy_from_slice(&value)
+        } else {
+            v[..N].copy_from_slice(&value[..N]);
+        }
+
         v
     }
 }

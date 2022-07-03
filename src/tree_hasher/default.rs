@@ -19,11 +19,11 @@ impl<const N: usize> Hasher<N> for DefaultHasher {
     #[inline]
     fn finalize(self) -> Array<N> {
         let value = Self::finish(&self).to_le_bytes();
-        let mut v = Array([0; N]);
+        let mut v = Array::default();
         if N >= 8 {
-            v.as_mut()[..8].copy_from_slice(&value);
+            v[..8].copy_from_slice(&value);
         } else {
-            v.as_mut()[..N].copy_from_slice(&value[..N]);
+            v[..N].copy_from_slice(&value[..N]);
         }
 
         v

@@ -14,8 +14,8 @@ To quickly get started and get a feel for the Merkle-BIT, you can use the alread
     fn main() -> Result<Ok(), Error> {
         let tree = HashTree::new(8)?;
         
-        // Keys must be of fixed size between 1 and 32 bytes long
-        let mut key: [u8; 32] = [0xFF; 32];
+        // Keys must be of fixed size
+        let mut key: Array<32> = [0xFF; 32].into();
         
         // Value to be put into the tree
         let value: Vec<u8> = vec![0xDDu8];
@@ -82,16 +82,16 @@ Currently integrated tree hashing schemes include:
 * and most updated hashes from [RustCrypto](https://github.com/RustCrypto/hashes)
 
 You may also use the default Rust hasher, or implement the ```Hasher``` trait for your own hashing scheme (unless using a hash from 
-RustCrypto, then you will want to enable the `use_digest` feature, which implements `Hasher` for `Digest`).
+RustCrypto, then you will want to enable the `digest` feature, which implements `Hasher` for `Digest`).
 
 You can also use RocksDB to handle storing and loading from disk.
-You can use the ```RocksTree``` with a serialization scheme via the ```--features="use_rocksdb use_bincode"``` command line flags 
+You can use the ```RocksTree``` with a serialization scheme via the ```--features="rocksdb bincode"``` command line flags 
 or by enabling the features in your Cargo.toml manifest.
 
 Some enabled features must be used in combination, or you must implement the required traits yourself (E.g. using the 
-```use_rocksdb``` feature alone will generate a compiler error, you must also select a serialization scheme, such as ```use_bincode``` or implement it for your data).
+```rocksdb``` feature alone will generate a compiler error, you must also select a serialization scheme, such as ```bincode``` or implement it for your data).
 
-Finally, you can take advantage of the ```use_hashbrown``` to use the ```hasbrown``` crate instead of the standard library ```HashMap```.
+Finally, you can take advantage of the ```hashbrown``` to use the ```hasbrown``` crate instead of the standard library ```HashMap```.
 
 ## Full Customization
 
@@ -100,12 +100,13 @@ To use the full power of the Merkle-BIT structure, you should customize the stru
 If you provide your own implementation of the traits for each component of the tree structure, the tree can utilize them over the default implementation.
 ```rust
     use starling::merkle_bit::MerkleBIT;
-    use std::path::PathBuf;
+    use starling::Array;
+    use std::path::Path;
     use std::error::Error;
     
     fn main() -> Result<Ok, Error> {
         // A path to a database to be opened
-        let path = PathBuf::new("some path");
+        let path = Path::new("some path");
         
         // Your own database library
         let db = YourDB::open(&path);
@@ -119,24 +120,24 @@ If you provide your own implementation of the traits for each component of the t
                              NodeType, 
                              HasherType, 
                              ValueType,
-                             ArrayType>::from_db(db, depth);
+                             32>::from_db(db, depth);
                              
-        // Keys must be of fixed size between 1 and 32 bytes long
-        let key: [u8; 32] = [0xFF; 32];
+        // Keys must be of fixed size
+        let key: Array<32> = [0xFF; 32].into();
         
         // An example value created from ValueType.  
         let value: ValueType = ValueType::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
-        let root: [u8; 32] = mbit.insert(None, &mut [key], &[value])?;
+        let root: Array<32> = mbit.insert(None, &mut [key], &[value])?;
 
         // Every time an element is added or removed a new root is created.
-        let new_key: [u8; 32] = [0xEE; 32];
+        let new_key: Array<32> = [0xEE; 32].into();
         let new_value: ValueType = ValueType::new("Some new value");
-        let new_root: [u8; 32] = mbit.insert(&root, &mut [key], &[value])?;
+        let new_root: Array<32> = mbit.insert(&root, &mut [key], &[value])?;
         
         // Retrieving the inserted value
-        let inserted_values: HashMap<&[u8], Option<ValueType>> = mbit.get(&root, &mut [key])?;
+        let inserted_values: HashMap<&Array<32>, Option<ValueType>> = mbit.get(&root, &mut [key])?;
 
         // You must ensure that the root you supply matches a root where the key existed when retrieving items
         // This line will fail to find the `new_value`
@@ -165,13 +166,13 @@ The `MerkleBIT` also supports generating and verifying merkle inclusion proofs, 
     fn main() -> Result<Ok, Error> {
         let tree = HashTree::new(8)?;
         
-        let mut key: [u8; 32] = [0xFF; 32];
+        let mut key: Array<32> = [0xFF; 32].into();
         let value: Vec<u8> = vec![0xDDu8];
         
-        let root: [u8; 32] = tree.insert(None, &mut [&key], &[value])?;
+        let root: Array<32> = tree.insert(None, &mut [&key], &[value])?;
         
         // An inclusion proof that proves membership of a key in the tree
-        let proof: Vec<([u8; 32], bool)> = tree.generate_inclusion_proof(&root, key)?;
+        let proof: Vec<(Array<32>, bool)> = tree.generate_inclusion_proof(&root, key)?;
         
         // If the proof is valid, it will return Ok(())
         HashTree::verify_inclusion_proof(&root, key, &value, &proof)?;

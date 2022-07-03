@@ -1,8 +1,8 @@
-#[cfg(feature = "blake2b_rfc")]
+#[cfg(feature = "blake2-rfc")]
 pub mod blake2b_rfc;
 /// The default Rust hashing function expanded to 32 bytes.
 #[cfg(not(any(
-    feature = "blake2b_rfc",
+    feature = "blake2-rfc",
     feature = "sha2",
     feature = "sha3",
     feature = "keccak",
@@ -25,7 +25,7 @@ pub mod sha3_openssl;
 
 /// The kind of hasher to use in the tree.
 #[cfg(not(any(
-    feature = "blake2b_rfc",
+    feature = "blake2-rfc",
     feature = "sha2",
     feature = "sha3",
     feature = "keccak",
@@ -35,7 +35,7 @@ pub mod sha3_openssl;
 )))]
 pub type TreeHasher = std::collections::hash_map::DefaultHasher;
 
-#[cfg(feature = "blake2b_rfc")]
+#[cfg(feature = "blake2-rfc")]
 pub type TreeHasher = blake2b_rfc::Blake2bHasher;
 
 #[cfg(feature = "groestl")]
@@ -47,7 +47,7 @@ pub type TreeHasher = sha3_openssl::Sha3Hasher;
 #[cfg(feature = "keccak")]
 pub type TreeHasher = keccak::KeccakHasher;
 #[cfg(feature = "blake2b")]
-pub type TreeHasher = blake2::Blake2b;
+pub type TreeHasher = blake2::Blake2b512;
 #[cfg(feature = "md2")]
 pub type TreeHasher = md2::Md2;
 #[cfg(feature = "md4")]
