@@ -1,7 +1,10 @@
+#[cfg(not(any(feature = "hashbrown")))]
 use std::collections::hash_map::Entry;
 #[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
 
+#[cfg(feature = "hashbrown")]
+use hashbrown::hash_map::Entry;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
