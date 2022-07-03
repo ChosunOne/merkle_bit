@@ -8,6 +8,6 @@ pub mod rocksdb;
 
 /// The type of database for the `HashTree`.
 #[cfg(not(feature = "hashbrown"))]
-pub type HashTreeDB<ArrayType> = crate::tree_db::hashmap::HashDB<ArrayType>;
+pub type HashTreeDB<const N: usize> = crate::tree_db::hashmap::HashDB<N>;
 #[cfg(feature = "hashbrown")]
-pub type HashTreeDB<ArrayType> = crate::tree_db::hashbrown::HashDB<ArrayType>;
+pub type HashTreeDB<const N: usize> = crate::tree_db::hashbrown::HashDB<N>;

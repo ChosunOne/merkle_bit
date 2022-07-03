@@ -8,15 +8,17 @@ use std::path::PathBuf;
 use criterion::{BenchmarkId, Criterion, Throughput};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
+use starling::Array;
 
-use starling::constants::KEY_LEN;
+const KEY_LEN: usize = 32;
+
 #[cfg(not(any(feature = "rocksdb")))]
 use starling::hash_tree::HashTree;
 #[cfg(feature = "rocksdb")]
 use starling::rocks_tree::RocksTree;
 
 #[cfg(not(any(feature = "rocksdb")))]
-type Tree = HashTree<[u8; KEY_LEN], Vec<u8>>;
+type Tree = HashTree<KEY_LEN, Vec<u8>>;
 
 #[cfg(feature = "rocksdb")]
 type Tree = RocksTree<[u8; KEY_LEN], Vec<u8>>;
@@ -132,13 +134,13 @@ criterion_group!(
 );
 criterion_main!(big_benches);
 
-fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>, Vec<Vec<u8>>) {
+fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<Array<KEY_LEN>>, Vec<Vec<u8>>) {
     let mut keys = Vec::with_capacity(num_entries);
     let mut data = Vec::with_capacity(num_entries);
     for _ in 0..num_entries {
         let mut key_value = [0u8; KEY_LEN];
         rng.fill(&mut key_value);
-        keys.push(key_value);
+        keys.push(key_value.into());
 
         let mut data_value = [0u8; KEY_LEN];
         rng.fill(data_value.as_mut());

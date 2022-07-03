@@ -1,23 +1,72 @@
 #[cfg(test)]
 pub mod integration_tests {
+    const KEY_LEN: usize = 32;
     use std::path::PathBuf;
 
     use rand::rngs::StdRng;
     use rand::{Rng, SeedableRng};
+    use starling::Array;
 
-    use starling::constants::KEY_LEN;
-    #[cfg(not(any(feature = "use_rocksdb")))]
+    #[cfg(not(any(feature = "rocksdb")))]
     use starling::hash_tree::HashTree;
     use starling::merkle_bit::BinaryMerkleTreeResult;
-    #[cfg(feature = "use_rocksdb")]
+    #[cfg(feature = "rocksdb")]
     use starling::rocks_tree::RocksTree;
     use starling::traits::Exception;
 
-    #[cfg(feature = "use_rocksdb")]
+    #[cfg(feature = "rocksdb")]
     type Tree = RocksTree;
 
-    #[cfg(not(any(feature = "use_rocksdb")))]
+    #[cfg(not(any(feature = "rocksdb")))]
     type Tree = HashTree;
+
+    macro_rules! test_key_size {
+        ($func_name: ident, $key_size: expr, $seed: expr, $num_entries: expr, $num_entries_groestl: expr) => {
+            #[test]
+            fn $func_name() -> BinaryMerkleTreeResult<()> {
+                #[cfg(feature = "rocksdb")]
+                type Tree = RocksTree<[u8; 32]>;
+
+                #[cfg(not(any(feature = "rocksdb")))]
+                type Tree = HashTree<$key_size>;
+
+                let seed = $seed;
+                let path = generate_path(seed);
+                let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+                #[cfg(not(feature = "groestl"))]
+                let num_entries = $num_entries;
+                #[cfg(feature = "groestl")]
+                let num_entries = $num_entries_groestl;
+
+                let mut keys = Vec::with_capacity(num_entries);
+                let mut values = Vec::with_capacity(num_entries);
+                for _ in 0..num_entries {
+                    let mut key_value = [0u8; $key_size];
+                    rng.fill(&mut key_value);
+                    keys.push(key_value.into());
+
+                    let data_value: Vec<u8> = (0..$key_size).map(|_| rng.gen()).collect();
+                    values.push(data_value);
+                }
+
+                keys.sort();
+
+                let mut bmt = Tree::open(&path, 160)?;
+
+                let root = bmt.insert(None, &mut keys, &values)?;
+
+                let retrieved = bmt.get(&root, &mut keys)?;
+
+                tear_down(&path);
+                for (&key, value) in keys.iter().zip(values) {
+                    assert_eq!(retrieved[&key], Some(value));
+                }
+
+                Ok(())
+            }
+        };
+    }
 
     #[test]
     #[cfg(feature = "serde")]
@@ -32,7 +81,7 @@ pub mod integration_tests {
             let values = vec![data.clone()];
             let mut tree = Tree::open(&path, 160)?;
             let root;
-            match tree.insert(None, &mut [key], &values) {
+            match tree.insert(None, &mut [key.into()], &values) {
                 Ok(r) => root = r,
                 Err(e) => {
                     drop(tree);
@@ -40,7 +89,7 @@ pub mod integration_tests {
                     panic!("{:?}", &e.to_string());
                 }
             }
-            match tree.get(&root, &mut [key]) {
+            match tree.get(&root, &mut [key.into()]) {
                 Ok(v) => retrieved_value = v,
                 Err(e) => {
                     drop(tree);
@@ -56,7 +105,7 @@ pub mod integration_tests {
                     panic!("{:?}", &e.to_string());
                 }
             }
-            match tree.get(&root, &mut [key]) {
+            match tree.get(&root, &mut [key.into()]) {
                 Ok(v) => removed_retrieved_value = v,
                 Err(e) => {
                     drop(tree);
@@ -66,8 +115,8 @@ pub mod integration_tests {
             }
         }
         tear_down(&path);
-        assert_eq!(retrieved_value[&key], Some(data));
-        assert_eq!(removed_retrieved_value[&key], None);
+        assert_eq!(retrieved_value[&key.into()], Some(data));
+        assert_eq!(removed_retrieved_value[&key.into()], None);
         Ok(())
     }
 
@@ -79,10 +128,10 @@ pub mod integration_tests {
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root = bmt.insert(None, &mut [key], &vec![value])?;
-        let result = bmt.get(&root, &mut vec![key])?;
+        let root = bmt.insert(None, &mut [key.into()], &vec![value])?;
+        let result = bmt.get(&root, &mut vec![key.into()])?;
         tear_down(&path);
-        assert_eq!(result[&key], Some(vec![0xFFu8]));
+        assert_eq!(result[&key.into()], Some(vec![0xFFu8]));
         Ok(())
     }
 
@@ -94,10 +143,10 @@ pub mod integration_tests {
         let root_key = [0x01u8; KEY_LEN];
 
         let bmt = Tree::open(&path, 160)?;
-        let items = bmt.get(&root_key, &mut [key])?;
+        let items = bmt.get(&root_key.into(), &mut [key.into()])?;
         let expected_item = None;
         tear_down(&path);
-        assert_eq!(items[&key], expected_item);
+        assert_eq!(items[&key.into()], expected_item);
         Ok(())
     }
 
@@ -109,12 +158,12 @@ pub mod integration_tests {
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root = bmt.insert(None, &mut [key], &[value])?;
+        let root = bmt.insert(None, &mut [key.into()], &[value])?;
 
         let nonexistent_key = [0xAB; KEY_LEN];
-        let items = bmt.get(&root, &mut [nonexistent_key])?;
+        let items = bmt.get(&root, &mut [nonexistent_key.into()])?;
         tear_down(&path);
-        assert_eq!(items[&nonexistent_key], None);
+        assert_eq!(items[&nonexistent_key.into()], None);
         Ok(())
     }
 
@@ -125,7 +174,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(8);
         let mut values = Vec::with_capacity(8);
         for i in 0..8 {
-            keys.push([i << 5u8; KEY_LEN]);
+            keys.push([i << 5u8; KEY_LEN].into());
             values.push(vec![i; KEY_LEN]);
         }
 
@@ -147,7 +196,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(7);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(7);
         for i in 0..7 {
-            keys.push([i << 5u8; KEY_LEN]);
+            keys.push([i << 5u8; KEY_LEN].into());
             values.push(vec![i; KEY_LEN]);
         }
         let mut bmt = Tree::open(&path, 3)?;
@@ -170,7 +219,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
             values.push(vec![i as u8; KEY_LEN]);
         }
 
@@ -194,7 +243,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
             values.push(vec![i as u8; KEY_LEN]);
         }
 
@@ -218,7 +267,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
             values.push(vec![i as u8; KEY_LEN]);
         }
 
@@ -242,7 +291,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
             values.push(vec![i as u8; KEY_LEN]);
         }
 
@@ -265,7 +314,7 @@ pub mod integration_tests {
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
             values.push(vec![i as u8; KEY_LEN]);
         }
 
@@ -285,19 +334,19 @@ pub mod integration_tests {
         let seed = [0x08u8; KEY_LEN];
         let path = generate_path(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let num_leaves = 8196;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_leaves = 1024;
 
-        let mut keys = Vec::with_capacity(num_leaves);
+        let mut keys: Vec<Array<KEY_LEN>> = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
         for i in 0..num_leaves {
             let mut key = [0u8; KEY_LEN];
             key[0] = (i >> 8) as u8;
             key[1] = (i & 0xFF) as u8;
             values.push(key.to_vec());
-            keys.push(key);
+            keys.push(key.into());
         }
 
         let mut bmt = Tree::open(&path, 16)?;
@@ -316,9 +365,9 @@ pub mod integration_tests {
         let seed = [0x09u8; KEY_LEN];
         let path = generate_path(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let num_leaves = 8195;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_leaves = 1023;
         let mut keys = Vec::with_capacity(num_leaves);
         let mut values: Vec<Vec<u8>> = Vec::with_capacity(num_leaves);
@@ -327,7 +376,7 @@ pub mod integration_tests {
             key[0] = (i >> 8) as u8;
             key[1] = (i & 0xFF) as u8;
             values.push(key.to_vec());
-            keys.push(key);
+            keys.push(key.into());
         }
 
         let mut bmt = Tree::open(&path, 16)?;
@@ -354,10 +403,10 @@ pub mod integration_tests {
         // A     B      C      D     E     F     G     H     I     J     K     L     M     N     O     P
         // 0x00  0x40, 0x41, 0x60, 0x68, 0x70, 0x71, 0x72, 0x80, 0xC0, 0xC1, 0xE0, 0xE1, 0xE2, 0xF0, 0xF8
         // None, None, None, 0x01, 0x02, None, None, None, 0x03, None, None, None, None, None, 0x04, None
-        let pop_key_d = [0x60u8; KEY_LEN]; // 0110_0000   96 (Dec)
-        let pop_key_e = [0x68u8; KEY_LEN]; // 0110_1000  104 (Dec)
-        let pop_key_i = [0x80u8; KEY_LEN]; // 1000_0000  128 (Dec)
-        let pop_key_o = [0xF0u8; KEY_LEN]; // 1111_0000  240 (Dec)
+        let pop_key_d = [0x60u8; KEY_LEN].into(); // 0110_0000   96 (Dec)
+        let pop_key_e = [0x68u8; KEY_LEN].into(); // 0110_1000  104 (Dec)
+        let pop_key_i = [0x80u8; KEY_LEN].into(); // 1000_0000  128 (Dec)
+        let pop_key_o = [0xF0u8; KEY_LEN].into(); // 1111_0000  240 (Dec)
 
         let mut populated_keys = [pop_key_d, pop_key_e, pop_key_i, pop_key_o];
 
@@ -376,18 +425,18 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 5)?;
         let root_node = bmt.insert(None, &mut populated_keys, &populated_values)?;
 
-        let key_a = [0x00u8; KEY_LEN]; // 0000_0000     0 (Dec)
-        let key_b = [0x40u8; KEY_LEN]; // 0100_0000    64 (Dec)
-        let key_c = [0x41u8; KEY_LEN]; // 0100_0001    65 (Dec)
-        let key_f = [0x70u8; KEY_LEN]; // 0111_0000   112 (Dec)
-        let key_g = [0x71u8; KEY_LEN]; // 0111_0001   113 (Dec)
-        let key_h = [0x72u8; KEY_LEN]; // 0111_0010   114 (Dec)
-        let key_j = [0xC0u8; KEY_LEN]; // 1100_0000   192 (Dec)
-        let key_k = [0xC1u8; KEY_LEN]; // 1100_0001   193 (Dec)
-        let key_l = [0xE0u8; KEY_LEN]; // 1110_0000   224 (Dec)
-        let key_m = [0xE1u8; KEY_LEN]; // 1110_0001   225 (Dec)
-        let key_n = [0xE2u8; KEY_LEN]; // 1110_0010   226 (Dec)
-        let key_p = [0xF8u8; KEY_LEN]; // 1111_1000   248 (Dec)
+        let key_a = [0x00u8; KEY_LEN].into(); // 0000_0000     0 (Dec)
+        let key_b = [0x40u8; KEY_LEN].into(); // 0100_0000    64 (Dec)
+        let key_c = [0x41u8; KEY_LEN].into(); // 0100_0001    65 (Dec)
+        let key_f = [0x70u8; KEY_LEN].into(); // 0111_0000   112 (Dec)
+        let key_g = [0x71u8; KEY_LEN].into(); // 0111_0001   113 (Dec)
+        let key_h = [0x72u8; KEY_LEN].into(); // 0111_0010   114 (Dec)
+        let key_j = [0xC0u8; KEY_LEN].into(); // 1100_0000   192 (Dec)
+        let key_k = [0xC1u8; KEY_LEN].into(); // 1100_0001   193 (Dec)
+        let key_l = [0xE0u8; KEY_LEN].into(); // 1110_0000   224 (Dec)
+        let key_m = [0xE1u8; KEY_LEN].into(); // 1110_0001   225 (Dec)
+        let key_n = [0xE2u8; KEY_LEN].into(); // 1110_0010   226 (Dec)
+        let key_p = [0xF8u8; KEY_LEN].into(); // 1111_1000   248 (Dec)
 
         let mut keys = vec![
             key_a, key_b, key_c, pop_key_d, pop_key_e, key_f, key_g, key_h, pop_key_i, key_j,
@@ -426,12 +475,12 @@ pub mod integration_tests {
         let seed = [0x11u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let initial_key = [0x00u8; KEY_LEN];
+        let initial_key = [0x00u8; KEY_LEN].into();
         let initial_value = vec![0xFFu8];
 
         let mut keys = Vec::with_capacity(256);
         for i in 0..256 {
-            keys.push([i as u8; KEY_LEN]);
+            keys.push([i as u8; KEY_LEN].into());
         }
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -456,7 +505,7 @@ pub mod integration_tests {
         let seed = [0x12u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let mut keys = vec![[0x00u8; KEY_LEN], [0x01u8; KEY_LEN]];
+        let mut keys = vec![[0x00u8; KEY_LEN].into(), [0x01u8; KEY_LEN].into()];
         let values = vec![vec![0x02u8], vec![0x03u8]];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -475,7 +524,7 @@ pub mod integration_tests {
         let seed = [0x13u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let mut keys = vec![[0x00u8; KEY_LEN], [0x80u8; KEY_LEN]];
+        let mut keys = vec![[0x00u8; KEY_LEN].into(), [0x80u8; KEY_LEN].into()];
         let values = vec![vec![0x02u8], vec![0x03u8]];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -493,7 +542,7 @@ pub mod integration_tests {
         let seed = [0x14u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let key = [0xAAu8; KEY_LEN];
+        let key = [0xAAu8; KEY_LEN].into();
         let data = vec![0xBBu8];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -510,9 +559,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         let mut keys = vec![
-            [0xAAu8; KEY_LEN], // 1010_1010
-            [0xBBu8; KEY_LEN], // 1011_1011
-            [0xCCu8; KEY_LEN],
+            [0xAAu8; KEY_LEN].into(), // 1010_1010
+            [0xBBu8; KEY_LEN].into(), // 1011_1011
+            [0xCCu8; KEY_LEN].into(),
         ]; // 1100_1100
         let values = vec![vec![0xDDu8], vec![0xEEu8], vec![0xFFu8]];
 
@@ -614,9 +663,9 @@ pub mod integration_tests {
         let seed = [0xBBu8; KEY_LEN];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let (mut keys, values) = prepare_inserts(4096, &mut rng);
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let (mut keys, values) = prepare_inserts(256, &mut rng);
 
         let mut bmt = Tree::open(&path, 18)?;
@@ -637,9 +686,9 @@ pub mod integration_tests {
         let seed = [0xBBu8; KEY_LEN];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let (mut keys, values) = prepare_inserts(4095, &mut rng);
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let (mut keys, values) = prepare_inserts(256, &mut rng);
 
         let mut bmt = Tree::open(&path, 18)?;
@@ -657,10 +706,10 @@ pub mod integration_tests {
         let seed = [0x22u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let first_key = [0xAAu8; KEY_LEN];
+        let first_key = [0xAAu8; KEY_LEN].into();
         let first_data = vec![0xBBu8];
 
-        let second_key = [0xCCu8; KEY_LEN];
+        let second_key = [0xCCu8; KEY_LEN].into();
         let second_data = vec![0xDDu8];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -720,9 +769,9 @@ pub mod integration_tests {
         let seed = [0xCAu8; KEY_LEN];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let num_inserts = 4096;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_inserts = 256;
         let (mut initial_keys, initial_values) = prepare_inserts(num_inserts, &mut rng);
 
@@ -752,7 +801,7 @@ pub mod integration_tests {
         let seed = [0x25u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let key = [0xAAu8; KEY_LEN];
+        let key = [0xAAu8; KEY_LEN].into();
         let first_value = vec![0xBBu8];
         let second_value = vec![0xCCu8];
 
@@ -781,9 +830,9 @@ pub mod integration_tests {
         let seed = [0xEEu8; KEY_LEN];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let (mut initial_keys, initial_values) = prepare_inserts(4096, &mut rng);
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let (mut initial_keys, initial_values) = prepare_inserts(256, &mut rng);
 
         let mut updated_values = vec![];
@@ -816,7 +865,7 @@ pub mod integration_tests {
         let path = generate_path(seed);
 
         let mut bmt = Tree::open(&path, 160)?;
-        let missing_root_hash = [0x00u8; KEY_LEN];
+        let missing_root_hash = [0x00u8; KEY_LEN].into();
         bmt.remove(&missing_root_hash)?;
         tear_down(&path);
         Ok(())
@@ -827,7 +876,7 @@ pub mod integration_tests {
         let seed = [0x28u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let key = [0x00u8; KEY_LEN];
+        let key = [0x00u8; KEY_LEN].into();
         let data = vec![0x01u8];
 
         let mut bmt = Tree::open(&path, 160)?;
@@ -854,9 +903,9 @@ pub mod integration_tests {
         let seed = [0xBBu8; KEY_LEN];
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         let (mut keys, values) = prepare_inserts(4096, &mut rng);
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let (mut keys, values) = prepare_inserts(256, &mut rng);
 
         let mut bmt = Tree::open(&path, 160)?;
@@ -884,13 +933,13 @@ pub mod integration_tests {
         let seed = [0x30u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let first_key = [0x00u8; KEY_LEN];
+        let first_key = [0x00u8; KEY_LEN].into();
         let first_data = vec![0x01u8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let first_root_hash = bmt.insert(None, &mut vec![first_key], &vec![first_data.clone()])?;
+        let first_root_hash = bmt.insert(None, &mut [first_key], &[first_data.clone()])?;
 
-        let second_key = [0x02u8; KEY_LEN];
+        let second_key = [0x02u8; KEY_LEN].into();
         let second_data = vec![0x03u8];
 
         let second_root_hash = bmt.insert(
@@ -912,10 +961,10 @@ pub mod integration_tests {
         let seed = [0x31u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let first_key = [0x00u8; KEY_LEN];
-        let second_key = [0x01u8; KEY_LEN];
-        let third_key = [0x02u8; KEY_LEN];
-        let fourth_key = [0x03u8; KEY_LEN];
+        let first_key = [0x00u8; KEY_LEN].into();
+        let second_key = [0x01u8; KEY_LEN].into();
+        let third_key = [0x02u8; KEY_LEN].into();
+        let fourth_key = [0x03u8; KEY_LEN].into();
 
         let first_data = vec![0x04u8];
         let second_data = vec![0x05u8];
@@ -995,9 +1044,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt = Tree::open(&path, 160)?;
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         iterate_inserts(8, 100, &mut rng, &mut bmt)?;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         iterate_inserts(8, 10, &mut rng, &mut bmt)?;
 
         tear_down(&path);
@@ -1012,11 +1061,11 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         let mut keys = vec![
-            [0x00u8; KEY_LEN],
-            [0x01u8; KEY_LEN],
-            [0x02u8; KEY_LEN],
-            [0x10u8; KEY_LEN],
-            [0x20u8; KEY_LEN],
+            [0x00u8; KEY_LEN].into(),
+            [0x01u8; KEY_LEN].into(),
+            [0x02u8; KEY_LEN].into(),
+            [0x10u8; KEY_LEN].into(),
+            [0x20u8; KEY_LEN].into(),
         ];
         let values = vec![
             vec![0x00u8],
@@ -1045,11 +1094,11 @@ pub mod integration_tests {
         let mut bmt = Tree::open(&path, 160)?;
 
         let mut keys = vec![
-            [0x10u8; KEY_LEN],
-            [0x11u8; KEY_LEN],
-            [0x00u8; KEY_LEN],
-            [0x01u8; KEY_LEN],
-            [0x02u8; KEY_LEN],
+            [0x10u8; KEY_LEN].into(),
+            [0x11u8; KEY_LEN].into(),
+            [0x00u8; KEY_LEN].into(),
+            [0x01u8; KEY_LEN].into(),
+            [0x02u8; KEY_LEN].into(),
         ];
         let values = vec![
             vec![0x00u8],
@@ -1087,9 +1136,9 @@ pub mod integration_tests {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
         let mut bmt = Tree::open(&path, 160)?;
 
-        #[cfg(not(any(feature = "use_groestl")))]
+        #[cfg(not(any(feature = "groestl")))]
         iterate_removals(8, 100, 1, &mut rng, &mut bmt)?;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         iterate_removals(8, 10, 1, &mut rng, &mut bmt)?;
         tear_down(&path);
         Ok(())
@@ -1102,7 +1151,7 @@ pub mod integration_tests {
 
         let mut bmt = Tree::open(&path, 160)?;
 
-        let key = [0x00u8; KEY_LEN];
+        let key = [0x00u8; KEY_LEN].into();
         let data = vec![0x00u8];
 
         let first_root = bmt.insert(None, &mut [key], &vec![data.clone()])?;
@@ -1122,7 +1171,7 @@ pub mod integration_tests {
 
         let mut bmt = Tree::open(&path, 160)?;
 
-        let key = [0x00u8; KEY_LEN];
+        let key = [0x00u8; KEY_LEN].into();
         let data = vec![0x00u8];
 
         let root = bmt.insert(None, &mut [key], &vec![data.clone()])?;
@@ -1140,13 +1189,13 @@ pub mod integration_tests {
 
         let mut bmt = Tree::open(&path, 160)?;
 
-        let key = [0x00u8; KEY_LEN];
+        let key = [0x00u8; KEY_LEN].into();
         let data = vec![0x00u8];
 
         let root = bmt.insert(None, &mut [key], &vec![data.clone()])?;
 
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
-        match Tree::verify_inclusion_proof(&[01u8; KEY_LEN], key, &data, &inclusion_proof) {
+        match Tree::verify_inclusion_proof(&[01u8; KEY_LEN].into(), key, &data, &inclusion_proof) {
             Ok(_) => return Err(Exception::new("Failed to detect invalid proof")),
             _ => {}
         }
@@ -1182,9 +1231,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(feature = "use_groestl"))]
+        #[cfg(not(feature = "groestl"))]
         let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
@@ -1207,9 +1256,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(feature = "use_groestl"))]
+        #[cfg(not(feature = "groestl"))]
         let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
@@ -1221,7 +1270,7 @@ pub mod integration_tests {
         for i in 0..num_entries {
             let inclusion_proof = bmt.generate_inclusion_proof(&root, keys[i])?;
             if let Ok(_) = Tree::verify_inclusion_proof(
-                &[0x03; KEY_LEN],
+                &[0x03; KEY_LEN].into(),
                 keys[i],
                 &values[i],
                 &inclusion_proof,
@@ -1238,7 +1287,7 @@ pub mod integration_tests {
         let seed = [0xE6u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let key = [0x96u8; KEY_LEN];
+        let key = [0x96u8; KEY_LEN].into();
         let value = vec![0xB3u8];
 
         let mut bmt = Tree::open(&path, 3)?;
@@ -1256,9 +1305,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(feature = "use_groestl"))]
+        #[cfg(not(feature = "groestl"))]
         let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
@@ -1281,7 +1330,7 @@ pub mod integration_tests {
         let seed = [0x61u8; KEY_LEN];
         let path = generate_path(seed);
 
-        let key = [0x78u8; KEY_LEN];
+        let key = [0x78u8; KEY_LEN].into();
         let value = vec![0x2Bu8];
 
         let mut bmt = Tree::open(&path, 2)?;
@@ -1299,9 +1348,9 @@ pub mod integration_tests {
         let path = generate_path(seed);
         let mut rng: StdRng = SeedableRng::from_seed(seed);
 
-        #[cfg(not(feature = "use_groestl"))]
+        #[cfg(not(feature = "groestl"))]
         let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
+        #[cfg(feature = "groestl")]
         let num_entries = 512;
 
         let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
@@ -1310,7 +1359,7 @@ pub mod integration_tests {
 
         let root = bmt.insert(None, &mut keys, &values)?;
 
-        let test_key = [0x00u8; KEY_LEN];
+        let test_key = [0x00u8; KEY_LEN].into();
         let test_value = vec![0x00u8];
 
         let new_root = bmt.insert_one(Some(&root), &test_key, &test_value)?;
@@ -1322,1351 +1371,116 @@ pub mod integration_tests {
         Ok(())
     }
 
-    #[test]
-    fn it_handles_key_size_of_two() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 2]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 2]>;
-
-        let seed = [0x94u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 16;
-        const SIZE: usize = 2usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_three() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 3]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 3]>;
-
-        let seed = [0x95u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 32;
-        const SIZE: usize = 3usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_four() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 4]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 4]>;
-
-        let seed = [0x96u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 64;
-        const SIZE: usize = 4usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_five() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 5]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 5]>;
-
-        let seed = [0x97u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 128;
-        const SIZE: usize = 5usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_six() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 6]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 6]>;
-
-        let seed = [0x98u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 256;
-        const SIZE: usize = 6usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_seven() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 7]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 7]>;
-
-        let seed = [0x99u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        let num_entries = 512;
-        const SIZE: usize = 7usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_eight() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 8]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 8]>;
-
-        let seed = [0x9Au8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 1024;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 8usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_nine() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 9]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 9]>;
-
-        let seed = [0x9Bu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 2048;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 9usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_ten() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 10]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 10]>;
-
-        let seed = [0x9Cu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 10usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_eleven() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 11]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 11]>;
-
-        let seed = [0x9Du8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 11usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twelve() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 12]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 12]>;
-
-        let seed = [0x9Eu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 12usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_thirteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 13]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 13]>;
-
-        let seed = [0x9Fu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 13usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_fourteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 14]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 14]>;
-
-        let seed = [0xA0u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 14usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_fifteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 15]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 15]>;
-
-        let seed = [0xA1u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 15usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_sixteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 16]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 16]>;
-
-        let seed = [0xA2u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 16usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_seventeen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 17]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 17]>;
-
-        let seed = [0xA3u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 17usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_eighteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 18]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 18]>;
-
-        let seed = [0xA4u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 18usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_nineteen() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 19]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 19]>;
-
-        let seed = [0xA5u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 19usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 20]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 20]>;
-
-        let seed = [0xA6u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 20usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_one() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 21]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 21]>;
-
-        let seed = [0xA7u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 21usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_two() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 22]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 22]>;
-
-        let seed = [0xA8u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 22usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_three() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 23]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 23]>;
-
-        let seed = [0xA9u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 23usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_four() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 24]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 24]>;
-
-        let seed = [0xAAu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 24usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_five() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 25]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 25]>;
-
-        let seed = [0xABu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 25usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_six() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 26]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 26]>;
-
-        let seed = [0xACu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 26usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_seven() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 27]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 27]>;
-
-        let seed = [0xADu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 27usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_eight() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 28]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 28]>;
-
-        let seed = [0xAEu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 28usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_twenty_nine() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 29]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 29]>;
-
-        let seed = [0xAFu8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 29usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_thirty() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 30]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 30]>;
-
-        let seed = [0xB0u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 30usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_thirty_one() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 31]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 31]>;
-
-        let seed = [0xB1u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 31usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
-
-    #[test]
-    fn it_handles_key_size_of_thirty_two() -> BinaryMerkleTreeResult<()> {
-        #[cfg(feature = "use_rocksdb")]
-        type Tree = RocksTree<[u8; 32]>;
-
-        #[cfg(not(any(feature = "use_rocksdb")))]
-        type Tree = HashTree<[u8; 32]>;
-
-        let seed = [0xB2u8; 32];
-        let path = generate_path(seed);
-        let mut rng: StdRng = SeedableRng::from_seed(seed);
-
-        #[cfg(not(feature = "use_groestl"))]
-        let num_entries = 4096;
-        #[cfg(feature = "use_groestl")]
-        let num_entries = 512;
-        const SIZE: usize = 32usize;
-        let mut keys = Vec::with_capacity(num_entries);
-        let mut values = Vec::with_capacity(num_entries);
-        for _ in 0..num_entries {
-            let mut key_value = [0u8; SIZE];
-            rng.fill(&mut key_value);
-            keys.push(key_value);
-
-            let data_value: Vec<u8> = (0..SIZE).map(|_| rng.gen()).collect();
-            values.push(data_value);
-        }
-
-        keys.sort();
-
-        let mut bmt = Tree::open(&path, 160)?;
-
-        let root = bmt.insert(None, &mut keys, &values)?;
-
-        let retrieved = bmt.get(&root, &mut keys)?;
-
-        tear_down(&path);
-        for (&key, value) in keys.iter().zip(values) {
-            assert_eq!(retrieved[&key], Some(value));
-        }
-
-        Ok(())
-    }
+    test_key_size!(it_handles_key_size_of_two, 2, [0x94u8; 32], 16, 16);
+    test_key_size!(it_handles_key_size_of_three, 3, [0x95u8; 32], 32, 32);
+    test_key_size!(it_handles_key_size_of_four, 4, [0x96u8; 32], 64, 64);
+    test_key_size!(it_handles_key_size_of_five, 5, [0x97u8; 32], 128, 128);
+    test_key_size!(it_handles_key_size_of_six, 6, [0x98u8; 32], 256, 256);
+    test_key_size!(it_handles_key_size_of_seven, 7, [0x99u8; 32], 512, 512);
+    test_key_size!(it_handles_key_size_of_eight, 8, [0x9Au8; 32], 1024, 512);
+    test_key_size!(it_handles_key_size_of_nine, 9, [0x9Bu8; 32], 2048, 512);
+    test_key_size!(it_handles_key_size_of_ten, 10, [0x9Cu8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_eleven, 11, [0x9Du8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_twelve, 12, [0x9Eu8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_thirteen, 13, [0x9Fu8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_fourteen, 14, [0xA0u8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_fifteen, 15, [0xA1u8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_sixteen, 16, [0xA2u8; 32], 4096, 512);
+    test_key_size!(
+        it_handles_key_size_of_seventeen,
+        17,
+        [0xA3u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(it_handles_key_size_of_eighteen, 18, [0xA4u8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_nineteen, 19, [0xA5u8; 32], 4096, 512);
+    test_key_size!(it_handles_key_size_of_twenty, 20, [0xA6u8; 32], 4096, 512);
+    test_key_size!(
+        it_handles_key_size_of_twenty_one,
+        21,
+        [0xA7u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_two,
+        22,
+        [0xA8u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_three,
+        23,
+        [0xA9u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_four,
+        24,
+        [0xAAu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_five,
+        25,
+        [0xABu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_six,
+        26,
+        [0xACu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_seven,
+        27,
+        [0xADu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_eight,
+        28,
+        [0xAEu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_twenty_nine,
+        29,
+        [0xAFu8; 32],
+        4096,
+        512
+    );
+    test_key_size!(it_handles_key_size_of_thirty, 30, [0xB0u8; 32], 4096, 512);
+    test_key_size!(
+        it_handles_key_size_of_thirty_one,
+        31,
+        [0xB1u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_thirty_two,
+        32,
+        [0xB2u8; 32],
+        4096,
+        512
+    );
+    test_key_size!(
+        it_handles_key_size_of_thirty_three,
+        33,
+        [0xB2u8; 32],
+        4096,
+        512
+    );
 
     fn generate_path(seed: [u8; KEY_LEN]) -> PathBuf {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
@@ -2676,20 +1490,23 @@ pub mod integration_tests {
     }
 
     fn tear_down(_path: &PathBuf) {
-        #[cfg(feature = "use_rocksdb")]
+        #[cfg(feature = "rocksdb")]
         use std::fs::remove_dir_all;
 
-        #[cfg(feature = "use_rocksdb")]
+        #[cfg(feature = "rocksdb")]
         remove_dir_all(&_path).unwrap();
     }
 
-    fn prepare_inserts(num_entries: usize, rng: &mut StdRng) -> (Vec<[u8; KEY_LEN]>, Vec<Vec<u8>>) {
-        let mut keys = Vec::with_capacity(num_entries);
+    fn prepare_inserts(
+        num_entries: usize,
+        rng: &mut StdRng,
+    ) -> (Vec<Array<KEY_LEN>>, Vec<Vec<u8>>) {
+        let mut keys: Vec<Array<KEY_LEN>> = Vec::with_capacity(num_entries);
         let mut data = Vec::with_capacity(num_entries);
         for _ in 0..num_entries {
             let mut key_value = [0u8; KEY_LEN];
             rng.fill(&mut key_value);
-            keys.push(key_value);
+            keys.push(key_value.into());
 
             let data_value = (0..KEY_LEN).map(|_| rng.gen()).collect();
             data.push(data_value);
@@ -2706,11 +1523,11 @@ pub mod integration_tests {
         rng: &mut StdRng,
         bmt: &mut Tree,
     ) -> BinaryMerkleTreeResult<(
-        Vec<Option<[u8; KEY_LEN]>>,
-        Vec<Vec<[u8; KEY_LEN]>>,
+        Vec<Option<Array<KEY_LEN>>>,
+        Vec<Vec<Array<KEY_LEN>>>,
         Vec<Vec<Vec<u8>>>,
     )> {
-        let mut state_roots: Vec<Option<[u8; KEY_LEN]>> = Vec::with_capacity(iterations);
+        let mut state_roots: Vec<Option<Array<KEY_LEN>>> = Vec::with_capacity(iterations);
         let mut key_groups = Vec::with_capacity(iterations);
         let mut data_groups = Vec::with_capacity(iterations);
         state_roots.push(None);

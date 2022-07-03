@@ -2,11 +2,12 @@
 use std::collections::HashMap;
 use std::path::Path;
 
+use crate::Array;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
-use crate::traits::{Array, Decode, Encode};
+use crate::traits::{Decode, Encode};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
@@ -15,25 +16,25 @@ use crate::tree_db::HashTreeDB;
 use crate::tree_hasher::TreeHasher;
 
 /// Internal type alias for the underlying tree.
-type Tree<ArrayType, ValueType> = MerkleBIT<
-    HashTreeDB<ArrayType>,
-    TreeBranch<ArrayType>,
-    TreeLeaf<ArrayType>,
+type Tree<ValueType, const N: usize> = MerkleBIT<
+    HashTreeDB<N>,
+    TreeBranch<N>,
+    TreeLeaf<N>,
     TreeData,
-    TreeNode<ArrayType>,
+    TreeNode<N>,
     TreeHasher,
     ValueType,
-    ArrayType,
+    N,
 >;
 
 /// A `MerkleBIT` implemented with a `HashMap`.  Can be used for quickly storing items in memory, though
 /// larger sets of items should be stored on disk or over the network in a real database.
-pub struct HashTree<ArrayType: Array = [u8; 32], ValueType: Encode + Decode = Vec<u8>> {
+pub struct HashTree<const N: usize = 32, ValueType: Encode + Decode = Vec<u8>> {
     /// The underlying tree.  The type requirements have already been implemented for easy use.
-    tree: Tree<ArrayType, ValueType>,
+    tree: Tree<ValueType, N>,
 }
 
-impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType> {
+impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
     /// Creates a new `HashTree`.  `depth` indicates the maximum depth of the tree.
     /// # Errors
     /// None.
@@ -60,9 +61,9 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     #[inline]
     pub fn get(
         &self,
-        root_hash: &ArrayType,
-        keys: &mut [ArrayType],
-    ) -> BinaryMerkleTreeResult<HashMap<ArrayType, Option<ValueType>>> {
+        root_hash: &Array<N>,
+        keys: &mut [Array<N>],
+    ) -> BinaryMerkleTreeResult<HashMap<Array<N>, Option<ValueType>>> {
         self.tree.get(root_hash, keys)
     }
 
@@ -73,10 +74,10 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     #[inline]
     pub fn insert(
         &mut self,
-        previous_root: Option<&ArrayType>,
-        keys: &mut [ArrayType],
+        previous_root: Option<&Array<N>>,
+        keys: &mut [Array<N>],
         values: &[ValueType],
-    ) -> BinaryMerkleTreeResult<ArrayType> {
+    ) -> BinaryMerkleTreeResult<Array<N>> {
         self.tree.insert(previous_root, keys, values)
     }
 
@@ -85,7 +86,7 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     /// # Errors
     /// `Exception` generated if the `remove` encounters an invalid state during tree traversal.
     #[inline]
-    pub fn remove(&mut self, root_hash: &ArrayType) -> BinaryMerkleTreeResult<()> {
+    pub fn remove(&mut self, root_hash: &Array<N>) -> BinaryMerkleTreeResult<()> {
         self.tree.remove(root_hash)
     }
 
@@ -95,9 +96,9 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     #[inline]
     pub fn generate_inclusion_proof(
         &self,
-        root: &ArrayType,
-        key: ArrayType,
-    ) -> BinaryMerkleTreeResult<Vec<(ArrayType, bool)>> {
+        root: &Array<N>,
+        key: Array<N>,
+    ) -> BinaryMerkleTreeResult<Vec<(Array<N>, bool)>> {
         self.tree.generate_inclusion_proof(root, key)
     }
 
@@ -106,10 +107,10 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     /// `Exception` generated if the given proof is invalid.
     #[inline]
     pub fn verify_inclusion_proof(
-        root: &ArrayType,
-        key: ArrayType,
+        root: &Array<N>,
+        key: Array<N>,
         value: &ValueType,
-        proof: &[(ArrayType, bool)],
+        proof: &[(Array<N>, bool)],
     ) -> BinaryMerkleTreeResult<()> {
         Tree::verify_inclusion_proof(root, key, value, proof)
     }
@@ -120,8 +121,8 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     #[inline]
     pub fn get_one(
         &self,
-        root: &ArrayType,
-        key: &ArrayType,
+        root: &Array<N>,
+        key: &Array<N>,
     ) -> BinaryMerkleTreeResult<Option<ValueType>> {
         self.tree.get_one(root, key)
     }
@@ -132,10 +133,10 @@ impl<ValueType: Encode + Decode, ArrayType: Array> HashTree<ArrayType, ValueType
     #[inline]
     pub fn insert_one(
         &mut self,
-        previous_root: Option<&ArrayType>,
-        key: &ArrayType,
+        previous_root: Option<&Array<N>>,
+        key: &Array<N>,
         value: &ValueType,
-    ) -> BinaryMerkleTreeResult<ArrayType> {
+    ) -> BinaryMerkleTreeResult<Array<N>> {
         self.tree.insert_one(previous_root, key, value)
     }
 }

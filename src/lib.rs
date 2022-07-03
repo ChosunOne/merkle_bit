@@ -77,6 +77,20 @@
 //! The `MerkleBIT` can be extended to support a wide variety of backend storage solutions given that
 //! you make implementations for the `Branch`, `Leaf`, and `Data` traits.
 
+#[cfg(feature = "serde")]
+use serde::de::{Error, Visitor};
+#[cfg(feature = "serde")]
+use serde::ser::SerializeSeq;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer};
+#[cfg(feature = "serde")]
+use serde::{Serialize, Serializer};
+use std::array::IntoIter;
+use std::cmp::min;
+use std::fmt::Formatter;
+use std::ops::{Deref, DerefMut, Index, IndexMut};
+use std::slice::{Iter, SliceIndex};
+
 /// Defines constants for the tree.
 pub mod constants;
 /// An implementation of the `MerkleBIT` with a `HashMap` backend database.
@@ -94,6 +108,132 @@ pub mod tree_hasher;
 /// Contains a collection of useful structs and functions for tree operations.
 pub mod utils;
 
-#[cfg(feature = "use_rocksdb")]
+#[cfg(feature = "rocksdb")]
 /// An implementation of the `MerkleBIT` with a `RocksDB` backend database.
 pub mod rocks_tree;
+
+/// A fixed-size array.  Needed because not all of the serialization libraries can handle arbitrary
+/// sized arrays.  Can be converted to and from a `[u8; N]` via `into` and `from`.
+#[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
+pub struct Array<const N: usize>([u8; N]);
+
+impl<const N: usize> Array<N> {
+    /// Produces an iterator through the underlying array.
+    #[inline]
+    pub fn iter(&self) -> Iter<u8> {
+        self.0.iter()
+    }
+}
+
+impl<const N: usize> Default for Array<N> {
+    #[inline]
+    fn default() -> Self {
+        Self([0; N])
+    }
+}
+
+impl<const N: usize> From<[u8; N]> for Array<N> {
+    #[inline]
+    fn from(array: [u8; N]) -> Self {
+        Self(array)
+    }
+}
+
+impl<const N: usize> From<Array<N>> for [u8; N] {
+    #[inline]
+    fn from(array: Array<N>) -> Self {
+        array.0
+    }
+}
+
+impl<const N: usize> IntoIterator for Array<N> {
+    type Item = u8;
+    type IntoIter = IntoIter<u8, N>;
+
+    #[inline]
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+impl<const N: usize> AsRef<[u8]> for Array<N> {
+    #[inline]
+    fn as_ref(&self) -> &[u8] {
+        &self.0
+    }
+}
+
+impl<const N: usize> Deref for Array<N> {
+    type Target = [u8; N];
+
+    #[inline]
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl<const N: usize> DerefMut for Array<N> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<const N: usize, Idx: SliceIndex<[u8]>> Index<Idx> for Array<N> {
+    type Output = Idx::Output;
+
+    #[inline]
+    fn index(&self, index: Idx) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl<const N: usize, Idx: SliceIndex<[u8]>> IndexMut<Idx> for Array<N> {
+    #[inline]
+    fn index_mut(&mut self, index: Idx) -> &mut Self::Output {
+        &mut self.0[index]
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<const N: usize> Serialize for Array<N> {
+    #[inline]
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let mut seq = serializer.serialize_seq(Some(N))?;
+        for e in self.iter() {
+            seq.serialize_element(e)?;
+        }
+        seq.end()
+    }
+}
+
+#[cfg(feature = "serde")]
+/// Visitor for deserializing `Array<N>`s.
+struct ArrayVisitor<const N: usize>;
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Visitor<'de> for ArrayVisitor<N> {
+    type Value = Array<N>;
+
+    #[inline]
+    fn expecting(&self, formatter: &mut Formatter) -> std::fmt::Result {
+        formatter.write_str("an unsigned integer from 0 to 255")
+    }
+
+    #[inline]
+    fn visit_bytes<E: Error>(self, v: &[u8]) -> Result<Self::Value, E> {
+        let mut value = Array::default();
+        for i in 0..(min(N, v.len())) {
+            value[i] = v[i];
+        }
+
+        Ok(value)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, const N: usize> Deserialize<'de> for Array<N> {
+    #[inline]
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        deserializer.deserialize_bytes(ArrayVisitor)
+    }
+}

@@ -5,11 +5,12 @@ use std::convert::TryFrom;
 use std::marker::PhantomData;
 use std::path::Path;
 
+use crate::Array;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
 use crate::traits::{
-    Array, Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
+    Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
 };
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_ref::TreeRef;
@@ -35,14 +36,14 @@ pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
 /// * **db**: The database to store and retrieve values.
 /// * **depth**: The maximum permitted depth of the tree.
 pub struct MerkleBIT<
-    DatabaseType: Database<ArrayType, NodeType = NodeType>,
-    BranchType: Branch<ArrayType>,
-    LeafType: Leaf<ArrayType>,
+    DatabaseType: Database<N, NodeType = NodeType>,
+    BranchType: Branch<N>,
+    LeafType: Leaf<N>,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
-    HasherType: Hasher<ArrayType>,
+    NodeType: Node<BranchType, LeafType, DataType, N>,
+    HasherType: Hasher<N>,
     ValueType: Decode + Encode,
-    ArrayType: Array,
+    const N: usize,
 > {
     /// The database to store tree nodes.
     db: DatabaseType,
@@ -60,30 +61,18 @@ pub struct MerkleBIT<
     hasher: PhantomData<HasherType>,
     /// Marker for dealing with `ValueType`.
     value: PhantomData<ValueType>,
-    /// Marker for dealing with `ArrayType`.
-    array: PhantomData<ArrayType>,
 }
 
 impl<
-        DatabaseType: Database<ArrayType, NodeType = NodeType>,
-        BranchType: Branch<ArrayType>,
-        LeafType: Leaf<ArrayType>,
+        DatabaseType: Database<N, NodeType = NodeType>,
+        BranchType: Branch<N>,
+        LeafType: Leaf<N>,
         DataType: Data,
-        NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
-        HasherType: Hasher<ArrayType, HashType = HasherType>,
+        NodeType: Node<BranchType, LeafType, DataType, N>,
+        HasherType: Hasher<N, HashType = HasherType>,
         ValueType: Decode + Encode,
-        ArrayType: Array,
-    >
-    MerkleBIT<
-        DatabaseType,
-        BranchType,
-        LeafType,
-        DataType,
-        NodeType,
-        HasherType,
-        ValueType,
-        ArrayType,
-    >
+        const N: usize,
+    > MerkleBIT<DatabaseType, BranchType, LeafType, DataType, NodeType, HasherType, ValueType, N>
 {
     /// Create a new `MerkleBIT` from a saved database
     /// # Errors
@@ -100,7 +89,6 @@ impl<
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
-            array: PhantomData,
         })
     }
 
@@ -118,7 +106,6 @@ impl<
             node: PhantomData,
             hasher: PhantomData,
             value: PhantomData,
-            array: PhantomData,
         })
     }
 
@@ -128,16 +115,16 @@ impl<
     #[inline]
     pub fn get(
         &self,
-        root_hash: &ArrayType,
-        keys: &mut [ArrayType],
-    ) -> BinaryMerkleTreeResult<HashMap<ArrayType, Option<ValueType>>> {
+        root_hash: &Array<N>,
+        keys: &mut [Array<N>],
+    ) -> BinaryMerkleTreeResult<HashMap<Array<N>, Option<ValueType>>> {
         if keys.is_empty() {
             return Ok(HashMap::new());
         }
 
         let mut leaf_map = generate_leaf_map(keys);
 
-        keys.sort();
+        keys.sort_unstable();
 
         let root_node = if let Some(n) = self.db.get_node(*root_hash)? {
             n
@@ -222,11 +209,6 @@ impl<
                         "Corrupt merkle tree: Found data node while traversing tree",
                     ));
                 }
-                NodeVariant::Phantom(_) => {
-                    return Err(Exception::new(
-                        "Corrupt merkle tree: Found phantom node while traversing tree",
-                    ));
-                }
             }
         }
 
@@ -239,10 +221,10 @@ impl<
     #[inline]
     pub fn insert(
         &mut self,
-        previous_root: Option<&ArrayType>,
-        keys: &mut [ArrayType],
+        previous_root: Option<&Array<N>>,
+        keys: &mut [Array<N>],
         values: &[ValueType],
-    ) -> BinaryMerkleTreeResult<ArrayType> {
+    ) -> BinaryMerkleTreeResult<Array<N>> {
         if keys.len() != values.len() {
             return Err(Exception::new("Keys and values have different lengths"));
         }
@@ -256,7 +238,7 @@ impl<
             value_map.insert(key, value);
         }
 
-        keys.sort();
+        keys.sort_unstable();
 
         let nodes = self.insert_leaves(keys, &value_map)?;
 
@@ -282,10 +264,10 @@ impl<
     /// `Exception` generated when an invalid state is encountered during tree traversal.
     fn generate_treerefs(
         &mut self,
-        root: &ArrayType,
-        keys: &mut [ArrayType],
-        key_map: &HashMap<ArrayType, ArrayType>,
-    ) -> BinaryMerkleTreeResult<Vec<TreeRef<ArrayType>>> {
+        root: &Array<N>,
+        keys: &mut [Array<N>],
+        key_map: &HashMap<Array<N>, Array<N>>,
+    ) -> BinaryMerkleTreeResult<Vec<TreeRef<N>>> {
         // Nodes that form the merkle proof for the new tree
         let mut proof_nodes = Vec::with_capacity(keys.len());
 
@@ -296,7 +278,7 @@ impl<
         };
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
-        let root_cell: TreeCell<NodeType, ArrayType> =
+        let root_cell: TreeCell<NodeType, N> =
             TreeCell::new::<BranchType, LeafType, DataType>(*root, keys, root_node, 0);
         cell_queue.push_front(root_cell);
 
@@ -337,11 +319,6 @@ impl<
                 NodeVariant::Data(_) => {
                     return Err(Exception::new(
                         "Corrupt merkle tree: Found data node while traversing tree",
-                    ));
-                }
-                NodeVariant::Phantom(_) => {
-                    return Err(Exception::new(
-                        "Corrupt merkle tree: Found phantom node while traversing tree",
                     ));
                 }
             };
@@ -403,7 +380,7 @@ impl<
     }
 
     /// Inserts a leaf into the DB
-    fn insert_leaf(&mut self, location: &ArrayType) -> BinaryMerkleTreeResult<()> {
+    fn insert_leaf(&mut self, location: &Array<N>) -> BinaryMerkleTreeResult<()> {
         if let Some(mut l) = self.db.get_node(*location)? {
             let leaf_refs = l.get_references() + 1;
             l.set_references(leaf_refs);
@@ -422,12 +399,10 @@ impl<
     fn split_nodes<'node_list>(
         &mut self,
         depth: usize,
-        branch: ArrayType,
-        node_list: &'node_list [ArrayType],
-    ) -> Result<
-        SplitNodeType<'node_list, BranchType, LeafType, DataType, NodeType, ArrayType>,
-        Exception,
-    > {
+        branch: Array<N>,
+        node_list: &'node_list [Array<N>],
+    ) -> Result<SplitNodeType<'node_list, BranchType, LeafType, DataType, NodeType, N>, Exception>
+    {
         if let Some(node) = self.db.get_node(branch)? {
             return if node_list.is_empty() {
                 let other_key;
@@ -448,11 +423,6 @@ impl<
                     NodeVariant::Data(_) => {
                         return Err(Exception::new(
                             "Corrupt merkle tree: Found data node while traversing tree",
-                        ));
-                    }
-                    NodeVariant::Phantom(_) => {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Found phantom node while traversing tree",
                         ));
                     }
                 }
@@ -477,9 +447,9 @@ impl<
     /// Updates reference count if a leaf already exists.
     fn insert_leaves(
         &mut self,
-        keys: &[ArrayType],
-        values: &HashMap<ArrayType, &ValueType>,
-    ) -> BinaryMerkleTreeResult<Vec<ArrayType>> {
+        keys: &[Array<N>],
+        values: &HashMap<Array<N>, &ValueType>,
+    ) -> BinaryMerkleTreeResult<Vec<Array<N>>> {
         let mut nodes = Vec::with_capacity(keys.len());
         for k in keys.iter() {
             let key = k.as_ref();
@@ -533,10 +503,7 @@ impl<
     /// # Errors
     /// `Exception` generated when `tree_refs` is empty or an invalid state is encountered during
     /// tree traversal
-    fn create_tree(
-        &mut self,
-        mut tree_refs: Vec<TreeRef<ArrayType>>,
-    ) -> BinaryMerkleTreeResult<ArrayType> {
+    fn create_tree(&mut self, mut tree_refs: Vec<TreeRef<N>>) -> BinaryMerkleTreeResult<Array<N>> {
         if tree_refs.is_empty() {
             return Err(Exception::new("tree_refs should not be empty!"));
         }
@@ -563,7 +530,7 @@ impl<
                 return Err(Exception::new("Level should not be empty."));
             }
         }
-        root.map_or_else(|| Err(Exception::new("Failed to get root.")), |r| Ok(r))
+        root.map_or_else(|| Err(Exception::new("Failed to get root.")), Ok)
     }
 
     /// Performs the merging of `TreeRef`s until a single new root is left.
@@ -585,10 +552,10 @@ impl<
     /// If the two nodes are not adjacent, find the other node by following the pointer trail.
     fn merge_nodes(
         &mut self,
-        tree_refs: &mut [TreeRef<ArrayType>],
+        tree_refs: &mut [TreeRef<N>],
         level: Vec<(usize, usize, usize)>,
-    ) -> BinaryMerkleTreeResult<Option<ArrayType>> {
-        let mut root = ArrayType::default();
+    ) -> BinaryMerkleTreeResult<Option<Array<N>>> {
+        let mut root = Array::default();
         for (split_index, tree_ref_pointer, next_tree_ref_pointer) in level {
             let mut branch = BranchType::new();
 
@@ -658,7 +625,7 @@ impl<
     /// # Errors
     /// `Exception` generated when an invalid state is encountered during tree traversal.
     #[inline]
-    pub fn remove(&mut self, root_hash: &ArrayType) -> BinaryMerkleTreeResult<()> {
+    pub fn remove(&mut self, root_hash: &Array<N>) -> BinaryMerkleTreeResult<()> {
         let mut nodes = VecDeque::with_capacity(128);
         nodes.push_front(*root_hash);
 
@@ -708,11 +675,6 @@ impl<
                     }
                     new_node = NodeType::new(NodeVariant::Data(d));
                 }
-                NodeVariant::Phantom(_) => {
-                    return Err(Exception::new(
-                        "Corrupt merkle tree: Found phantom node while traversing tree",
-                    ));
-                }
             }
 
             new_node.set_references(refs);
@@ -730,9 +692,9 @@ impl<
     #[inline]
     pub fn generate_inclusion_proof(
         &self,
-        root: &ArrayType,
-        key: ArrayType,
-    ) -> BinaryMerkleTreeResult<Vec<(ArrayType, bool)>> {
+        root: &Array<N>,
+        key: Array<N>,
+    ) -> BinaryMerkleTreeResult<Vec<(Array<N>, bool)>> {
         let mut nodes = VecDeque::with_capacity(self.depth);
         nodes.push_front(*root);
 
@@ -800,11 +762,6 @@ impl<
 
                         proof.push((data_node_location, false));
                     }
-                    NodeVariant::Phantom(_) => {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Found phantom node while traversing tree",
-                        ));
-                    }
                 }
             } else {
                 return Err(Exception::new("Failed to find node"));
@@ -821,10 +778,10 @@ impl<
     /// `Exception` generated when the given proof is invalid.
     #[inline]
     pub fn verify_inclusion_proof(
-        root: &ArrayType,
-        key: ArrayType,
+        root: &Array<N>,
+        key: Array<N>,
         value: &ValueType,
-        proof: &[(ArrayType, bool)],
+        proof: &[(Array<N>, bool)],
     ) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
             return Err(Exception::new("Proof is too short to be valid"));
@@ -881,8 +838,8 @@ impl<
     #[inline]
     pub fn get_one(
         &self,
-        root: &ArrayType,
-        key: &ArrayType,
+        root: &Array<N>,
+        key: &Array<N>,
     ) -> BinaryMerkleTreeResult<Option<ValueType>> {
         let mut nodes = VecDeque::with_capacity(3);
         nodes.push_front(*root);
@@ -939,11 +896,6 @@ impl<
                         let value = ValueType::decode(buffer)?;
                         return Ok(Some(value));
                     }
-                    NodeVariant::Phantom(_) => {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Found phantom node while traversing tree",
-                        ));
-                    }
                 }
             }
         }
@@ -956,10 +908,10 @@ impl<
     #[inline]
     pub fn insert_one(
         &mut self,
-        previous_root: Option<&ArrayType>,
-        key: &ArrayType,
+        previous_root: Option<&Array<N>>,
+        key: &Array<N>,
         value: &ValueType,
-    ) -> BinaryMerkleTreeResult<ArrayType> {
+    ) -> BinaryMerkleTreeResult<Array<N>> {
         let mut value_map = HashMap::new();
         value_map.insert(*key, value);
 
@@ -985,16 +937,16 @@ impl<
 /// Enum used for splitting nodes into either the left or right path during tree traversal
 enum SplitNodeType<
     'keys,
-    BranchType: Branch<ArrayType>,
-    LeafType: Leaf<ArrayType>,
+    BranchType: Branch<N>,
+    LeafType: Leaf<N>,
     DataType: Data,
-    NodeType: Node<BranchType, LeafType, DataType, ArrayType>,
-    ArrayType: Array,
+    NodeType: Node<BranchType, LeafType, DataType, N>,
+    const N: usize,
 > {
     /// Used for building the `proof_nodes` variable during tree traversal
-    Ref(TreeRef<ArrayType>),
+    Ref(TreeRef<N>),
     /// Used for appending to the `cell_queue` during tree traversal.
-    Cell(TreeCell<'keys, NodeType, ArrayType>),
+    Cell(TreeCell<'keys, NodeType, N>),
     /// PhantomData marker
     _UnusedBranch(PhantomData<BranchType>),
     /// PhantomData marker
@@ -1013,10 +965,10 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_easy() -> Result<(), Exception> {
-        let key = [0x0Fu8; KEY_LEN];
+        let key = [0x0F_u8; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i < 4;
-            let branch = choose_zero(key, i)?;
+            let branch = choose_zero(key.into(), i)?;
             assert_eq!(branch, expected_branch);
         }
         Ok(())
@@ -1027,13 +979,13 @@ pub mod tests {
         let key = [0x55; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 == 0;
-            let branch = choose_zero(key, i)?;
+            let branch = choose_zero(key.into(), i)?;
             assert_eq!(branch, expected_branch);
         }
         let key = [0xAA; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 != 0;
-            let branch = choose_zero(key, i)?;
+            let branch = choose_zero(key.into(), i)?;
             assert_eq!(branch, expected_branch);
         }
 
@@ -1045,14 +997,14 @@ pub mod tests {
         let key = [0x68; KEY_LEN];
         for i in 0..8 {
             let expected_branch = !(i == 1 || i == 2 || i == 4);
-            let branch = choose_zero(key, i)?;
+            let branch = choose_zero(key.into(), i)?;
             assert_eq!(branch, expected_branch);
         }
 
         let key = [0xAB; KEY_LEN];
         for i in 0..8 {
             let expected_branch = !(i == 0 || i == 2 || i == 4 || i == 6 || i == 7);
-            let branch = choose_zero(key, i)?;
+            let branch = choose_zero(key.into(), i)?;
             assert_eq!(branch, expected_branch);
         }
 
@@ -1063,7 +1015,7 @@ pub mod tests {
     fn it_splits_an_all_zeros_sorted_list_of_pairs() -> Result<(), Exception> {
         // The complexity of these tests result from the fact that getting a key and splitting the
         // tree should not require any copying or moving of memory.
-        let zero_key = [0x00u8; KEY_LEN];
+        let zero_key = Array([0x00_u8; KEY_LEN]);
         let key_vec = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key,
             zero_key, zero_key,
@@ -1074,7 +1026,7 @@ pub mod tests {
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
         for &res in result.0 {
-            assert_eq!(res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
 
         Ok(())
@@ -1082,7 +1034,7 @@ pub mod tests {
 
     #[test]
     fn it_splits_an_all_ones_sorted_list_of_pairs() -> Result<(), Exception> {
-        let one_key = [0xFFu8; KEY_LEN];
+        let one_key = Array([0xFF_u8; KEY_LEN]);
         let keys = vec![
             one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
             one_key,
@@ -1091,15 +1043,15 @@ pub mod tests {
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
         for &res in result.1 {
-            assert_eq!(res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
         Ok(())
     }
 
     #[test]
     fn it_splits_an_even_length_sorted_list_of_pairs() -> Result<(), Exception> {
-        let zero_key = [0x00u8; KEY_LEN];
-        let one_key = [0xFFu8; KEY_LEN];
+        let zero_key = Array([0x00_u8; KEY_LEN]);
+        let one_key = Array([0xFF_u8; KEY_LEN]);
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
             one_key,
@@ -1108,18 +1060,18 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
-            assert_eq!(res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
         for &res in result.1 {
-            assert_eq!(res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
         Ok(())
     }
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() -> Result<(), Exception> {
-        let zero_key = [0x00u8; KEY_LEN];
-        let one_key = [0xFFu8; KEY_LEN];
+        let zero_key = Array([0x00_u8; KEY_LEN]);
+        let one_key = Array([0xFF_u8; KEY_LEN]);
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
             one_key, one_key,
@@ -1128,10 +1080,10 @@ pub mod tests {
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
-            assert_eq!(res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
         for &res in result.1 {
-            assert_eq!(res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
 
         Ok(())
@@ -1139,8 +1091,8 @@ pub mod tests {
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() -> Result<(), Exception> {
-        let zero_key = [0x00u8; KEY_LEN];
-        let one_key = [0xFFu8; KEY_LEN];
+        let zero_key = Array([0x00_u8; KEY_LEN]);
+        let one_key = Array([0xFF_u8; KEY_LEN]);
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
             one_key, one_key,
@@ -1150,10 +1102,10 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
         for &res in result.0 {
-            assert_eq!(res, [0x00u8; KEY_LEN]);
+            assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
         for &res in result.1 {
-            assert_eq!(res, [0xFFu8; KEY_LEN]);
+            assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
 
         Ok(())

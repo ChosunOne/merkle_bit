@@ -1,28 +1,28 @@
+use crate::Array;
 use std::collections::hash_map::HashMap;
 use std::path::Path;
 
-use crate::constants::KEY_LEN;
-use crate::traits::{Array, Database, Exception};
+use crate::traits::{Database, Exception};
 use crate::tree::tree_node::TreeNode;
 
 /// A database consisting of a `HashMap`.
-pub struct HashDB<ArrayType: Array> {
+pub struct HashDB<const N: usize> {
     /// The internal `HashMap` for storing nodes.
-    map: HashMap<ArrayType, TreeNode<ArrayType>>,
+    map: HashMap<Array<N>, TreeNode<N>>,
 }
 
-impl<ArrayType: Array> HashDB<ArrayType> {
+impl<const N: usize> HashDB<N> {
     /// Creates a new `HashDB`.
     #[inline]
     #[must_use]
-    pub const fn new(map: HashMap<ArrayType, TreeNode<ArrayType>>) -> Self {
+    pub const fn new(map: HashMap<Array<N>, TreeNode<N>>) -> Self {
         Self { map }
     }
 }
 
-impl<ArrayType: Array> Database<ArrayType> for HashDB<ArrayType> {
-    type NodeType = TreeNode<ArrayType>;
-    type EntryType = ([u8; KEY_LEN], Vec<u8>);
+impl<const N: usize> Database<N> for HashDB<N> {
+    type NodeType = TreeNode<N>;
+    type EntryType = (Array<N>, Vec<u8>);
 
     #[inline]
     fn open(_path: &Path) -> Result<Self, Exception> {
@@ -30,7 +30,7 @@ impl<ArrayType: Array> Database<ArrayType> for HashDB<ArrayType> {
     }
 
     #[inline]
-    fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception> {
+    fn get_node(&self, key: Array<N>) -> Result<Option<Self::NodeType>, Exception> {
         self.map.get(&key).map_or(Ok(None), |m| {
             let node = m.clone();
             Ok(Some(node))
@@ -38,13 +38,13 @@ impl<ArrayType: Array> Database<ArrayType> for HashDB<ArrayType> {
     }
 
     #[inline]
-    fn insert(&mut self, key: ArrayType, value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: Array<N>, value: Self::NodeType) -> Result<(), Exception> {
         self.map.insert(key, value);
         Ok(())
     }
 
     #[inline]
-    fn remove(&mut self, key: &ArrayType) -> Result<(), Exception> {
+    fn remove(&mut self, key: &Array<N>) -> Result<(), Exception> {
         self.map.remove(key);
         Ok(())
     }

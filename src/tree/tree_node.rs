@@ -3,8 +3,6 @@ use bincode::{deserialize, serialize};
 #[cfg(feature = "ron")]
 use ron;
 #[cfg(feature = "serde")]
-use serde::de::DeserializeOwned;
-#[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "cbor")]
 use serde_cbor;
@@ -17,9 +15,9 @@ use serde_yaml;
 
 #[cfg(feature = "serde")]
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::{Array, Node, NodeVariant};
 #[cfg(feature = "serde")]
 use crate::traits::{Decode, Encode};
+use crate::traits::{Node, NodeVariant};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
 use crate::tree::tree_leaf::TreeLeaf;
@@ -28,20 +26,16 @@ use crate::tree::tree_leaf::TreeLeaf;
 #[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "serde"), derive(Serialize, Deserialize))]
 #[non_exhaustive]
-pub struct TreeNode<ArrayType: Array> {
+pub struct TreeNode<const N: usize> {
     /// The number of references to this node.
     pub references: u64,
     /// The `NodeVariant` of the node.
-    pub node: NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>,
+    pub node: NodeVariant<TreeBranch<N>, TreeLeaf<N>, TreeData, N>,
 }
 
-impl<ArrayType: Array> Node<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>
-    for TreeNode<ArrayType>
-{
+impl<const N: usize> Node<TreeBranch<N>, TreeLeaf<N>, TreeData, N> for TreeNode<N> {
     #[inline]
-    fn new(
-        node_variant: NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType>,
-    ) -> Self {
+    fn new(node_variant: NodeVariant<TreeBranch<N>, TreeLeaf<N>, TreeData, N>) -> Self {
         Self {
             references: 0,
             node: node_variant,
@@ -53,9 +47,7 @@ impl<ArrayType: Array> Node<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData
         self.references
     }
     #[inline]
-    fn get_variant(
-        self,
-    ) -> NodeVariant<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData, ArrayType> {
+    fn get_variant(self) -> NodeVariant<TreeBranch<N>, TreeLeaf<N>, TreeData, N> {
         self.node
     }
 
@@ -64,11 +56,11 @@ impl<ArrayType: Array> Node<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData
         self.references = references;
     }
     #[inline]
-    fn set_branch(&mut self, branch: TreeBranch<ArrayType>) {
+    fn set_branch(&mut self, branch: TreeBranch<N>) {
         self.node = NodeVariant::Branch(branch);
     }
     #[inline]
-    fn set_leaf(&mut self, leaf: TreeLeaf<ArrayType>) {
+    fn set_leaf(&mut self, leaf: TreeLeaf<N>) {
         self.node = NodeVariant::Leaf(leaf);
     }
     #[inline]
@@ -78,7 +70,7 @@ impl<ArrayType: Array> Node<TreeBranch<ArrayType>, TreeLeaf<ArrayType>, TreeData
 }
 
 #[cfg(feature = "bincode")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serialize(self)?)
@@ -86,7 +78,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "json")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         let encoded = serde_json::to_string(&self)?;
@@ -95,7 +87,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "cbor")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_cbor::to_vec(&self)?)
@@ -103,7 +95,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "yaml")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_yaml::to_vec(&self)?)
@@ -111,7 +103,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "pickle")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(serde_pickle::to_vec(&self, Default::default())?)
@@ -119,7 +111,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "ron")]
-impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
+impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
         Ok(ron::ser::to_string(&self)?.as_bytes().to_vec())
@@ -127,7 +119,7 @@ impl<ArrayType: Array + Serialize> Encode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "bincode")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(deserialize(buffer)?)
@@ -135,7 +127,7 @@ impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "json")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         let decoded_string = String::from_utf8(buffer.to_vec())?;
@@ -145,7 +137,7 @@ impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "cbor")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_cbor::from_slice(buffer)?)
@@ -153,7 +145,7 @@ impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "yaml")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_yaml::from_slice(buffer)?)
@@ -161,7 +153,7 @@ impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "pickle")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(serde_pickle::from_slice(buffer, Default::default())?)
@@ -169,7 +161,7 @@ impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
 }
 
 #[cfg(feature = "ron")]
-impl<ArrayType: Array + DeserializeOwned> Decode for TreeNode<ArrayType> {
+impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
         Ok(ron::de::from_bytes(buffer)?)

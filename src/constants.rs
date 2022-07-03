@@ -1,5 +1,5 @@
 /// The number of bytes in the key.  Maximum value of 32.
-pub const KEY_LEN: usize = 32;
+pub(crate) const KEY_LEN: usize = 32;
 /// The number of bits in the key.
 pub const KEY_LEN_BITS: usize = KEY_LEN * 8 - 1;
 /// These constants are used to quickly calculate the values of log2.

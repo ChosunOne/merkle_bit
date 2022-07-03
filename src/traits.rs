@@ -5,24 +5,15 @@ use std::path::Path;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "use_digest")]
+#[cfg(feature = "digest")]
 use digest::Digest;
 
+use crate::Array;
 use std::convert::Infallible;
-use std::hash::Hash;
-use std::marker::PhantomData;
 use std::num::TryFromIntError;
 
-/// The required interface for an object that functions like an array.
-pub trait Array: AsRef<[u8]> + AsMut<[u8]> + Clone + Copy + Default + Hash + Ord + Sized {}
-
-impl<T> Array for T where T: AsRef<[u8]> + AsMut<[u8]> + Clone + Copy + Default + Hash + Ord + Sized {}
-
 /// The required interface for structs representing a hasher.
-pub trait Hasher<ArrayType>
-where
-    ArrayType: Array,
-{
+pub trait Hasher<const N: usize> {
     /// The type of hasher.
     type HashType;
     /// Creates a new `HashType`.
@@ -30,15 +21,11 @@ where
     /// Adds data to be hashed.
     fn update(&mut self, data: &[u8]);
     /// Outputs the hash from updated data.
-    fn finalize(self) -> ArrayType;
+    fn finalize(self) -> Array<N>;
 }
 
-#[cfg(feature = "use_digest")]
-impl<T, ArrayType> Hasher<ArrayType> for T
-where
-    T: Digest,
-    ArrayType: Array,
-{
+#[cfg(feature = "digest")]
+impl<T: Digest, const N: usize> Hasher<N> for T {
     type HashType = T;
 
     fn new(_size: usize) -> Self::HashType {
@@ -49,8 +36,8 @@ where
         self.update(data);
     }
 
-    fn finalize(self) -> ArrayType {
-        let mut finalized = ArrayType::default();
+    fn finalize(self) -> Array<N> {
+        let mut finalized = Array([0; N]);
         let result = self.finalize();
         let mut size = finalized.as_ref().len();
         if size > result.len() {
@@ -62,53 +49,47 @@ where
 }
 
 /// The required interface for structs representing branches in the tree.
-pub trait Branch<ArrayType>
-where
-    ArrayType: Array,
-{
+pub trait Branch<const N: usize> {
     /// Creates a new `Branch`.
     fn new() -> Self;
     /// Gets the count of leaves beneath this node.
     fn get_count(&self) -> u64;
     /// Gets the location of the zero branch beneath this node.
-    fn get_zero(&self) -> &ArrayType;
+    fn get_zero(&self) -> &Array<N>;
     /// Gets the location of the one branch beneath this node.
-    fn get_one(&self) -> &ArrayType;
+    fn get_one(&self) -> &Array<N>;
     /// Gets the index on which to split keys when traversing this node.
     fn get_split_index(&self) -> usize;
     /// Gets the associated key with this node.
-    fn get_key(&self) -> &ArrayType;
+    fn get_key(&self) -> &Array<N>;
     /// Sets the count of leaves below this node.
     fn set_count(&mut self, count: u64);
     /// Sets the location of the zero branch beneath this node.
-    fn set_zero(&mut self, zero: ArrayType);
+    fn set_zero(&mut self, zero: Array<N>);
     /// Sets the location of the one branch beneath this node..
-    fn set_one(&mut self, one: ArrayType);
+    fn set_one(&mut self, one: Array<N>);
     /// Sets the index on which to split keys when traversing this node.
     fn set_split_index(&mut self, index: usize);
     /// Sets the associated key for this node.
-    fn set_key(&mut self, key: ArrayType);
+    fn set_key(&mut self, key: Array<N>);
     /// Decomposes the `Branch` into its constituent parts.
-    fn decompose(self) -> (u64, ArrayType, ArrayType, usize, ArrayType);
+    fn decompose(self) -> (u64, Array<N>, Array<N>, usize, Array<N>);
 }
 
 /// The required interface for structs representing leaves in the tree.
-pub trait Leaf<ArrayType>
-where
-    ArrayType: Array,
-{
+pub trait Leaf<const N: usize> {
     /// Creates a new `Leaf` node.
     fn new() -> Self;
     /// Gets the associated key with this node.
-    fn get_key(&self) -> &ArrayType;
+    fn get_key(&self) -> &Array<N>;
     /// Gets the location of the `Data` node.
-    fn get_data(&self) -> &ArrayType;
+    fn get_data(&self) -> &Array<N>;
     /// Sets the associated key with this node.
-    fn set_key(&mut self, key: ArrayType);
+    fn set_key(&mut self, key: Array<N>);
     /// Sets the location of the `Data` node.
-    fn set_data(&mut self, data: ArrayType);
+    fn set_data(&mut self, data: Array<N>);
     /// Decomposes the `Leaf` into its constituent parts.
-    fn decompose(self) -> (ArrayType, ArrayType);
+    fn decompose(self) -> (Array<N>, Array<N>);
 }
 
 /// The required interface for structs representing data stored in the tree.
@@ -122,19 +103,13 @@ pub trait Data {
 }
 
 /// The required interface for structs representing nodes in the tree.
-pub trait Node<BranchType, LeafType, DataType, ArrayType>
-where
-    BranchType: Branch<ArrayType>,
-    LeafType: Leaf<ArrayType>,
-    DataType: Data,
-    ArrayType: Array,
-{
+pub trait Node<BranchType: Branch<N>, LeafType: Leaf<N>, DataType: Data, const N: usize> {
     /// Creates a new `Node`.
-    fn new(node_variant: NodeVariant<BranchType, LeafType, DataType, ArrayType>) -> Self;
+    fn new(node_variant: NodeVariant<BranchType, LeafType, DataType, N>) -> Self;
     /// Gets the number of references to this node.
     fn get_references(&self) -> u64;
     /// Decomposes the struct into its inner type.
-    fn get_variant(self) -> NodeVariant<BranchType, LeafType, DataType, ArrayType>;
+    fn get_variant(self) -> NodeVariant<BranchType, LeafType, DataType, N>;
     /// Sets the number of references to this node.
     fn set_references(&mut self, references: u64);
     /// Sets the node to contain a `Branch` node.  Mutually exclusive with `set_data` and `set_leaf`.
@@ -149,27 +124,17 @@ where
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "serde",), derive(Serialize, Deserialize))]
 #[non_exhaustive]
-pub enum NodeVariant<
-    BranchType: Branch<ArrayType>,
-    LeafType: Leaf<ArrayType>,
-    DataType: Data,
-    ArrayType: Array,
-> {
+pub enum NodeVariant<BranchType: Branch<N>, LeafType: Leaf<N>, DataType: Data, const N: usize> {
     /// Variant containing a `Branch` node.
     Branch(BranchType),
     /// Variant containing a `Leaf` node.
     Leaf(LeafType),
     /// Variant containing a `Data` node.
     Data(DataType),
-    /// Marker for `KeyType`.
-    Phantom(PhantomData<ArrayType>),
 }
 
 /// This trait defines the required interface for connecting a storage mechanism to the `MerkleBIT`.
-pub trait Database<ArrayType>
-where
-    ArrayType: Array,
-{
+pub trait Database<const N: usize> {
     /// The type of node to insert into the database.
     type NodeType;
     /// The type of entry for insertion.  Primarily for convenience and tracking what goes into the database.
@@ -183,15 +148,15 @@ where
     /// Gets a value from the database based on the given key.
     /// # Errors
     /// `Exception` generated if the `get_node` does not succeed.
-    fn get_node(&self, key: ArrayType) -> Result<Option<Self::NodeType>, Exception>;
+    fn get_node(&self, key: Array<N>) -> Result<Option<Self::NodeType>, Exception>;
     /// Queues a key and its associated value for insertion to the database.
     /// # Errors
     /// `Exception` generated if the `insert` does not succeed.
-    fn insert(&mut self, key: ArrayType, node: Self::NodeType) -> Result<(), Exception>;
+    fn insert(&mut self, key: Array<N>, node: Self::NodeType) -> Result<(), Exception>;
     /// Removes a key and its associated value from the database.
     /// # Errors
     /// `Exception` generated if the `remove` does not succeed.
-    fn remove(&mut self, key: &ArrayType) -> Result<(), Exception>;
+    fn remove(&mut self, key: &Array<N>) -> Result<(), Exception>;
     /// Confirms previous inserts and writes the changes to the database.
     /// # Errors
     /// `Exception` generated if the `batch_write` does not succeed.

@@ -5,12 +5,13 @@ use std::collections::HashMap;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
-use crate::constants::{KEY_LEN_BITS, MULTIPLY_DE_BRUIJN_BIT_POSITION};
+use crate::constants::MULTIPLY_DE_BRUIJN_BIT_POSITION;
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::{Array, Exception};
+use crate::traits::Exception;
 use crate::utils::tree_ref::TreeRef;
 use std::convert::TryFrom;
 
+use crate::Array;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashSet;
 #[cfg(not(feature = "hashbrown"))]
@@ -20,12 +21,14 @@ use std::collections::HashSet;
 /// # Errors
 /// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
-pub fn choose_zero<ArrayType: Array>(key_array: ArrayType, bit: usize) -> Result<bool, Exception> {
-    let key = key_array.as_ref();
+pub fn choose_zero<const N: usize>(key: Array<N>, bit: usize) -> Result<bool, Exception> {
     let index = bit >> 3_usize;
     let shift = bit % 8;
-    let extracted_bit = usize::try_from(key[index])? >> (7 - shift) & 1;
-    Ok(extracted_bit == 0)
+    if let Some(v) = key.get(index) {
+        let extracted_bit = usize::try_from(*v)? >> (7 - shift) & 1;
+        return Ok(extracted_bit == 0);
+    }
+    Err(Exception::new("Designated bit exceeds key length"))
 }
 
 /// This function splits the list of sorted pairs into two lists, one for going down the zero branch,
@@ -33,10 +36,10 @@ pub fn choose_zero<ArrayType: Array>(key_array: ArrayType, bit: usize) -> Result
 /// # Errors
 /// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
-pub fn split_pairs<ArrayType: Array>(
-    sorted_pairs: &[ArrayType],
+pub fn split_pairs<const N: usize>(
+    sorted_pairs: &[Array<N>],
     bit: usize,
-) -> Result<(&[ArrayType], &[ArrayType]), Exception> {
+) -> Result<(&[Array<N>], &[Array<N>]), Exception> {
     if sorted_pairs.is_empty() {
         return Ok((&[], &[]));
     }
@@ -68,13 +71,12 @@ pub fn split_pairs<ArrayType: Array>(
 /// # Errors
 /// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
-pub fn check_descendants<'keys, ArrayType: Array>(
-    keys: &'keys [ArrayType],
+pub fn check_descendants<'keys, const N: usize>(
+    keys: &'keys [Array<N>],
     branch_split_index: usize,
-    branch_key: &ArrayType,
+    branch_key: &Array<N>,
     min_split_index: usize,
-) -> Result<&'keys [ArrayType], Exception> {
-    let b_key = branch_key.as_ref();
+) -> Result<&'keys [Array<N>], Exception> {
     let mut start = 0;
     let mut end = 0;
     let mut found_start = false;
@@ -83,10 +85,10 @@ pub fn check_descendants<'keys, ArrayType: Array>(
         let mut descendant = true;
         for j in (min_split_index..branch_split_index).step_by(8) {
             let byte = j >> 3_usize;
-            if b_key[byte] == key[byte] {
+            if branch_key[byte] == key[byte] {
                 continue;
             }
-            let xor_key: u8 = b_key[byte] ^ key[byte];
+            let xor_key: u8 = branch_key[byte] ^ key[byte];
             let split_bit = (byte << 3_usize) + 7 - usize::try_from(fast_log_2(xor_key))?;
             if split_bit < branch_split_index {
                 descendant = false;
@@ -114,43 +116,39 @@ pub fn check_descendants<'keys, ArrayType: Array>(
 /// # Errors
 /// May return an `Exception` if the supplied `keys` is empty.
 #[inline]
-pub fn calc_min_split_index<ArrayType>(
-    keys: &[ArrayType],
-    branch_key: &ArrayType,
-) -> Result<usize, Exception>
-where
-    ArrayType: Array,
-{
+pub fn calc_min_split_index<const N: usize>(
+    keys: &[Array<N>],
+    branch_key: &Array<N>,
+) -> Result<usize, Exception> {
     if keys.is_empty() {
         return Err(Exception::new("keys must not be empty."));
     }
-    let b_key = branch_key.as_ref();
     let mut min_key;
     let mut max_key;
     if let Some(key) = keys.iter().min() {
-        min_key = key.as_ref();
+        min_key = key;
     } else {
         return Err(Exception::new("Failed to get min key from list of keys."));
     }
     if let Some(key) = keys.iter().max() {
-        max_key = key.as_ref();
+        max_key = key;
     } else {
         return Err(Exception::new("Failed to get max key from list of keys."));
     }
 
-    if b_key < min_key {
-        min_key = b_key;
-    } else if b_key > max_key {
-        max_key = b_key;
+    if branch_key < min_key {
+        min_key = branch_key;
+    } else if branch_key > max_key {
+        max_key = branch_key;
     }
 
-    let mut split_bit = KEY_LEN_BITS;
+    let mut split_bit = N * 8 - 1;
     for (i, &min_key_byte) in min_key.iter().enumerate() {
         if min_key_byte == max_key[i] {
             continue;
         }
         let xor_key: u8 = min_key_byte ^ max_key[i];
-        split_bit = (i << 3_usize) + 7 - usize::try_from(fast_log_2(xor_key))?;
+        split_bit = (i << 3_usize) + 7_usize - usize::try_from(fast_log_2(xor_key))?;
         break;
     }
     Ok(split_bit)
@@ -159,14 +157,12 @@ where
 /// This function initializes a hashmap to have entries for each provided key.  Values are initialized
 /// to `None`.
 #[inline]
-pub fn generate_leaf_map<ArrayType, ValueType>(
-    keys: &[ArrayType],
-) -> HashMap<ArrayType, Option<ValueType>>
-where
-    ArrayType: Array,
-{
+#[must_use]
+pub fn generate_leaf_map<ValueType, const N: usize>(
+    keys: &[Array<N>],
+) -> HashMap<Array<N>, Option<ValueType>> {
     let mut leaf_map = HashMap::new();
-    for &key in keys.iter() {
+    for &key in keys {
         leaf_map.insert(key, None);
     }
     leaf_map
@@ -187,8 +183,8 @@ pub const fn fast_log_2(num: u8) -> u8 {
 /// # Errors
 /// `Exception` generated from a failure to convert a `u8` to a `usize`
 #[inline]
-pub fn generate_tree_ref_queue<ArrayType: Array, S: std::hash::BuildHasher>(
-    tree_refs: &mut Vec<TreeRef<ArrayType>>,
+pub fn generate_tree_ref_queue<S: std::hash::BuildHasher, const N: usize>(
+    tree_refs: &mut Vec<TreeRef<N>>,
     tree_ref_queue: &mut HashMap<usize, Vec<(usize, usize, usize)>, S>,
 ) -> BinaryMerkleTreeResult<HashSet<usize>> {
     let mut unique_split_bits = HashSet::new();

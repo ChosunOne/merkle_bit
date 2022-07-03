@@ -1,12 +1,8 @@
+use crate::Array;
 use fxhash::FxHasher;
 use std::hash::Hasher;
 
-use crate::traits::Array;
-
-impl<ArrayType> crate::traits::Hasher<ArrayType> for FxHasher
-where
-    ArrayType: Array,
-{
+impl<const N: usize> crate::traits::Hasher<N> for FxHasher {
     type HashType = Self;
 
     #[inline]
@@ -20,9 +16,9 @@ where
     }
 
     #[inline]
-    fn finalize(self) -> ArrayType {
+    fn finalize(self) -> Array<N> {
         let value = Self::finish(&self).to_le_bytes();
-        let mut v = ArrayType::default();
+        let mut v = Array::default();
         let length = v.as_ref().len();
         if length >= 8 {
             v.as_mut()[..8].copy_from_slice(&value);
