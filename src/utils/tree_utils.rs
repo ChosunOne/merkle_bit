@@ -123,21 +123,16 @@ pub fn calc_min_split_index<const N: usize>(
     keys: &[Array<N>],
     branch_key: &Array<N>,
 ) -> Result<usize, Exception> {
-    if keys.is_empty() {
-        return Err(Exception::new("keys must not be empty."));
-    }
-    let mut min_key;
-    let mut max_key;
-    if let Some(key) = keys.iter().min() {
-        min_key = key;
+    let mut min_key = if let Some(key) = keys.first() {
+        key
     } else {
         return Err(Exception::new("Failed to get min key from list of keys."));
-    }
-    if let Some(key) = keys.iter().max() {
-        max_key = key;
+    };
+    let mut max_key = if let Some(key) = keys.last() {
+        key
     } else {
         return Err(Exception::new("Failed to get max key from list of keys."));
-    }
+    };
 
     if branch_key < min_key {
         min_key = branch_key;

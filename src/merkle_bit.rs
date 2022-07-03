@@ -161,29 +161,8 @@ impl<
 
                     let (zeros, ones) = split_pairs(descendants, branch_split_index)?;
 
-                    if let Some(one_node) = self.db.get_node(one)? {
-                        if !ones.is_empty() {
-                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                                one,
-                                ones,
-                                one_node,
-                                tree_cell.depth + 1,
-                            );
-                            cell_queue.push_front(new_cell);
-                        }
-                    }
-
-                    if let Some(zero_node) = self.db.get_node(zero)? {
-                        if !zeros.is_empty() {
-                            let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
-                                zero,
-                                zeros,
-                                zero_node,
-                                tree_cell.depth + 1,
-                            );
-                            cell_queue.push_front(new_cell);
-                        }
-                    }
+                    self.push_cell_if_node(&mut cell_queue, tree_cell.depth, one, ones)?;
+                    self.push_cell_if_node(&mut cell_queue, tree_cell.depth, zero, zeros)?;
                 }
                 NodeVariant::Leaf(n) => {
                     if let Some(d) = self.db.get_node(*n.get_data())? {
@@ -212,6 +191,28 @@ impl<
         }
 
         Ok(leaf_map)
+    }
+
+    /// Pushes a `TreeCell` to the `cell_queue` if the node exists.
+    fn push_cell_if_node<'keys>(
+        &self,
+        cell_queue: &mut VecDeque<TreeCell<'keys, NodeType, N>>,
+        depth: usize,
+        location: Array<N>,
+        locations: &'keys [Array<N>],
+    ) -> BinaryMerkleTreeResult<()> {
+        if let Some(node) = self.db.get_node(location)? {
+            if !locations.is_empty() {
+                let new_cell = TreeCell::new::<BranchType, LeafType, DataType>(
+                    location,
+                    locations,
+                    node,
+                    depth + 1,
+                );
+                cell_queue.push_front(new_cell);
+            }
+        }
+        Ok(())
     }
 
     /// Insert items into the `MerkleBIT`.  Keys must be sorted.  Returns a new root hash for the `MerkleBIT`.
@@ -281,6 +282,17 @@ impl<
             TreeCell::new::<BranchType, LeafType, DataType>(*root, keys, root_node, 0);
         cell_queue.push_front(root_cell);
 
+        self.traverse_tree(key_map, &mut proof_nodes, &mut cell_queue)?;
+        Ok(proof_nodes)
+    }
+
+    /// Traverse the tree and append proof nodes
+    fn traverse_tree(
+        &mut self,
+        key_map: &HashMap<Array<N>, Array<N>>,
+        proof_nodes: &mut Vec<TreeRef<N>>,
+        cell_queue: &mut VecDeque<TreeCell<NodeType, N>>,
+    ) -> BinaryMerkleTreeResult<()> {
         while let Some(tree_cell) = cell_queue.pop_front() {
             if tree_cell.depth > self.depth {
                 return Err(Exception::new("Depth of merkle tree exceeded"));
@@ -375,7 +387,8 @@ impl<
                 }
             }
         }
-        Ok(proof_nodes)
+
+        Ok(())
     }
 
     /// Inserts a leaf into the DB
@@ -954,6 +967,7 @@ enum SplitNodeType<
     _UnusedData(PhantomData<DataType>),
 }
 
+#[allow(clippy::panic_in_result_fn)]
 #[cfg(test)]
 pub mod tests {
     use crate::utils::tree_utils::choose_zero;
@@ -975,12 +989,15 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_medium() -> Result<(), Exception> {
-        let key = [0x55; KEY_LEN];
-        for i in 0..8 {
-            let expected_branch = i % 2 == 0;
-            let branch = choose_zero(key.into(), i)?;
-            assert_eq!(branch, expected_branch);
+        {
+            let key = [0x55; KEY_LEN];
+            for i in 0..8 {
+                let expected_branch = i % 2 == 0;
+                let branch = choose_zero(key.into(), i)?;
+                assert_eq!(branch, expected_branch);
+            }
         }
+
         let key = [0xAA; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i % 2 != 0;
@@ -993,11 +1010,13 @@ pub mod tests {
 
     #[test]
     fn it_chooses_the_right_branch_hard() -> Result<(), Exception> {
-        let key = [0x68; KEY_LEN];
-        for i in 0..8 {
-            let expected_branch = !(i == 1 || i == 2 || i == 4);
-            let branch = choose_zero(key.into(), i)?;
-            assert_eq!(branch, expected_branch);
+        {
+            let key = [0x68; KEY_LEN];
+            for i in 0..8 {
+                let expected_branch = !(i == 1 || i == 2 || i == 4);
+                let branch = choose_zero(key.into(), i)?;
+                assert_eq!(branch, expected_branch);
+            }
         }
 
         let key = [0xAB; KEY_LEN];
