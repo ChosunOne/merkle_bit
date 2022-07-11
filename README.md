@@ -61,7 +61,7 @@ Below are the benchmarks when using ```starling``` on an in-memory database on a
 Starling supports a number of serialization and hashing schemes for use in the tree, which should be selected based on 
 your performance and application needs.
 
-Currently integrated serialization schemes include:
+Currently, integrated serialization schemes include:
 * `bincode`
 * `serde-json`
 * `serde-cbor`
@@ -71,7 +71,7 @@ Currently integrated serialization schemes include:
 
 It should be noted that any serialization scheme will work with starling, provided you implement the ```Encode``` and ```Decode``` traits for the node types.
 
-Currently integrated tree hashing schemes include:
+Currently, integrated tree hashing schemes include:
 * `Blake2b` via `blake2_rfc`
 * `Groestl` via `groestl`
 * `SHA2` via `openssl`
@@ -113,31 +113,35 @@ If you provide your own implementation of the traits for each component of the t
         
         // These type annotations are required to specialize the Merkle BIT
         // Check the documentation for the required trait bounds for each of these types.
-        let mbit = MerkleBIT<DatabaseType, 
-                             BranchType, 
-                             LeafType, 
-                             DataType, 
-                             NodeType, 
-                             HasherType, 
-                             ValueType,
-                             32>::from_db(db, depth);
+        pub struct MyTree;
+        
+        impl MerkleTree for MyTree {
+            type Database = MyDatabase;
+            type Branch = MyBranch;
+            type Leaf = MyLeaf;
+            type Data = MyData;
+            type Node = MyNode;
+            type Hasher = MyHasher;
+            type Value = Myvalue;
+        }
+        let mbit = MerkleBIT<MyTree, 32>::from_db(db, depth);
                              
         // Keys must be of fixed size
         let key: Array<32> = [0xFF; 32].into();
         
-        // An example value created from ValueType.  
-        let value: ValueType = ValueType::new("Some value");
+        // An example value created from `MyValue`.  
+        let value: MyValue = MyValue::new("Some value");
         
         // You can specify a previous root to add to, in this case there is no previous root
         let root: Array<32> = mbit.insert(None, &mut [key], &[value])?;
 
         // Every time an element is added or removed a new root is created.
         let new_key: Array<32> = [0xEE; 32].into();
-        let new_value: ValueType = ValueType::new("Some new value");
+        let new_value: ValueType = MyValue::new("Some new value");
         let new_root: Array<32> = mbit.insert(&root, &mut [key], &[value])?;
         
         // Retrieving the inserted value
-        let inserted_values: HashMap<&Array<32>, Option<ValueType>> = mbit.get(&root, &mut [key])?;
+        let inserted_values: HashMap<&Array<32>, Option<MyValue>> = mbit.get(&root, &mut [key])?;
 
         // You must ensure that the root you supply matches a root where the key existed when retrieving items
         // This line will fail to find the `new_value`

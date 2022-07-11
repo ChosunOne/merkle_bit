@@ -21,4 +21,4 @@ jobs:
       - name: Hashbrown
         run: cargo test --features="hashbrown" --verbose
       - name: RocksDB
-        run: cargo test --features="rocksdb bincode" --verbose
+        run: cargo test --features="rocksdb bincode" --verbose -- --test-threads=1

@@ -7,4 +7,4 @@ cargo bench
 ```
 
 ## Dependencies
-[Criterion](https://crates.io/crates/criterion) version 0.2.10 is used for the performance benchmarks
+[Criterion](https://crates.io/crates/criterion) version 0.3.5 is used for the performance benchmarks
