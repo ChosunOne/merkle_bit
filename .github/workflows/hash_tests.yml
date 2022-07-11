@@ -1,0 +1,54 @@
+name: Hash-Tests
+
+on:
+  push:
+    branches: [ "stable", "beta", "nightly" ]
+  pull_request:
+    branches: [ "stable" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Groestl
+        run: cargo test --features="groestl" --verbose
+      - name: SHA2
+        run: cargo test --features="sha2" --verbose
+      - name: SHA3
+        run: cargo test --features="sha3" --verbose
+      - name: Keccak
+        run: cargo test --features="keccak" --verbose
+      - name: Blake2b
+        run: cargo test --features="blake2b" --verbose
+      - name: MD2
+        run: cargo test --features="md2" --verbose
+      - name: MD4
+        run: cargo test --features="md4" --verbose
+      - name: MD5
+        run: cargo test --features="md5" --verbose
+      - name: Ripemd160
+        run: cargo test --features="ripemd160" --verbose
+      - name: Ripemd320
+        run: cargo test --features="ripemd320" --verbose
+      - name: Rust-SHA2
+        run: cargo test --features="rust_sha2" --verbose
+      - name: Rust-SHA3
+        run: cargo test --features="rust_sha3" --verbose
+      - name: Rust-Keccak
+        run: cargo test --features="rust_keccak" --verbose
+      - name: Whirlpool
+        run: cargo test --features="whirlpool" --verbose
+      - name: FxHash
+        run: cargo test --features="fxhash" --verbose
+      - name: SeaHash
+        run: cargo test --features="seahash" --verbose
+      - name: Blake2-RFC
+        run: cargo test --features="blake2-rfc" --verbose

@@ -1,0 +1,32 @@
+name: Serialization-Tests
+
+on:
+  push:
+    branches: [ "stable", "beta", "nightly" ]
+  pull_request:
+    branches: [ "stable" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Bincode
+        run: cargo test --features="bincode" --verbose
+      - name: JSON
+        run: cargo test --features="json" --verbose
+      - name: CBOR
+        run: cargo test --features="cbor" --verbose
+      - name: YAML
+        run: cargo test --features="yaml" --verbose
+      - name: Pickle
+        run: cargo test --features="pickle" --verbose
+      - name: RON
+        run: cargo test --features="ron" --verbose

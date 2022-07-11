@@ -1,0 +1,24 @@
+name: DB-Tests
+
+on:
+  push:
+    branches: [ "stable", "beta", "nightly" ]
+  pull_request:
+    branches: [ "stable" ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build
+        run: cargo build --verbose
+      - name: Hashbrown
+        run: cargo test --features="hashbrown" --verbose
+      - name: RocksDB
+        run: cargo test --features="rocksdb bincode" --verbose
