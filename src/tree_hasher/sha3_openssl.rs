@@ -19,7 +19,7 @@ impl<const N: usize> crate::traits::Hasher<N> for Sha3Hasher {
     #[inline]
     fn finalize(self) -> Array<N> {
         let mut res = [0; N];
-        self.0.finalize(res.as_mut());
+        self.0.finalize(&mut res);
         res.into()
     }
 }

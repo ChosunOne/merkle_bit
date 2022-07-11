@@ -1,3 +1,14 @@
+# 4.0.0
+* Update dependencies
+* A number of style changes have been updated, as well as the way features are enabled.  Dependencies
+  have also been updated and benches have been updated.
+* BREAKING CHANGE: The optional features no longer use the "use_" prefix now that Rust supports the
+"dep:" syntax since 1.60. Using the features should be much more intuitive now, see the Cargo.toml
+for details.
+* BREAKING CHANGE: Inputs to the tree when using `serde` now need to be the `Array` type until Serde supports const
+generics
+* Keys can now be of any length so long as they are a fixed size array.
+
 # 3.2.3
 * Update dependencies
 # 3.2.2

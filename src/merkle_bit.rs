@@ -520,7 +520,10 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         tree_refs: &mut [TreeRef<N>],
         level: Vec<(usize, usize, usize)>,
     ) -> BinaryMerkleTreeResult<Option<Array<N>>> {
+        #[cfg(feature = "serde")]
         let mut root = Array::default();
+        #[cfg(not(any(feature = "serde")))]
+        let mut root = [0; N];
         for (split_index, tree_ref_pointer, next_tree_ref_pointer) in level {
             let mut branch = M::Branch::new();
 
@@ -973,7 +976,10 @@ pub mod tests {
     fn it_splits_an_all_zeros_sorted_list_of_pairs() -> Result<(), Exception> {
         // The complexity of these tests result from the fact that getting a key and splitting the
         // tree should not require any copying or moving of memory.
+        #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let zero_key = [0x00_u8; KEY_LEN];
         let key_vec = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, zero_key,
             zero_key, zero_key,
@@ -984,7 +990,10 @@ pub mod tests {
         assert_eq!(result.0.len(), 10);
         assert_eq!(result.1.len(), 0);
         for &res in result.0 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0x00_u8; KEY_LEN].into());
+            #[cfg(not(any(feature = "serde")))]
+            assert_eq!(res, [0x00_u8; KEY_LEN]);
         }
 
         Ok(())
@@ -992,7 +1001,10 @@ pub mod tests {
 
     #[test]
     fn it_splits_an_all_ones_sorted_list_of_pairs() -> Result<(), Exception> {
+        #[cfg(feature = "serde")]
         let one_key = Array([0xFF_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let one_key = [0xFF_u8; KEY_LEN];
         let keys = vec![
             one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key, one_key,
             one_key,
@@ -1001,15 +1013,24 @@ pub mod tests {
         assert_eq!(result.0.len(), 0);
         assert_eq!(result.1.len(), 10);
         for &res in result.1 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0xFF_u8; KEY_LEN].into());
+            #[cfg(not(any(feature = "serde")))]
+            assert_eq!(res, [0xFF_u8; KEY_LEN]);
         }
         Ok(())
     }
 
     #[test]
     fn it_splits_an_even_length_sorted_list_of_pairs() -> Result<(), Exception> {
+        #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let zero_key = [0x00_u8; KEY_LEN];
+        #[cfg(feature = "serde")]
         let one_key = Array([0xFF_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let one_key = [0xFF_u8; KEY_LEN];
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
             one_key,
@@ -1018,18 +1039,30 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0x00_u8; KEY_LEN].into());
+            #[cfg(not(any(feature = "serde")))]
+            assert_eq!(res, [0x00_u8; KEY_LEN]);
         }
         for &res in result.1 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0xFF_u8; KEY_LEN].into());
+            #[cfg(not(any(feature = "serde")))]
+            assert_eq!(res, [0xFF_u8; KEY_LEN]);
         }
         Ok(())
     }
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() -> Result<(), Exception> {
+        #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let zero_key = [0x00_u8; KEY_LEN];
+        #[cfg(feature = "serde")]
         let one_key = Array([0xFF_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let one_key = [0xFF_u8; KEY_LEN];
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key,
             one_key, one_key,
@@ -1038,9 +1071,11 @@ pub mod tests {
         assert_eq!(result.0.len(), 6);
         assert_eq!(result.1.len(), 5);
         for &res in result.0 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
         for &res in result.1 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
 
@@ -1049,8 +1084,14 @@ pub mod tests {
 
     #[test]
     fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() -> Result<(), Exception> {
+        #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let zero_key = [0x00_u8; KEY_LEN];
+        #[cfg(feature = "serde")]
         let one_key = Array([0xFF_u8; KEY_LEN]);
+        #[cfg(not(any(feature = "serde")))]
+        let one_key = [0xFF_u8; KEY_LEN];
         let keys = vec![
             zero_key, zero_key, zero_key, zero_key, zero_key, one_key, one_key, one_key, one_key,
             one_key, one_key,
@@ -1060,9 +1101,11 @@ pub mod tests {
         assert_eq!(result.0.len(), 5);
         assert_eq!(result.1.len(), 6);
         for &res in result.0 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0x00_u8; KEY_LEN].into());
         }
         for &res in result.1 {
+            #[cfg(feature = "serde")]
             assert_eq!(res, [0xFF_u8; KEY_LEN].into());
         }
 

@@ -19,7 +19,10 @@ impl<const N: usize> crate::traits::Hasher<N> for KeccakHasher {
 
     #[inline]
     fn finalize(self) -> Array<N> {
+        #[cfg(feature = "serde")]
         let mut res = Array::default();
+        #[cfg(not(any(feature = "serde")))]
+        let mut res = [0; N];
         self.0.finalize(res.as_mut());
         res
     }

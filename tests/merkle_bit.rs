@@ -124,14 +124,17 @@ pub mod integration_tests {
     fn it_gets_an_item_out_of_a_simple_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x01u8; KEY_LEN];
         let path = generate_path(seed);
+        #[cfg(not(any(feature = "serde")))]
         let key = [0xAAu8; KEY_LEN];
+        #[cfg(feature = "serde")]
+        let key = [0xAAu8; KEY_LEN].into();
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root = bmt.insert(None, &mut [key.into()], &vec![value])?;
-        let result = bmt.get(&root, &mut vec![key.into()])?;
+        let root = bmt.insert(None, &mut [key], &vec![value])?;
+        let result = bmt.get(&root, &mut vec![key])?;
         tear_down(&path);
-        assert_eq!(result[&key.into()], Some(vec![0xFFu8]));
+        assert_eq!(result[&key], Some(vec![0xFFu8]));
         Ok(())
     }
 
@@ -139,14 +142,20 @@ pub mod integration_tests {
     fn it_fails_to_get_from_empty_tree() -> BinaryMerkleTreeResult<()> {
         let seed = [0x02u8; KEY_LEN];
         let path = generate_path(seed);
+        #[cfg(not(any(feature = "serde")))]
         let key = [0x00u8; KEY_LEN];
+        #[cfg(feature = "serde")]
+        let key = [0x00_u8; KEY_LEN].into();
+        #[cfg(not(any(feature = "serde")))]
         let root_key = [0x01u8; KEY_LEN];
+        #[cfg(feature = "serde")]
+        let root_key = [0x01u8; KEY_LEN].into();
 
         let bmt = Tree::open(&path, 160)?;
-        let items = bmt.get(&root_key.into(), &mut [key.into()])?;
+        let items = bmt.get(&root_key, &mut [key])?;
         let expected_item = None;
         tear_down(&path);
-        assert_eq!(items[&key.into()], expected_item);
+        assert_eq!(items[&key], expected_item);
         Ok(())
     }
 
@@ -154,16 +163,22 @@ pub mod integration_tests {
     fn it_fails_to_get_a_nonexistent_item() -> BinaryMerkleTreeResult<()> {
         let seed = [0x03u8; KEY_LEN];
         let path = generate_path(seed);
+        #[cfg(not(any(feature = "serde")))]
         let key = [0xAAu8; KEY_LEN];
+        #[cfg(feature = "serde")]
+        let key = [0xAAu8; KEY_LEN].into();
         let value = vec![0xFFu8];
 
         let mut bmt = Tree::open(&path, 160)?;
-        let root = bmt.insert(None, &mut [key.into()], &[value])?;
+        let root = bmt.insert(None, &mut [key], &[value])?;
 
+        #[cfg(not(any(feature = "serde")))]
         let nonexistent_key = [0xAB; KEY_LEN];
-        let items = bmt.get(&root, &mut [nonexistent_key.into()])?;
+        #[cfg(feature = "serde")]
+        let nonexistent_key = [0xAB; KEY_LEN].into();
+        let items = bmt.get(&root, &mut [nonexistent_key])?;
         tear_down(&path);
-        assert_eq!(items[&nonexistent_key.into()], None);
+        assert_eq!(items[&nonexistent_key], None);
         Ok(())
     }
 

@@ -26,8 +26,9 @@ use crate::traits::Branch;
 use crate::traits::{Decode, Encode, Exception};
 
 /// A struct representing a branch in the tree.
-#[derive(Copy, Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(any(feature = "serde"), derive(Serialize, Deserialize))]
+#[cfg_attr(any(feature = "serde"), derive(Default))]
 pub struct TreeBranch<const N: usize> {
     /// The number of leaf nodes under this branch.
     count: u64,
@@ -43,8 +44,21 @@ pub struct TreeBranch<const N: usize> {
 
 impl<const N: usize> Branch<N> for TreeBranch<N> {
     #[inline]
+    #[cfg(feature = "serde")]
     fn new() -> Self {
         Self::default()
+    }
+
+    #[inline]
+    #[cfg(not(any(feature = "serde")))]
+    fn new() -> Self {
+        Self {
+            count: 0,
+            zero: [0; N],
+            one: [0; N],
+            split_index: 0,
+            key: [0; N],
+        }
     }
 
     #[inline]

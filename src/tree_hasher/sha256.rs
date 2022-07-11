@@ -18,8 +18,11 @@ impl<const N: usize> crate::traits::Hasher<N> for Sha256Hasher {
 
     #[inline]
     fn finalize(self) -> Array<N> {
-        let mut v = Array::default();
         let value = self.0.finish();
+        #[cfg(feature = "serde")]
+        let mut v = Array::default();
+        #[cfg(not(any(feature = "serde")))]
+        let mut v = [0; N];
         if N > 32 {
             v[..32].copy_from_slice(&value)
         } else {

@@ -85,12 +85,15 @@ use serde::ser::SerializeSeq;
 use serde::{Deserialize, Deserializer};
 #[cfg(feature = "serde")]
 use serde::{Serialize, Serializer};
+#[cfg(feature = "serde")]
 use std::array::IntoIter;
 #[cfg(feature = "serde")]
 use std::cmp::min;
 #[cfg(feature = "serde")]
 use std::fmt::Formatter;
+#[cfg(feature = "serde")]
 use std::ops::{Deref, DerefMut, Index, IndexMut};
+#[cfg(feature = "serde")]
 use std::slice::{Iter, SliceIndex};
 
 /// Defines constants for the tree.
@@ -114,11 +117,17 @@ pub mod utils;
 /// An implementation of the `MerkleBIT` with a `RocksDB` backend database.
 pub mod rocks_tree;
 
+/// Alias for a fixed sized array
+#[cfg(not(any(feature = "serde")))]
+pub type Array<const N: usize> = [u8; N];
+
 /// A fixed-size array.  Needed because not all of the serialization libraries can handle arbitrary
 /// sized arrays.  Can be converted to and from a `[u8; N]` via `into` and `from`.
+#[cfg(feature = "serde")]
 #[derive(Debug, Copy, Clone, PartialOrd, Ord, PartialEq, Eq, Hash)]
 pub struct Array<const N: usize>([u8; N]);
 
+#[cfg(feature = "serde")]
 impl<const N: usize> Array<N> {
     /// Produces an iterator through the underlying array.
     #[inline]
@@ -127,6 +136,7 @@ impl<const N: usize> Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> Default for Array<N> {
     #[inline]
     fn default() -> Self {
@@ -134,6 +144,7 @@ impl<const N: usize> Default for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> From<[u8; N]> for Array<N> {
     #[inline]
     fn from(array: [u8; N]) -> Self {
@@ -141,6 +152,7 @@ impl<const N: usize> From<[u8; N]> for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> From<Array<N>> for [u8; N] {
     #[inline]
     fn from(array: Array<N>) -> Self {
@@ -148,6 +160,7 @@ impl<const N: usize> From<Array<N>> for [u8; N] {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> IntoIterator for Array<N> {
     type Item = u8;
     type IntoIter = IntoIter<u8, N>;
@@ -158,6 +171,7 @@ impl<const N: usize> IntoIterator for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> AsRef<[u8]> for Array<N> {
     #[inline]
     fn as_ref(&self) -> &[u8] {
@@ -165,6 +179,7 @@ impl<const N: usize> AsRef<[u8]> for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> Deref for Array<N> {
     type Target = [u8; N];
 
@@ -174,6 +189,7 @@ impl<const N: usize> Deref for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize> DerefMut for Array<N> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
@@ -181,6 +197,7 @@ impl<const N: usize> DerefMut for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize, Idx: SliceIndex<[u8]>> Index<Idx> for Array<N> {
     type Output = Idx::Output;
 
@@ -190,6 +207,7 @@ impl<const N: usize, Idx: SliceIndex<[u8]>> Index<Idx> for Array<N> {
     }
 }
 
+#[cfg(feature = "serde")]
 impl<const N: usize, Idx: SliceIndex<[u8]>> IndexMut<Idx> for Array<N> {
     #[inline]
     fn index_mut(&mut self, index: Idx) -> &mut Self::Output {

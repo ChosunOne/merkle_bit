@@ -20,7 +20,10 @@ impl<const N: usize> crate::traits::Hasher<N> for Blake2bHasher {
     #[inline]
     fn finalize(self) -> Array<N> {
         let result = self.0.finalize();
+        #[cfg(feature = "serde")]
         let mut finalized = Array::default();
+        #[cfg(not(any(feature = "serde")))]
+        let mut finalized = [0; N];
         finalized.copy_from_slice(result.as_ref());
         finalized
     }

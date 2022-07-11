@@ -34,10 +34,20 @@ pub struct TreeLeaf<const N: usize> {
 
 impl<const N: usize> Default for TreeLeaf<N> {
     #[inline]
+    #[cfg(feature = "serde")]
     fn default() -> Self {
         Self {
             key: Array::default(),
             data: Array::default(),
+        }
+    }
+
+    #[inline]
+    #[cfg(not(any(feature = "serde")))]
+    fn default() -> Self {
+        Self {
+            key: [0; N],
+            data: [0; N],
         }
     }
 }
