@@ -1,11 +1,13 @@
 #[cfg(feature = "bincode")]
 use bincode::{deserialize, serialize};
+#[cfg(feature = "cbor")]
+use ciborium::de::from_reader;
+#[cfg(feature = "cbor")]
+use ciborium::ser::into_writer;
 #[cfg(feature = "ron")]
 use ron;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "cbor")]
-use serde_cbor;
 #[cfg(feature = "json")]
 use serde_json;
 #[cfg(feature = "pickle")]
@@ -65,7 +67,9 @@ impl Encode for TreeData {
 impl Encode for TreeData {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_cbor::to_vec(&self)?)
+        let mut buf = Vec::new();
+        into_writer(&self, &mut buf)?;
+        Ok(buf)
     }
 }
 
@@ -115,7 +119,7 @@ impl Decode for TreeData {
 impl Decode for TreeData {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
-        Ok(serde_cbor::from_slice(buffer)?)
+        Ok(from_reader(buffer)?)
     }
 }
 

@@ -4,12 +4,14 @@ use std::string::FromUtf8Error;
 use crate::Array;
 #[cfg(feature = "bincode")]
 use bincode::{deserialize, serialize};
+#[cfg(feature = "cbor")]
+use ciborium::de::from_reader;
+#[cfg(feature = "cbor")]
+use ciborium::ser::into_writer;
 #[cfg(feature = "ron")]
 use ron;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "cbor")]
-use serde_cbor;
 #[cfg(feature = "json")]
 use serde_json;
 #[cfg(feature = "pickle")]
@@ -138,14 +140,24 @@ impl From<FromUtf8Error> for Exception {
 impl<const N: usize> Encode for TreeBranch<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_cbor::to_vec(&self)?)
+        let mut buf = Vec::new();
+        into_writer(&self, &mut buf)?;
+        Ok(buf)
     }
 }
 
 #[cfg(feature = "cbor")]
-impl From<serde_cbor::error::Error> for Exception {
+impl From<ciborium::ser::Error<std::io::Error>> for Exception {
     #[inline]
-    fn from(error: serde_cbor::error::Error) -> Self {
+    fn from(error: ciborium::ser::Error<std::io::Error>) -> Self {
+        Self::new(&error.to_string())
+    }
+}
+
+#[cfg(feature = "cbor")]
+impl From<ciborium::de::Error<std::io::Error>> for Exception {
+    #[inline]
+    fn from(error: ciborium::de::Error<std::io::Error>) -> Self {
         Self::new(&error.to_string())
     }
 }
@@ -221,7 +233,7 @@ impl<const N: usize> Decode for TreeBranch<N> {
 impl<const N: usize> Decode for TreeBranch<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
-        Ok(serde_cbor::from_slice(buffer)?)
+        Ok(from_reader(buffer)?)
     }
 }
 
