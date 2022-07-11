@@ -49,8 +49,7 @@ blake2 = { version = "0.10.4", optional = true }
 md2 = { version = "0.10.1", optional = true }
 md4 = { version = "0.10.1", optional = true }
 md-5 = { version = "0.10.1", optional = true }
-ripemd160 = { version = "0.10.0", optional = true }
-ripemd320 = { version = "0.10.0", optional = true }
+ripemd = { version = "0.1.1", optional = true }
 sha-1 = { version = "0.10.0", optional = true }
 sha2 = { version = "0.10.2", optional = true }
 sha3 = { version = "0.10.1", optional = true }
@@ -72,8 +71,8 @@ blake2b = ["blake2", "digest"]
 md2 = ["dep:md2", "digest"]
 md4 = ["dep:md4", "digest"]
 md5 = ["md-5", "digest"]
-ripemd160 = ["dep:ripemd160", "digest"]
-ripemd320 = ["dep:ripemd320", "digest"]
+ripemd160 = ["dep:ripemd", "digest"]
+ripemd320 = ["dep:ripemd", "digest"]
 sha1 = ["sha-1", "digest"]
 rust_sha2 = ["dep:sha2", "digest"]
 rust_sha3 = ["dep:sha3", "digest"]
