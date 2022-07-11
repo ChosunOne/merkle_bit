@@ -1,12 +1,13 @@
 #[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
+use std::marker::PhantomData;
 use std::path::Path;
 
 use crate::Array;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
-use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
+use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, MerkleTree};
 use crate::traits::{Decode, Encode};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
@@ -16,25 +17,28 @@ use crate::tree_db::HashTreeDB;
 use crate::tree_hasher::TreeHasher;
 
 /// Internal type alias for the underlying tree.
-type Tree<ValueType, const N: usize> = MerkleBIT<
-    HashTreeDB<N>,
-    TreeBranch<N>,
-    TreeLeaf<N>,
-    TreeData,
-    TreeNode<N>,
-    TreeHasher,
-    ValueType,
-    N,
->;
+type Tree<const N: usize, Value = Vec<u8>> = MerkleBIT<HashTree<N, Value>, N>;
 
 /// A `MerkleBIT` implemented with a `HashMap`.  Can be used for quickly storing items in memory, though
 /// larger sets of items should be stored on disk or over the network in a real database.
-pub struct HashTree<const N: usize = 32, ValueType: Encode + Decode = Vec<u8>> {
+pub struct HashTree<const N: usize = 32, Value: Encode + Decode = Vec<u8>> {
     /// The underlying tree.  The type requirements have already been implemented for easy use.
-    tree: Tree<ValueType, N>,
+    tree: Tree<N>,
+    /// Marker for `Value`
+    _value: PhantomData<Value>,
 }
 
-impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
+impl<const N: usize, Value: Encode + Decode> MerkleTree<N> for HashTree<N, Value> {
+    type Database = HashTreeDB<N>;
+    type Branch = TreeBranch<N>;
+    type Leaf = TreeLeaf<N>;
+    type Data = TreeData;
+    type Node = TreeNode<N>;
+    type Hasher = TreeHasher;
+    type Value = Value;
+}
+
+impl<const N: usize> HashTree<N> {
     /// Creates a new `HashTree`.  `depth` indicates the maximum depth of the tree.
     /// # Errors
     /// None.
@@ -42,7 +46,10 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
     pub fn new(depth: usize) -> BinaryMerkleTreeResult<Self> {
         let path = Path::new("");
         let tree = MerkleBIT::new(path, depth)?;
-        Ok(Self { tree })
+        Ok(Self {
+            tree,
+            _value: PhantomData::default(),
+        })
     }
 
     /// Creates a new `HashTree`.  This method exists for conforming with the general API for the `MerkleBIT`
@@ -52,7 +59,10 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
     #[inline]
     pub fn open(path: &Path, depth: usize) -> BinaryMerkleTreeResult<Self> {
         let tree = MerkleBIT::new(path, depth)?;
-        Ok(Self { tree })
+        Ok(Self {
+            tree,
+            _value: PhantomData::default(),
+        })
     }
 
     /// Gets the values associated with `keys` from the tree.
@@ -63,7 +73,7 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
         &self,
         root_hash: &Array<N>,
         keys: &mut [Array<N>],
-    ) -> BinaryMerkleTreeResult<HashMap<Array<N>, Option<ValueType>>> {
+    ) -> BinaryMerkleTreeResult<HashMap<Array<N>, Option<<Self as MerkleTree<N>>::Value>>> {
         self.tree.get(root_hash, keys)
     }
 
@@ -76,7 +86,7 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
         &mut self,
         previous_root: Option<&Array<N>>,
         keys: &mut [Array<N>],
-        values: &[ValueType],
+        values: &[<Self as MerkleTree<N>>::Value],
     ) -> BinaryMerkleTreeResult<Array<N>> {
         self.tree.insert(previous_root, keys, values)
     }
@@ -109,7 +119,7 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
     pub fn verify_inclusion_proof(
         root: &Array<N>,
         key: Array<N>,
-        value: &ValueType,
+        value: &<Self as MerkleTree<N>>::Value,
         proof: &[(Array<N>, bool)],
     ) -> BinaryMerkleTreeResult<()> {
         Tree::verify_inclusion_proof(root, key, value, proof)
@@ -123,7 +133,7 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
         &self,
         root: &Array<N>,
         key: &Array<N>,
-    ) -> BinaryMerkleTreeResult<Option<ValueType>> {
+    ) -> BinaryMerkleTreeResult<Option<<Self as MerkleTree<N>>::Value>> {
         self.tree.get_one(root, key)
     }
 
@@ -135,7 +145,7 @@ impl<const N: usize, ValueType: Encode + Decode> HashTree<N, ValueType> {
         &mut self,
         previous_root: Option<&Array<N>>,
         key: &Array<N>,
-        value: &ValueType,
+        value: &<Self as MerkleTree<N>>::Value,
     ) -> BinaryMerkleTreeResult<Array<N>> {
         self.tree.insert_one(previous_root, key, value)
     }

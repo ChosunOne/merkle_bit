@@ -5,8 +5,6 @@ use tiny_keccak::Sha3;
 pub struct Sha3Hasher(Sha3);
 
 impl<const N: usize> crate::traits::Hasher<N> for Sha3Hasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         let hasher = Sha3::v256();

@@ -3,8 +3,6 @@ use fxhash::FxHasher;
 use std::hash::Hasher;
 
 impl<const N: usize> crate::traits::Hasher<N> for FxHasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         Self::default()

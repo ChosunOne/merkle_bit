@@ -4,8 +4,6 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::Hasher as DefaultHasherTrait;
 
 impl<const N: usize> Hasher<N> for DefaultHasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         Self::new()

@@ -17,8 +17,7 @@ impl<const N: usize> HashDB<N> {
     }
 }
 
-impl<const N: usize> Database<N> for HashDB<N> {
-    type NodeType = TreeNode<N>;
+impl<const N: usize> Database<N, TreeNode<N>> for HashDB<N> {
     type EntryType = (Vec<u8>, TreeNode<N>);
 
     #[inline]
@@ -27,7 +26,7 @@ impl<const N: usize> Database<N> for HashDB<N> {
     }
 
     #[inline]
-    fn get_node(&self, key: Array<N>) -> Result<Option<Self::NodeType>, Exception> {
+    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, Exception> {
         if let Some(m) = self.map.get(&key) {
             let node = m.clone();
             Ok(Some(node))
@@ -37,7 +36,7 @@ impl<const N: usize> Database<N> for HashDB<N> {
     }
 
     #[inline]
-    fn insert(&mut self, key: Array<N>, value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), Exception> {
         self.map.insert(key, value);
         Ok(())
     }

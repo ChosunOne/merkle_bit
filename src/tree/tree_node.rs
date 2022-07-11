@@ -33,7 +33,10 @@ pub struct TreeNode<const N: usize> {
     pub node: NodeVariant<TreeBranch<N>, TreeLeaf<N>, TreeData, N>,
 }
 
-impl<const N: usize> Node<TreeBranch<N>, TreeLeaf<N>, TreeData, N> for TreeNode<N> {
+impl<const N: usize> Node<N> for TreeNode<N> {
+    type Branch = TreeBranch<N>;
+    type Leaf = TreeLeaf<N>;
+    type Data = TreeData;
     #[inline]
     fn new(node_variant: NodeVariant<TreeBranch<N>, TreeLeaf<N>, TreeData, N>) -> Self {
         Self {

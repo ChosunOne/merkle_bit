@@ -6,8 +6,6 @@ use crate::Array;
 pub struct KeccakHasher(Keccak);
 
 impl<const N: usize> crate::traits::Hasher<N> for KeccakHasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         let hasher = Keccak::v256();

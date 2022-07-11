@@ -86,7 +86,9 @@ use serde::{Deserialize, Deserializer};
 #[cfg(feature = "serde")]
 use serde::{Serialize, Serializer};
 use std::array::IntoIter;
+#[cfg(feature = "serde")]
 use std::cmp::min;
+#[cfg(feature = "serde")]
 use std::fmt::Formatter;
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::slice::{Iter, SliceIndex};
@@ -173,6 +175,7 @@ impl<const N: usize> Deref for Array<N> {
 }
 
 impl<const N: usize> DerefMut for Array<N> {
+    #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.0
     }

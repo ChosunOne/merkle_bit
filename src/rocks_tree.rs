@@ -2,7 +2,7 @@
 use std::collections::HashMap;
 use std::path::Path;
 
-use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT};
+use crate::merkle_bit::{BinaryMerkleTreeResult, MerkleBIT, MerkleTree};
 use crate::traits::{Database, Decode, Encode};
 use crate::tree::tree_branch::TreeBranch;
 use crate::tree::tree_data::TreeData;
@@ -19,19 +19,20 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 
 /// Internal type alias for the underlying tree.
-type Tree<const N: usize, ValueType> = MerkleBIT<
-    RocksDB<N>,
-    TreeBranch<N>,
-    TreeLeaf<N>,
-    TreeData,
-    TreeNode<N>,
-    TreeHasher,
-    ValueType,
-    N,
->;
+type Tree<const N: usize, Value> = MerkleBIT<RocksTree<N, Value>, N>;
 
 pub struct RocksTree<const N: usize = 32, ValueType: Encode + Decode = Vec<u8>> {
     tree: Tree<N, ValueType>,
+}
+
+impl<const N: usize, Value: Encode + Decode> MerkleTree<N> for RocksTree<N, Value> {
+    type Database = RocksDB<N>;
+    type Branch = TreeBranch<N>;
+    type Leaf = TreeLeaf<N>;
+    type Data = TreeData;
+    type Node = TreeNode<N>;
+    type Hasher = TreeHasher;
+    type Value = Value;
 }
 
 impl<const N: usize, ValueType: Encode + Decode> RocksTree<N, ValueType> {

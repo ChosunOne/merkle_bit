@@ -4,8 +4,6 @@ use std::hash::Hasher;
 use crate::Array;
 
 impl<const N: usize> crate::traits::Hasher<N> for SeaHasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         Self::new()

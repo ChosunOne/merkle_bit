@@ -5,8 +5,6 @@ use crate::Array;
 pub struct Sha256Hasher(Sha256);
 
 impl<const N: usize> crate::traits::Hasher<N> for Sha256Hasher {
-    type HashType = Self;
-
     #[inline]
     fn new(_size: usize) -> Self {
         let hasher = Sha256::new();

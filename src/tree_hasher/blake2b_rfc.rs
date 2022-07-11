@@ -6,8 +6,6 @@ use crate::Array;
 pub struct Blake2bHasher(blake2_rfc::blake2b::Blake2b);
 
 impl<const N: usize> crate::traits::Hasher<N> for Blake2bHasher {
-    type HashType = Self;
-
     #[inline]
     fn new(size: usize) -> Self {
         let hasher = blake2_rfc::blake2b::Blake2b::new(size);

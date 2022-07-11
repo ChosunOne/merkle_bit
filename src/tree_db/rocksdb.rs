@@ -29,11 +29,7 @@ impl<const N: usize> RocksDB<N> {
     }
 }
 
-impl<const N: usize> Database<N> for RocksDB<N>
-where
-    TreeNode<N>: Encode + Decode,
-{
-    type NodeType = TreeNode<N>;
+impl<const N: usize> Database<N, TreeNode<N>> for RocksDB<N> {
     type EntryType = (usize, usize);
 
     #[inline]
@@ -42,16 +38,16 @@ where
     }
 
     #[inline]
-    fn get_node(&self, key: Array<N>) -> Result<Option<Self::NodeType>, Exception> {
+    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, Exception> {
         if let Some(buffer) = self.db.get(&key)? {
-            Ok(Some(Self::NodeType::decode(buffer.as_ref())?))
+            Ok(Some(TreeNode::decode(buffer.as_ref())?))
         } else {
             Ok(None)
         }
     }
 
     #[inline]
-    fn insert(&mut self, key: Array<N>, value: Self::NodeType) -> Result<(), Exception> {
+    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), Exception> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized);

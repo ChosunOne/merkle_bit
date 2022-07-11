@@ -14,10 +14,8 @@ use std::num::TryFromIntError;
 
 /// The required interface for structs representing a hasher.
 pub trait Hasher<const N: usize> {
-    /// The type of hasher.
-    type HashType;
     /// Creates a new `HashType`.
-    fn new(size: usize) -> Self::HashType;
+    fn new(size: usize) -> Self;
     /// Adds data to be hashed.
     fn update(&mut self, data: &[u8]);
     /// Outputs the hash from updated data.
@@ -26,7 +24,7 @@ pub trait Hasher<const N: usize> {
 
 #[cfg(feature = "digest")]
 impl<T: Digest, const N: usize> Hasher<N> for T {
-    type HashType = T;
+    type Hash = T;
 
     fn new(_size: usize) -> Self::HashType {
         Self::HashType::new()
@@ -103,21 +101,27 @@ pub trait Data {
 }
 
 /// The required interface for structs representing nodes in the tree.
-pub trait Node<BranchType: Branch<N>, LeafType: Leaf<N>, DataType: Data, const N: usize> {
+pub trait Node<const N: usize> {
+    /// The type of `Branch` for the `Node`
+    type Branch: Branch<N>;
+    /// The type of `Leaf` for the `Node`
+    type Leaf: Leaf<N>;
+    /// The type of `Data` for the `Node`
+    type Data: Data;
     /// Creates a new `Node`.
-    fn new(node_variant: NodeVariant<BranchType, LeafType, DataType, N>) -> Self;
+    fn new(node_variant: NodeVariant<Self::Branch, Self::Leaf, Self::Data, N>) -> Self;
     /// Gets the number of references to this node.
     fn get_references(&self) -> u64;
     /// Decomposes the struct into its inner type.
-    fn get_variant(self) -> NodeVariant<BranchType, LeafType, DataType, N>;
+    fn get_variant(self) -> NodeVariant<Self::Branch, Self::Leaf, Self::Data, N>;
     /// Sets the number of references to this node.
     fn set_references(&mut self, references: u64);
     /// Sets the node to contain a `Branch` node.  Mutually exclusive with `set_data` and `set_leaf`.
-    fn set_branch(&mut self, branch: BranchType);
+    fn set_branch(&mut self, branch: Self::Branch);
     /// Sets the node to contain a `Leaf` node.  Mututally exclusive with `set_data` and `set_branch`.
-    fn set_leaf(&mut self, leaf: LeafType);
+    fn set_leaf(&mut self, leaf: Self::Leaf);
     /// Sets the node to contain a `Data` node.  Mutually exclusive with `set_leaf` and `set_branch`.
-    fn set_data(&mut self, data: DataType);
+    fn set_data(&mut self, data: Self::Data);
 }
 
 /// Contains the distinguishing data from the node
@@ -134,9 +138,7 @@ pub enum NodeVariant<BranchType: Branch<N>, LeafType: Leaf<N>, DataType: Data, c
 }
 
 /// This trait defines the required interface for connecting a storage mechanism to the `MerkleBIT`.
-pub trait Database<const N: usize> {
-    /// The type of node to insert into the database.
-    type NodeType;
+pub trait Database<const N: usize, M: Node<N>> {
     /// The type of entry for insertion.  Primarily for convenience and tracking what goes into the database.
     type EntryType;
     /// Opens an existing `Database`.
@@ -148,11 +150,11 @@ pub trait Database<const N: usize> {
     /// Gets a value from the database based on the given key.
     /// # Errors
     /// `Exception` generated if the `get_node` does not succeed.
-    fn get_node(&self, key: Array<N>) -> Result<Option<Self::NodeType>, Exception>;
+    fn get_node(&self, key: Array<N>) -> Result<Option<M>, Exception>;
     /// Queues a key and its associated value for insertion to the database.
     /// # Errors
     /// `Exception` generated if the `insert` does not succeed.
-    fn insert(&mut self, key: Array<N>, node: Self::NodeType) -> Result<(), Exception>;
+    fn insert(&mut self, key: Array<N>, node: M) -> Result<(), Exception>;
     /// Removes a key and its associated value from the database.
     /// # Errors
     /// `Exception` generated if the `remove` does not succeed.
