@@ -8,6 +8,7 @@ for details.
 * BREAKING CHANGE: Inputs to the tree when using `serde` now need to be the `Array` type until Serde supports const
 generics
 * Keys can now be of any length so long as they are a fixed size array.
+* Added a `decompose` method to the `MerkleBIT` to allow accessing the underlying DB before it is dropped.
 
 # 3.2.3
 * Update dependencies
