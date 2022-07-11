@@ -149,4 +149,11 @@ impl<const N: usize> HashTree<N> {
     ) -> BinaryMerkleTreeResult<Array<N>> {
         self.tree.insert_one(previous_root, key, value)
     }
+
+    #[inline]
+    #[must_use]
+    /// Decomposes the tree into the its DB and size
+    pub fn decompose(self) -> (HashTreeDB<N>, usize) {
+        self.tree.decompose()
+    }
 }

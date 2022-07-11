@@ -1386,6 +1386,34 @@ pub mod integration_tests {
         Ok(())
     }
 
+    #[test]
+    fn it_actually_removes_things_from_the_db() -> BinaryMerkleTreeResult<()> {
+        let seed = [0x51u8; KEY_LEN];
+        let path = generate_path(seed);
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
+
+        #[cfg(not(feature = "groestl"))]
+        let num_entries = 4096;
+        #[cfg(feature = "groestl")]
+        let num_entries = 512;
+
+        let (mut keys, values) = prepare_inserts(num_entries, &mut rng);
+
+        let mut bmt = Tree::open(&path, 160)?;
+
+        let root = bmt.insert(None, &mut keys, &values)?;
+
+        bmt.remove(&root)?;
+
+        let (db, _) = bmt.decompose();
+        let map = db.decompose();
+        #[cfg(not(any(feature = "rocksdb")))]
+        assert_eq!(map.keys().len(), 0);
+
+        tear_down(&path);
+        Ok(())
+    }
+
     test_key_size!(it_handles_key_size_of_two, 2, [0x94u8; 32], 16, 16);
     test_key_size!(it_handles_key_size_of_three, 3, [0x95u8; 32], 32, 32);
     test_key_size!(it_handles_key_size_of_four, 4, [0x96u8; 32], 64, 64);

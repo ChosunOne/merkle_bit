@@ -1,3 +1,5 @@
+#![allow(unused_qualifications)]
+
 #[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
 use std::collections::VecDeque;
@@ -899,6 +901,12 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
         let new_root = self.create_tree(tree_refs)?;
         Ok(new_root)
+    }
+
+    /// Decomposes the tree into its underlying data structures
+    #[inline]
+    pub fn decompose(self) -> (M::Database, usize) {
+        (self.db, self.depth)
     }
 }
 

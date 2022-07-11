@@ -18,6 +18,13 @@ impl<const N: usize> HashDB<N> {
     pub const fn new(map: HashMap<Array<N>, TreeNode<N>>) -> Self {
         Self { map }
     }
+
+    #[inline]
+    #[must_use]
+    /// Decomposes the `HashDB` into its underlying `HashMap`.
+    pub fn decompose(self) -> HashMap<Array<N>, TreeNode<N>> {
+        self.map
+    }
 }
 
 impl<const N: usize> Database<N, TreeNode<N>> for HashDB<N> {

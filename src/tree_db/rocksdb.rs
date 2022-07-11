@@ -27,6 +27,11 @@ impl<const N: usize> RocksDB<N> {
             pending_inserts: Some(WriteBatch::default()),
         }
     }
+
+    #[inline]
+    pub fn decompose(self) -> DB {
+        self.db
+    }
 }
 
 impl<const N: usize> Database<N, TreeNode<N>> for RocksDB<N> {

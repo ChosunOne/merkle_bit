@@ -110,4 +110,10 @@ impl<const N: usize, ValueType: Encode + Decode> RocksTree<N, ValueType> {
     ) -> BinaryMerkleTreeResult<()> {
         Tree::verify_inclusion_proof(root, key, value, proof)
     }
+
+    #[inline]
+    #[must_use]
+    pub fn decompose(self) -> (RocksDB<N>, usize) {
+        self.tree.decompose()
+    }
 }
