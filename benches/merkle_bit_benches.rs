@@ -26,7 +26,7 @@ type Tree = RocksTree<[u8; KEY_LEN], Vec<u8>>;
 /** Benchmarks 1, 10 , and 100 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut group = c.benchmark_group("Empty Tree");
     let sizes = vec![1, 10, 100, 200, 500, 1000];
@@ -54,7 +54,7 @@ fn hash_tree_empty_tree_insert_benchmark(c: &mut Criterion) {
 /** Benchmarks 1, 10, and 100 inserts into a tree with existing root */
 fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut group = c.benchmark_group("Non-Empty Tree");
     let sizes = vec![1, 10, 100, 200, 500, 1000];
@@ -85,7 +85,7 @@ fn hash_tree_existing_tree_insert_benchmark(c: &mut Criterion) {
 /** Benchmarks retrieving 4096 keys from a tree with 4096 keys */
 fn get_from_hash_tree_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let (mut keys, values) = prepare_inserts(4096, &mut rng);
     let mut bmt = Tree::open(&path, 160).unwrap();
@@ -104,7 +104,7 @@ fn get_from_hash_tree_benchmark(c: &mut Criterion) {
 
 fn remove_from_tree_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let (mut keys, values) = prepare_inserts(4096, &mut rng);
     let mut tree = Tree::open(&path, 160).unwrap();

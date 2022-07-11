@@ -26,7 +26,7 @@ type Tree = RocksTree<[u8; KEY_LEN], Vec<u8>>;
 /** Benchmarks 1000, 2000, 5000, 10000 inserts to a tree with no previous state */
 fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut group = c.benchmark_group("Big Empty Tree");
     let sizes = vec![1000, 2000, 5000, 10000];
@@ -54,7 +54,7 @@ fn hash_tree_empty_tree_insert_big_benchmark(c: &mut Criterion) {
 /** Benchmarks 1000, 2000, 5000, 10000 inserts into a tree with existing root */
 fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut group = c.benchmark_group("Big Non-Empty Tree");
     let sizes = vec![1000, 2000, 5000, 10000];
@@ -86,7 +86,7 @@ fn hash_tree_existing_tree_insert_big_benchmark(c: &mut Criterion) {
 /** Benchmarks retrieving 10000 keys from a tree with 10000 keys */
 fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
     c.bench_function("Big Tree Get Benchmark/10000", move |b| {
         let (mut keys, values) = prepare_inserts(10000, &mut rng);
@@ -107,7 +107,7 @@ fn get_from_hash_tree_big_benchmark(c: &mut Criterion) {
 
 fn remove_from_tree_big_benchmark(c: &mut Criterion) {
     let path = PathBuf::from("db");
-    let seed = [0xBBu8; KEY_LEN];
+    let seed = [0xBBu8; 32];
     let mut rng: StdRng = SeedableRng::from_seed(seed);
 
     c.bench_function("Big Tree Remove Benchmark/10000", move |b| {

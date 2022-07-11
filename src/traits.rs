@@ -33,7 +33,10 @@ impl<T: Digest + Default, const N: usize> Hasher<N> for T {
     }
 
     fn finalize(self) -> Array<N> {
+        #[cfg(feature = "serde")]
         let mut finalized = Array([0; N]);
+        #[cfg(not(any(feature = "serde")))]
+        let mut finalized = [0; N];
         let result = self.finalize();
         let mut size = finalized.as_ref().len();
         if size > result.len() {
