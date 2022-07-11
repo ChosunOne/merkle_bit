@@ -1,6 +1,14 @@
-[![GitHub release](https://img.shields.io/github/release/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/releases) [![Crates.io](https://img.shields.io/crates/v/starling.svg)](https://crates.io/crates/starling) [![Crates.io](https://img.shields.io/crates/l/starling.svg)](https://github.com/ChosunOne/merkle_bit/blob/stable/LICENSE-APACHE) [![GitHub last commit](https://img.shields.io/github/last-commit/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/commits/stable) [![dependency status](https://deps.rs/repo/github/ChosunOne/merkle_bit/status.svg)](https://deps.rs/repo/github/ChosunOne/merkle_bit)
-[![Travis (.com)](https://img.shields.io/travis/com/ChosunOne/merkle_bit.svg)](https://travis-ci.com/ChosunOne/merkle_bit/builds) [![GitHub issues](https://img.shields.io/github/issues-raw/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/issues) 
-[![Codecov branch](https://img.shields.io/codecov/c/github/ChosunOne/merkle_bit/stable.svg)](https://codecov.io/gh/ChosunOne/merkle_bit)  ![Crates.io](https://img.shields.io/crates/d/starling.svg) [![Gitter](https://img.shields.io/gitter/room/merkle_bit/merkle_bit.svg)](https://gitter.im/merkle_bit/community) [![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/ChosunOne?locale.x=en_US)
+[![GitHub release](https://img.shields.io/github/release/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/releases) 
+[![Crates.io](https://img.shields.io/crates/v/starling.svg)](https://crates.io/crates/starling) 
+[![Crates.io](https://img.shields.io/crates/l/starling.svg)](https://github.com/ChosunOne/merkle_bit/blob/stable/LICENSE-APACHE) 
+[![GitHub last commit](https://img.shields.io/github/last-commit/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/commits/stable) 
+[![dependency status](https://deps.rs/repo/github/ChosunOne/merkle_bit/status.svg)](https://deps.rs/repo/github/ChosunOne/merkle_bit)
+[![GitHub issues](https://img.shields.io/github/issues-raw/ChosunOne/merkle_bit.svg)](https://github.com/ChosunOne/merkle_bit/issues) 
+[![Codecov branch](https://img.shields.io/codecov/c/github/ChosunOne/merkle_bit/stable.svg)](https://codecov.io/gh/ChosunOne/merkle_bit)  
+[![Crates.io](https://img.shields.io/crates/d/starling.svg)](https://crates.io/crates/starling)
+[![Gitter](https://img.shields.io/gitter/room/merkle_bit/merkle_bit.svg)](https://gitter.im/merkle_bit/community) 
+[![Donate](https://img.shields.io/badge/Donate-PayPal-green.svg)](https://paypal.me/ChosunOne?locale.x=en_US)
+
 # Merkle Binary Indexed Tree (Merkle-BIT)
 This tree structure is a binary merkle tree with branch compression via split indexes.  This structure can be used to store multiple versions of tree state without any duplication of the stored data, either in memory or on disk.  See [here](https://ethereum.stackexchange.com/questions/15288/ethereum-merkle-tree-explanation) and [here](https://medium.com/@niallmoore22/binary-merkle-trie-aad76f422983) for a basic explanation of its purpose.
 
