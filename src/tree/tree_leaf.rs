@@ -115,7 +115,7 @@ impl<const N: usize> Encode for TreeLeaf<N> {
 impl<const N: usize> Encode for TreeLeaf<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_pickle::to_vec(&self, true)?)
+        Ok(serde_pickle::to_vec(&self, Default::default())?)
     }
 }
 
@@ -165,7 +165,7 @@ impl<const N: usize> Decode for TreeLeaf<N> {
 impl<const N: usize> Decode for TreeLeaf<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
-        Ok(serde_pickle::from_slice(buffer)?)
+        Ok(serde_pickle::from_slice(buffer, Default::default())?)
     }
 }
 

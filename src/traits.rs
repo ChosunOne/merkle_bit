@@ -23,11 +23,9 @@ pub trait Hasher<const N: usize> {
 }
 
 #[cfg(feature = "digest")]
-impl<T: Digest, const N: usize> Hasher<N> for T {
-    type Hash = T;
-
-    fn new(_size: usize) -> Self::HashType {
-        Self::HashType::new()
+impl<T: Digest + Default, const N: usize> Hasher<N> for T {
+    fn new(_size: usize) -> Self {
+        Self::default()
     }
 
     fn update(&mut self, data: &[u8]) {
