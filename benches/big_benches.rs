@@ -10,7 +10,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use starling::Array;
 
-const KEY_LEN: usize = 32;
+const KEY_LEN: usize = 8;
 
 #[cfg(not(any(feature = "rocksdb")))]
 use starling::hash_tree::HashTree;

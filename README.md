@@ -46,24 +46,25 @@ For larger numbers of items to store in the tree, it is recommended to connect t
 
 ## Benchmarks
 
-Below are the benchmarks when using ```starling``` on an in-memory database on a reasonably fast machine:
+Below are the benchmarks when using ```starling``` on an in-memory database on a reasonably fast machine with a key size
+of 8 using the `fxhash` and `hashbrown` features:
 
-| Operation   |      Num. Entries      |  Is Tree Empty? | Measured Benchmark |
-|----------|-------------:|------:|-----:|
-| insertion |  1 | yes | 0.407μs |
-| insertion |  10 | yes | 5.136μs |
-| insertion | 100 | yes | 46.796μs |
-| insertion | 1000 | yes | 480.060μs |
-| insertion | 10000 | yes | 7,219.300μs |
-| insertion | 1 | no | 6.315μs |
-| insertion | 10 | no | 19.400μs |
-| insertion | 100 | no | 149.710μs |
-| insertion | 1000 | no | 1,517.700μs |
-| insertion | 10000 | no | 15,043.000μs |
-| retrieval | 4096 | no | 2,889.100μs |
-| retrieval | 10000 | no | 9,437.100μs |
-| removal | 4096 | no | 0.070μs |
-| removal | 10000 | no | 0.071μs |
+| Operation | Num. Entries | Is Tree Empty? | Measured Benchmark |
+|-----------|-------------:|---------------:|-------------------:|
+| insertion |            1 |            yes |            0.296μs |
+| insertion |           10 |            yes |            3.284μs |
+| insertion |          100 |            yes |           27.084μs |
+| insertion |         1000 |            yes |          266.240μs |
+| insertion |        10000 |            yes |        2,962.000μs |
+| insertion |            1 |             no |            0.635μs |
+| insertion |           10 |             no |            5.762μs |
+| insertion |          100 |             no |           46.157μs |
+| insertion |         1000 |             no |          495.140μs |
+| insertion |        10000 |             no |        7,683.100μs |
+| retrieval |         4096 |             no |        1,613.500μs |
+| retrieval |        10000 |             no |        4,396.700μs |
+| removal   |         4096 |             no |            0.045μs |
+| removal   |        10000 |             no |            0.048μs |
 
 ## Features
 Starling supports a number of serialization and hashing schemes for use in the tree, which should be selected based on 
@@ -107,7 +108,7 @@ To use the full power of the Merkle-BIT structure, you should customize the stru
 
 If you provide your own implementation of the traits for each component of the tree structure, the tree can utilize them over the default implementation.
 ```rust
-    use starling::merkle_bit::MerkleBIT;
+    use starling::merkle_bit::{MerkleBIT, MerkleTree};
     use starling::Array;
     use std::path::Path;
     use std::error::Error;
@@ -123,7 +124,7 @@ If you provide your own implementation of the traits for each component of the t
         // Check the documentation for the required trait bounds for each of these types.
         pub struct MyTree;
         
-        impl MerkleTree for MyTree {
+        impl MerkleTree<32> for MyTree {
             type Database = MyDatabase;
             type Branch = MyBranch;
             type Leaf = MyLeaf;
