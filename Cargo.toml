@@ -24,7 +24,7 @@ lto = true
 debug = true
 
 [dev-dependencies]
-criterion = "0.3.5"
+criterion = "0.4.0"
 rand = { version = "0.8.5", features = ["min_const_gen"] }
 
 [dependencies]
