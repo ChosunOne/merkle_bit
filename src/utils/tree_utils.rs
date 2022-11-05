@@ -10,7 +10,7 @@ use hashbrown::HashMap;
 
 use crate::constants::MULTIPLY_DE_BRUIJN_BIT_POSITION;
 use crate::merkle_bit::BinaryMerkleTreeResult;
-use crate::traits::Exception;
+use crate::traits::MerkleBitError;
 use crate::utils::tree_ref::TreeRef;
 use std::convert::TryFrom;
 
@@ -24,14 +24,13 @@ use std::collections::HashSet;
 /// # Errors
 /// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
-pub fn choose_zero<const N: usize>(key: Array<N>, bit: usize) -> Result<bool, Exception> {
-    let index = bit >> 3_usize;
-    let shift = bit % 8;
-    if let Some(v) = key.get(index) {
-        let extracted_bit = usize::try_from(*v)? >> (7 - shift) & 1;
-        return Ok(extracted_bit == 0);
-    }
-    Err(Exception::new("Designated bit exceeds key length"))
+#[allow(clippy::arithmetic_side_effects)]
+pub fn choose_zero<const N: usize>(key: Array<N>, bit: usize) -> Result<bool, MerkleBitError> {
+    let index = bit.wrapping_shr(3);
+    let shift = bit.wrapping_rem(8);
+    let v = key.get(index).ok_or(MerkleBitError::InvalidKeyBit(index))?;
+    let extracted_bit = usize::try_from(*v)? >> (7 - shift) & 1;
+    Ok(extracted_bit == 0)
 }
 
 /// This function splits the list of sorted pairs into two lists, one for going down the zero branch,
@@ -42,7 +41,7 @@ pub fn choose_zero<const N: usize>(key: Array<N>, bit: usize) -> Result<bool, Ex
 pub fn split_pairs<const N: usize>(
     sorted_pairs: &[Array<N>],
     bit: usize,
-) -> Result<(&[Array<N>], &[Array<N>]), Exception> {
+) -> Result<(&[Array<N>], &[Array<N>]), MerkleBitError> {
     if sorted_pairs.is_empty() {
         return Ok((&[], &[]));
     }
@@ -59,13 +58,7 @@ pub fn split_pairs<const N: usize>(
         }
     }
 
-    let pp = sorted_pairs.partition_point(|&v| {
-        if let Ok(b) = choose_zero(v, bit) {
-            b
-        } else {
-            false
-        }
-    });
+    let pp = sorted_pairs.partition_point(|&v| choose_zero(v, bit).map_or(false, |b| b));
 
     Ok(sorted_pairs.split_at(pp))
 }
@@ -74,12 +67,13 @@ pub fn split_pairs<const N: usize>(
 /// # Errors
 /// `Exception` generated from a failure to convert an `u8` to an `usize`
 #[inline]
+#[allow(clippy::arithmetic_side_effects)]
 pub fn check_descendants<'keys, const N: usize>(
     keys: &'keys [Array<N>],
     branch_split_index: usize,
     branch_key: &Array<N>,
     min_split_index: usize,
-) -> Result<&'keys [Array<N>], Exception> {
+) -> Result<&'keys [Array<N>], MerkleBitError> {
     let mut start = 0;
     let mut end = 0;
     let mut found_start = false;
@@ -87,7 +81,7 @@ pub fn check_descendants<'keys, const N: usize>(
         let key = k.as_ref();
         let mut descendant = true;
         for j in (min_split_index..branch_split_index).step_by(8) {
-            let byte = j >> 3_usize;
+            let byte = j.wrapping_shr(3);
             if branch_key[byte] == key[byte] {
                 continue;
             }
@@ -119,20 +113,13 @@ pub fn check_descendants<'keys, const N: usize>(
 /// # Errors
 /// May return an `Exception` if the supplied `keys` is empty.
 #[inline]
+#[allow(clippy::arithmetic_side_effects)]
 pub fn calc_min_split_index<const N: usize>(
     keys: &[Array<N>],
     branch_key: &Array<N>,
-) -> Result<usize, Exception> {
-    let mut min_key = if let Some(key) = keys.first() {
-        key
-    } else {
-        return Err(Exception::new("Failed to get min key from list of keys."));
-    };
-    let mut max_key = if let Some(key) = keys.last() {
-        key
-    } else {
-        return Err(Exception::new("Failed to get max key from list of keys."));
-    };
+) -> Result<usize, MerkleBitError> {
+    let mut min_key = keys.first().ok_or(MerkleBitError::NoKeys)?;
+    let mut max_key = keys.last().ok_or(MerkleBitError::NoKeys)?;
 
     if branch_key < min_key {
         min_key = branch_key;
@@ -169,6 +156,8 @@ pub fn generate_leaf_map<ValueType, const N: usize>(
 /// This function performs a fast log2 operation for single byte unsigned integers.
 #[inline]
 #[must_use]
+#[allow(clippy::arithmetic_side_effects)]
+#[allow(clippy::as_conversions)]
 pub const fn fast_log_2(num: u8) -> u8 {
     let mut log = num;
     log |= log >> 1_u8;
@@ -181,6 +170,7 @@ pub const fn fast_log_2(num: u8) -> u8 {
 /// # Errors
 /// `Exception` generated from a failure to convert a `u8` to a `usize`
 #[inline]
+#[allow(clippy::arithmetic_side_effects)]
 pub fn generate_tree_ref_queue<S: std::hash::BuildHasher, const N: usize>(
     tree_refs: &mut Vec<TreeRef<N>>,
     tree_ref_queue: &mut HashMap<usize, Vec<(usize, usize, usize)>, S>,
@@ -194,9 +184,7 @@ pub fn generate_tree_ref_queue<S: std::hash::BuildHasher, const N: usize>(
         for j in 0..key_len {
             if j == key_len - 1_usize && left_key[j] == right_key[j] {
                 // The keys are the same and don't diverge
-                return Err(Exception::new(
-                    "Attempted to insert item with duplicate keys",
-                ));
+                return Err(MerkleBitError::DuplicateKey);
             }
             // Skip bytes until we find a difference
             if left_key[j] == right_key[j] {

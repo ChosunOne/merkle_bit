@@ -16,6 +16,7 @@
 #![allow(clippy::separated_literal_suffix)]
 #![allow(clippy::blanket_clippy_restriction_lints)]
 #![forbid(unsafe_code)]
+#![allow(clippy::std_instead_of_core)]
 
 //! # Merkle Binary Indexed Tree
 //! ## Introduction
@@ -113,6 +114,8 @@ pub mod tree_hasher;
 /// Contains a collection of useful structs and functions for tree operations.
 pub mod utils;
 
+/// The prelude for the crate
+pub mod prelude;
 #[cfg(feature = "rocksdb")]
 /// An implementation of the `MerkleBIT` with a `RocksDB` backend database.
 pub mod rocks_tree;

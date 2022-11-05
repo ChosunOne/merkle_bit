@@ -1,3 +1,4 @@
+#![allow(clippy::std_instead_of_core)]
 use std::error::Error;
 use std::fmt::{Display, Formatter, Result as FmtResult};
 use std::path::Path;
@@ -140,30 +141,28 @@ pub enum NodeVariant<BranchType: Branch<N>, LeafType: Leaf<N>, DataType: Data, c
 
 /// This trait defines the required interface for connecting a storage mechanism to the `MerkleBIT`.
 pub trait Database<const N: usize, M: Node<N>> {
-    /// The type of entry for insertion.  Primarily for convenience and tracking what goes into the database.
-    type EntryType;
     /// Opens an existing `Database`.
     /// # Errors
     /// `Exception` generated if the `open` does not succeed.
-    fn open(path: &Path) -> Result<Self, Exception>
+    fn open(path: &Path) -> Result<Self, MerkleBitError>
     where
         Self: Sized;
     /// Gets a value from the database based on the given key.
     /// # Errors
     /// `Exception` generated if the `get_node` does not succeed.
-    fn get_node(&self, key: Array<N>) -> Result<Option<M>, Exception>;
+    fn get_node(&self, key: Array<N>) -> Result<Option<M>, MerkleBitError>;
     /// Queues a key and its associated value for insertion to the database.
     /// # Errors
     /// `Exception` generated if the `insert` does not succeed.
-    fn insert(&mut self, key: Array<N>, node: M) -> Result<(), Exception>;
+    fn insert(&mut self, key: Array<N>, node: M) -> Result<(), MerkleBitError>;
     /// Removes a key and its associated value from the database.
     /// # Errors
     /// `Exception` generated if the `remove` does not succeed.
-    fn remove(&mut self, key: &Array<N>) -> Result<(), Exception>;
+    fn remove(&mut self, key: &Array<N>) -> Result<(), MerkleBitError>;
     /// Confirms previous inserts and writes the changes to the database.
     /// # Errors
     /// `Exception` generated if the `batch_write` does not succeed.
-    fn batch_write(&mut self) -> Result<(), Exception>;
+    fn batch_write(&mut self) -> Result<(), MerkleBitError>;
 }
 
 /// This trait must be implemented to allow a struct to be serialized.
@@ -171,12 +170,12 @@ pub trait Encode {
     /// Encodes a struct into bytes.
     /// # Errors
     /// `Exception` generated when the method encoding the structure fails.
-    fn encode(&self) -> Result<Vec<u8>, Exception>;
+    fn encode(&self) -> Result<Vec<u8>, MerkleBitError>;
 }
 
 impl Encode for Vec<u8> {
     #[inline]
-    fn encode(&self) -> Result<Self, Exception> {
+    fn encode(&self) -> Result<Self, MerkleBitError> {
         Ok(self.clone())
     }
 }
@@ -188,61 +187,118 @@ pub trait Decode {
     /// Decodes bytes into a `Sized` struct.
     /// # Errors
     /// `Exception` generated when the buffer fails to be decoded to the target type.
-    fn decode(buffer: &[u8]) -> Result<Self, Exception>
+    fn decode(buffer: &[u8]) -> Result<Self, MerkleBitError>
     where
         Self: Sized;
 }
 
 impl Decode for Vec<u8> {
     #[inline]
-    fn decode(buffer: &[u8]) -> Result<Self, Exception> {
+    fn decode(buffer: &[u8]) -> Result<Self, MerkleBitError> {
         Ok(buffer.to_vec())
     }
+}
+
+/// An error that results from a corrupt database.  Can happen if the underlying data is modified
+/// outside of this crate.
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum CorruptTreeError {
+    /// A `data` node was found while traversing the tree
+    DataInTree,
+    /// A node other than `data` was found after traversing a leaf
+    NonDataAfterLeaf,
+    /// Failed to find the specified `leaf` in the db
+    NoLeafFromDB,
+    /// Failed to find the specified `node` in the db
+    NoNodeFromDB,
+    /// Found a `leaf` node when expecting a `branch`
+    MisplacedLeaf,
 }
 
 /// A generic error that implements `Error`.
 /// Mostly intended to be used to standardize errors across the crate.
 #[derive(Debug)]
-pub struct Exception {
-    /// The details of an exception
-    details: String,
+#[non_exhaustive]
+pub enum MerkleBitError {
+    /// Failed a checked integer conversion
+    TryFromIntError(TryFromIntError),
+    /// The maximum depth of the tree has been exceeded
+    DepthExceeded(usize),
+    /// An error that indicates the tree is corrupt
+    CorruptTree(CorruptTreeError),
+    /// The length of the given keys and values are not the same
+    KeyValueLengthMismatch((usize, usize)),
+    /// No keys or values were given
+    EmptyKeysOrValues,
+    /// Failed to generate a root
+    NoRoot,
+    /// Tree refs were empty during tree generation
+    EmptyTreeRefs,
+    /// No nodes were specified
+    NoNodes,
+    /// Failed to find the specified key
+    KeyNotPresent,
+    /// The inclusion proof is too short
+    ProofTooShort,
+    /// The inclusion proof is not valid
+    InvalidProof,
+    /// Failed to generate a level in tree generation
+    EmptyLevel,
+    /// Failed to get the bit in the key
+    InvalidKeyBit(usize),
+    /// Infallible
+    Infallible,
+    /// Failed to find either a `min_key` or a `max_key`
+    NoKeys,
+    /// Attempted to insert a duplicate key
+    DuplicateKey,
+    #[cfg(feature = "bincode")]
+    Bincode(Box<bincode::ErrorKind>),
+    #[cfg(feature = "cbor")]
+    CborSerialization(ciborium::ser::Error<std::io::Error>),
+    #[cfg(feature = "cbor")]
+    CborDeserialization(ciborium::de::Error<std::io::Error>),
+    #[cfg(feature = "json")]
+    Json(serde_json::Error),
+    #[cfg(feature = "json")]
+    FromUtf8Error(std::string::FromUtf8Error),
+    #[cfg(feature = "yaml")]
+    Yaml(serde_yaml::Error),
+    #[cfg(feature = "pickle")]
+    Pickle(serde_pickle::Error),
+    #[cfg(feature = "ron")]
+    Ron(ron::error::Error),
+    #[cfg(feature = "ron")]
+    RonSpanned(ron::error::SpannedError),
 }
 
-impl Exception {
-    /// Creates a new `Exception`.
-    #[inline]
-    #[must_use]
-    pub fn new(details: &str) -> Self {
-        Self {
-            details: details.to_owned(),
-        }
-    }
-}
-
-impl Display for Exception {
+impl Display for MerkleBitError {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{}", self.details)
+        write!(f, "{:?}", self)
     }
 }
 
-impl Error for Exception {
-    #[inline]
-    fn description(&self) -> &str {
-        &self.details
-    }
-}
+impl Error for MerkleBitError {}
 
-impl From<Infallible> for Exception {
-    #[inline]
-    fn from(_inf: Infallible) -> Self {
-        Self::new("Infallible")
-    }
-}
-
-impl From<TryFromIntError> for Exception {
+impl From<TryFromIntError> for MerkleBitError {
     #[inline]
     fn from(err: TryFromIntError) -> Self {
-        Self::new(&err.to_string())
+        Self::TryFromIntError(err)
+    }
+}
+
+impl From<Infallible> for MerkleBitError {
+    #[inline]
+    fn from(_err: Infallible) -> Self {
+        Self::Infallible
+    }
+}
+
+impl From<CorruptTreeError> for MerkleBitError {
+    #[inline]
+    fn from(err: CorruptTreeError) -> Self {
+        Self::CorruptTree(err)
     }
 }

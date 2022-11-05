@@ -1,6 +1,6 @@
+use core::marker::PhantomData;
 #[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
-use std::marker::PhantomData;
 use std::path::Path;
 
 use crate::Array;

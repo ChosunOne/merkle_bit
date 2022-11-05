@@ -73,7 +73,7 @@ your performance and application needs.
 Currently, integrated serialization schemes include:
 * `bincode`
 * `serde-json`
-* `serde-cbor`
+* `ciborium`
 * `serde-yaml`
 * `serde-pickle`
 * `ron`

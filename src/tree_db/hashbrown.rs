@@ -2,7 +2,7 @@ use std::path::Path;
 
 use hashbrown::HashMap;
 
-use crate::traits::{Database, Exception};
+use crate::traits::{Database, MerkleBitError};
 use crate::tree::tree_node::TreeNode;
 use crate::Array;
 
@@ -23,15 +23,13 @@ impl<const N: usize> HashDB<N> {
 }
 
 impl<const N: usize> Database<N, TreeNode<N>> for HashDB<N> {
-    type EntryType = (Vec<u8>, TreeNode<N>);
-
     #[inline]
-    fn open(_path: &Path) -> Result<Self, Exception> {
+    fn open(_path: &Path) -> Result<Self, MerkleBitError> {
         Ok(Self::new(HashMap::new()))
     }
 
     #[inline]
-    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, Exception> {
+    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, MerkleBitError> {
         if let Some(m) = self.map.get(&key) {
             let node = m.clone();
             Ok(Some(node))
@@ -41,19 +39,19 @@ impl<const N: usize> Database<N, TreeNode<N>> for HashDB<N> {
     }
 
     #[inline]
-    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), Exception> {
+    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), MerkleBitError> {
         self.map.insert(key, value);
         Ok(())
     }
 
     #[inline]
-    fn remove(&mut self, key: &Array<N>) -> Result<(), Exception> {
+    fn remove(&mut self, key: &Array<N>) -> Result<(), MerkleBitError> {
         self.map.remove(key);
         Ok(())
     }
 
     #[inline]
-    fn batch_write(&mut self) -> Result<(), Exception> {
+    fn batch_write(&mut self) -> Result<(), MerkleBitError> {
         Ok(())
     }
 }

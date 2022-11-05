@@ -23,7 +23,7 @@ use serde_yaml;
 use crate::merkle_bit::BinaryMerkleTreeResult;
 use crate::traits::Branch;
 #[cfg(feature = "serde")]
-use crate::traits::{Decode, Encode, Exception};
+use crate::traits::{Decode, Encode, MerkleBitError};
 
 /// A struct representing a branch in the tree.
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
@@ -118,10 +118,10 @@ impl<const N: usize> Encode for TreeBranch<N> {
 }
 
 #[cfg(feature = "bincode")]
-impl From<Box<bincode::ErrorKind>> for Exception {
+impl From<Box<bincode::ErrorKind>> for MerkleBitError {
     #[inline]
     fn from(error: Box<bincode::ErrorKind>) -> Self {
-        Self::new(&error.to_string())
+        Self::Bincode(error)
     }
 }
 
@@ -135,18 +135,18 @@ impl<const N: usize> Encode for TreeBranch<N> {
 }
 
 #[cfg(feature = "json")]
-impl From<serde_json::Error> for Exception {
+impl From<serde_json::Error> for MerkleBitError {
     #[inline]
     fn from(error: serde_json::Error) -> Self {
-        Self::new(&error.to_string())
+        Self::Json(error)
     }
 }
 
 #[cfg(feature = "json")]
-impl From<FromUtf8Error> for Exception {
+impl From<FromUtf8Error> for MerkleBitError {
     #[inline]
     fn from(error: FromUtf8Error) -> Self {
-        Self::new(&error.to_string())
+        Self::FromUtf8Error(error)
     }
 }
 
@@ -161,18 +161,18 @@ impl<const N: usize> Encode for TreeBranch<N> {
 }
 
 #[cfg(feature = "cbor")]
-impl From<ciborium::ser::Error<std::io::Error>> for Exception {
+impl From<ciborium::ser::Error<std::io::Error>> for MerkleBitError {
     #[inline]
     fn from(error: ciborium::ser::Error<std::io::Error>) -> Self {
-        Self::new(&error.to_string())
+        Self::CborSerialization(error)
     }
 }
 
 #[cfg(feature = "cbor")]
-impl From<ciborium::de::Error<std::io::Error>> for Exception {
+impl From<ciborium::de::Error<std::io::Error>> for MerkleBitError {
     #[inline]
     fn from(error: ciborium::de::Error<std::io::Error>) -> Self {
-        Self::new(&error.to_string())
+        Self::CborDeserialization(error)
     }
 }
 
@@ -180,15 +180,15 @@ impl From<ciborium::de::Error<std::io::Error>> for Exception {
 impl<const N: usize> Encode for TreeBranch<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_yaml::to_vec(&self)?)
+        Ok(Vec::from(serde_yaml::to_string(&self)?))
     }
 }
 
 #[cfg(feature = "yaml")]
-impl From<serde_yaml::Error> for Exception {
+impl From<serde_yaml::Error> for MerkleBitError {
     #[inline]
     fn from(error: serde_yaml::Error) -> Self {
-        Self::new(&error.to_string())
+        Self::Yaml(error)
     }
 }
 
@@ -201,10 +201,10 @@ impl<const N: usize> Encode for TreeBranch<N> {
 }
 
 #[cfg(feature = "pickle")]
-impl From<serde_pickle::Error> for Exception {
+impl From<serde_pickle::Error> for MerkleBitError {
     #[inline]
     fn from(error: serde_pickle::Error) -> Self {
-        Self::new(&error.to_string())
+        Self::Pickle(error)
     }
 }
 
@@ -217,10 +217,18 @@ impl<const N: usize> Encode for TreeBranch<N> {
 }
 
 #[cfg(feature = "ron")]
-impl From<ron::error::Error> for Exception {
+impl From<ron::error::Error> for MerkleBitError {
     #[inline]
     fn from(error: ron::error::Error) -> Self {
-        Self::new(&error.to_string())
+        Self::Ron(error)
+    }
+}
+
+#[cfg(feature = "ron")]
+impl From<ron::error::SpannedError> for MerkleBitError {
+    #[inline]
+    fn from(error: ron::error::SpannedError) -> Self {
+        Self::RonSpanned(error)
     }
 }
 

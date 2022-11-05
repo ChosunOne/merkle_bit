@@ -1,13 +1,13 @@
 use std::error::Error;
 use std::path::Path;
 
-use crate::traits::{Database, Decode, Encode, Exception};
+use crate::traits::{Database, Decode, Encode, MerkleBitError};
 use crate::tree::tree_node::TreeNode;
 use crate::Array;
 use rocksdb::{WriteBatch, DB};
 use std::marker::PhantomData;
 
-impl From<rocksdb::Error> for Exception {
+impl From<rocksdb::Error> for MerkleBitError {
     #[inline]
     fn from(error: rocksdb::Error) -> Self {
         Self::new(&error.to_string())
@@ -35,15 +35,13 @@ impl<const N: usize> RocksDB<N> {
 }
 
 impl<const N: usize> Database<N, TreeNode<N>> for RocksDB<N> {
-    type EntryType = (usize, usize);
-
     #[inline]
-    fn open(path: &Path) -> Result<Self, Exception> {
+    fn open(path: &Path) -> Result<Self, MerkleBitError> {
         Ok(Self::new(DB::open_default(path)?))
     }
 
     #[inline]
-    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, Exception> {
+    fn get_node(&self, key: Array<N>) -> Result<Option<TreeNode<N>>, MerkleBitError> {
         if let Some(buffer) = self.db.get(&key)? {
             Ok(Some(TreeNode::decode(buffer.as_ref())?))
         } else {
@@ -52,7 +50,7 @@ impl<const N: usize> Database<N, TreeNode<N>> for RocksDB<N> {
     }
 
     #[inline]
-    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), Exception> {
+    fn insert(&mut self, key: Array<N>, value: TreeNode<N>) -> Result<(), MerkleBitError> {
         let serialized = value.encode()?;
         if let Some(wb) = &mut self.pending_inserts {
             wb.put(key, serialized);
@@ -65,12 +63,12 @@ impl<const N: usize> Database<N, TreeNode<N>> for RocksDB<N> {
     }
 
     #[inline]
-    fn remove(&mut self, key: &Array<N>) -> Result<(), Exception> {
+    fn remove(&mut self, key: &Array<N>) -> Result<(), MerkleBitError> {
         Ok(self.db.delete(key)?)
     }
 
     #[inline]
-    fn batch_write(&mut self) -> Result<(), Exception> {
+    fn batch_write(&mut self) -> Result<(), MerkleBitError> {
         if let Some(wb) = self.pending_inserts.replace(WriteBatch::default()) {
             self.db.write(wb)?;
         }

@@ -1,3 +1,8 @@
+# 4.1.0
+* Update optional dependencies
+* BREAKING CHANGE: Rename `Exception` -> `MerkleBitError`
+* Improve usability of `MerkleBitError`
+
 # 4.0.0
 * Update dependencies
 * A number of style changes have been updated, as well as the way features are enabled.  Dependencies

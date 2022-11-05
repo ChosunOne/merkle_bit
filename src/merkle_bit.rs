@@ -1,27 +1,23 @@
 #![allow(unused_qualifications)]
-
+#![allow(clippy::std_instead_of_alloc)]
+use core::convert::TryFrom;
 #[cfg(not(any(feature = "hashbrown")))]
 use std::collections::HashMap;
+
 use std::collections::VecDeque;
-use std::convert::TryFrom;
 use std::path::Path;
 
 use crate::Array;
 #[cfg(feature = "hashbrown")]
 use hashbrown::HashMap;
 
-use crate::traits::{
-    Branch, Data, Database, Decode, Encode, Exception, Hasher, Leaf, Node, NodeVariant,
-};
+use crate::prelude::*;
 use crate::utils::tree_cell::TreeCell;
 use crate::utils::tree_ref::TreeRef;
-use crate::utils::tree_utils::{
-    calc_min_split_index, check_descendants, choose_zero, generate_leaf_map,
-    generate_tree_ref_queue, split_pairs,
-};
+use crate::utils::tree_utils::*;
 
 /// A generic `Result` from an operation involving a `MerkleBIT`
-pub type BinaryMerkleTreeResult<T> = Result<T, Exception>;
+pub type BinaryMerkleTreeResult<T> = Result<T, MerkleBitError>;
 
 /// A trait collecting all the associated types for the `Merkle-BIT`.
 pub trait MerkleTree<const N: usize> {
@@ -87,9 +83,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
         keys.sort_unstable();
 
-        let root_node = if let Some(n) = self.db.get_node(*root_hash)? {
-            n
-        } else {
+        let Some(root_node) = self.db.get_node(*root_hash)? else {
             return Ok(leaf_map);
         };
 
@@ -102,7 +96,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
         while let Some(tree_cell) = cell_queue.pop_front() {
             if tree_cell.depth > self.depth {
-                return Err(Exception::new("Depth of merkle tree exceeded"));
+                return Err(MerkleBitError::DepthExceeded(tree_cell.depth));
             }
 
             let node = tree_cell.node;
@@ -127,27 +121,20 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     self.push_cell_if_node(&mut cell_queue, tree_cell.depth, zero, zeros)?;
                 }
                 NodeVariant::Leaf(n) => {
-                    if let Some(d) = self.db.get_node(*n.get_data())? {
-                        if let NodeVariant::Data(data) = d.get_variant() {
-                            let value = M::Value::decode(data.get_value())?;
-                            if let Ok(index) = keys.binary_search(n.get_key()) {
-                                leaf_map.insert(keys[index], Some(value));
-                            }
-                        } else {
-                            return Err(Exception::new(
-                                "Corrupt merkle tree: Found non data node after leaf",
-                            ));
-                        }
-                    } else {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Failed to get leaf node from DB",
-                        ));
+                    let d = self
+                        .db
+                        .get_node(*n.get_data())?
+                        .ok_or(CorruptTreeError::NoLeafFromDB)?;
+                    let NodeVariant::Data(data) = d.get_variant() else {
+                        return Err(CorruptTreeError::NonDataAfterLeaf.into());
+                    };
+                    let value = M::Value::decode(data.get_value())?;
+                    if let Ok(index) = keys.binary_search(n.get_key()) {
+                        leaf_map.insert(keys[index], Some(value));
                     }
                 }
                 NodeVariant::Data(_) => {
-                    return Err(Exception::new(
-                        "Corrupt merkle tree: Found data node while traversing tree",
-                    ));
+                    return Err(CorruptTreeError::DataInTree.into());
                 }
             }
         }
@@ -169,7 +156,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     location,
                     locations,
                     node,
-                    depth + 1,
+                    depth.saturating_add(1),
                 );
                 cell_queue.push_front(new_cell);
             }
@@ -188,11 +175,14 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         values: &[M::Value],
     ) -> BinaryMerkleTreeResult<Array<N>> {
         if keys.len() != values.len() {
-            return Err(Exception::new("Keys and values have different lengths"));
+            return Err(MerkleBitError::KeyValueLengthMismatch((
+                keys.len(),
+                values.len(),
+            )));
         }
 
         if keys.is_empty() || values.is_empty() {
-            return Err(Exception::new("Keys or values are empty"));
+            return Err(MerkleBitError::EmptyKeysOrValues);
         }
 
         let mut value_map = HashMap::new();
@@ -233,11 +223,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         // Nodes that form the merkle proof for the new tree
         let mut proof_nodes = Vec::with_capacity(keys.len());
 
-        let root_node = if let Some(m) = self.db.get_node(*root)? {
-            m
-        } else {
-            return Err(Exception::new("Could not find root"));
-        };
+        let root_node = self.db.get_node(*root)?.ok_or(MerkleBitError::NoRoot)?;
 
         let mut cell_queue = VecDeque::with_capacity(keys.len());
         let root_cell: TreeCell<M::Node, N> =
@@ -257,7 +243,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
     ) -> BinaryMerkleTreeResult<()> {
         while let Some(tree_cell) = cell_queue.pop_front() {
             if tree_cell.depth > self.depth {
-                return Err(Exception::new("Depth of merkle tree exceeded"));
+                return Err(MerkleBitError::DepthExceeded(tree_cell.depth));
             }
 
             let node = tree_cell.node;
@@ -290,9 +276,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     continue;
                 }
                 NodeVariant::Data(_) => {
-                    return Err(Exception::new(
-                        "Corrupt merkle tree: Found data node while traversing tree",
-                    ));
+                    return Err(CorruptTreeError::DataInTree.into());
                 }
             };
 
@@ -320,7 +304,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     new_branch.set_key(branch_key);
 
                     let tree_ref = TreeRef::new(branch_key, tree_cell.location, branch_count, 1);
-                    refs += 1;
+                    refs = refs.saturating_add(1);
                     let mut new_node = M::Node::new(NodeVariant::Branch(new_branch));
                     new_node.set_references(refs);
                     self.db.insert(tree_ref.location, new_node)?;
@@ -349,15 +333,14 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
     /// Inserts a leaf into the DB
     fn insert_leaf(&mut self, location: &Array<N>) -> BinaryMerkleTreeResult<()> {
-        if let Some(mut l) = self.db.get_node(*location)? {
-            let leaf_refs = l.get_references() + 1;
-            l.set_references(leaf_refs);
-            self.db.insert(*location, l)?;
-            return Ok(());
-        }
-        Err(Exception::new(
-            "Corrupt merkle tree: Failed to update leaf references",
-        ))
+        let mut l = self
+            .db
+            .get_node(*location)?
+            .ok_or(CorruptTreeError::NoLeafFromDB)?;
+        let leaf_refs = l.get_references().saturating_add(1);
+        l.set_references(leaf_refs);
+        self.db.insert(*location, l)?;
+        Ok(())
     }
 
     /// Splits nodes during tree traversal into either zeros or ones, depending on the selected bit
@@ -369,45 +352,44 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         depth: usize,
         branch: Array<N>,
         node_list: &'node_list [Array<N>],
-    ) -> Result<SplitNodeType<'node_list, M::Node, N>, Exception> {
-        if let Some(node) = self.db.get_node(branch)? {
-            return if node_list.is_empty() {
-                let other_key;
-                let count;
-                let refs = node.get_references() + 1;
-                let mut new_node;
-                match node.get_variant() {
-                    NodeVariant::Branch(b) => {
-                        count = b.get_count();
-                        other_key = *b.get_key();
-                        new_node = M::Node::new(NodeVariant::Branch(b));
-                    }
-                    NodeVariant::Leaf(l) => {
-                        count = 1;
-                        other_key = *l.get_key();
-                        new_node = M::Node::new(NodeVariant::Leaf(l));
-                    }
-                    NodeVariant::Data(_) => {
-                        return Err(Exception::new(
-                            "Corrupt merkle tree: Found data node while traversing tree",
-                        ));
-                    }
+    ) -> Result<SplitNodeType<'node_list, M::Node, N>, MerkleBitError> {
+        let node = self
+            .db
+            .get_node(branch)?
+            .ok_or(CorruptTreeError::NoNodeFromDB)?;
+        return if node_list.is_empty() {
+            let other_key;
+            let count;
+            let refs = node.get_references().saturating_add(1);
+            let mut new_node;
+            match node.get_variant() {
+                NodeVariant::Branch(b) => {
+                    count = b.get_count();
+                    other_key = *b.get_key();
+                    new_node = M::Node::new(NodeVariant::Branch(b));
                 }
-                new_node.set_references(refs);
-                self.db.insert(branch, new_node)?;
-                let tree_ref = TreeRef::new(other_key, branch, count, 1);
-                Ok(SplitNodeType::Ref(tree_ref))
-            } else {
-                let new_cell = TreeCell::new::<M::Branch, M::Leaf, M::Data>(
-                    branch,
-                    node_list,
-                    node,
-                    depth + 1,
-                );
-                Ok(SplitNodeType::Cell(new_cell))
-            };
-        }
-        Err(Exception::new("Failed to find node in database."))
+                NodeVariant::Leaf(l) => {
+                    count = 1;
+                    other_key = *l.get_key();
+                    new_node = M::Node::new(NodeVariant::Leaf(l));
+                }
+                NodeVariant::Data(_) => {
+                    return Err(CorruptTreeError::DataInTree.into());
+                }
+            }
+            new_node.set_references(refs);
+            self.db.insert(branch, new_node)?;
+            let tree_ref = TreeRef::new(other_key, branch, count, 1);
+            Ok(SplitNodeType::Ref(tree_ref))
+        } else {
+            let new_cell = TreeCell::new::<M::Branch, M::Leaf, M::Data>(
+                branch,
+                node_list,
+                node,
+                depth.saturating_add(1),
+            );
+            Ok(SplitNodeType::Cell(new_cell))
+        };
     }
 
     /// Inserts all the new leaves into the database.
@@ -440,7 +422,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
             let mut leaf_hasher = M::Hasher::new(key.len());
             leaf_hasher.update(b"l");
-            leaf_hasher.update(key.as_ref());
+            leaf_hasher.update(key);
             leaf_hasher.update(leaf.get_data().as_ref());
             let leaf_node_location = leaf_hasher.finalize();
 
@@ -448,12 +430,12 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
             leaf_node.set_references(1);
 
             if let Some(n) = self.db.get_node(data_node_location)? {
-                let references = n.get_references() + 1;
+                let references = n.get_references().saturating_add(1);
                 data_node.set_references(references);
             }
 
             if let Some(n) = self.db.get_node(leaf_node_location)? {
-                let references = n.get_references() + 1;
+                let references = n.get_references().saturating_add(1);
                 leaf_node.set_references(references);
             }
 
@@ -472,7 +454,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
     /// tree traversal
     fn create_tree(&mut self, mut tree_refs: Vec<TreeRef<N>>) -> BinaryMerkleTreeResult<Array<N>> {
         if tree_refs.is_empty() {
-            return Err(Exception::new("tree_refs should not be empty!"));
+            return Err(MerkleBitError::EmptyTreeRefs);
         }
 
         if tree_refs.len() == 1 {
@@ -491,13 +473,12 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
         let mut root = None;
         for i in indices.into_iter().rev() {
-            if let Some(level) = tree_ref_queue.remove(&i) {
-                root = self.merge_nodes(&mut tree_refs, level)?;
-            } else {
-                return Err(Exception::new("Level should not be empty."));
-            }
+            let level = tree_ref_queue
+                .remove(&i)
+                .ok_or(MerkleBitError::EmptyLevel)?;
+            root = self.merge_nodes(&mut tree_refs, level)?;
         }
-        root.map_or_else(|| Err(Exception::new("Failed to get root.")), Ok)
+        root.map_or_else(|| Err(MerkleBitError::NoRoot), Ok)
     }
 
     /// Performs the merging of `TreeRef`s until a single new root is left.
@@ -541,11 +522,13 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
                 if count_ > 1 {
                     // Look ahead by the count from our position
-                    lookahead_tree_ref_pointer = tree_ref_pointer + usize::try_from(count_)?;
+                    lookahead_tree_ref_pointer =
+                        tree_ref_pointer.saturating_add(usize::try_from(count_)?);
                     lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     while lookahead_count > count_ {
                         count_ = lookahead_count;
-                        lookahead_tree_ref_pointer = tree_ref_pointer + usize::try_from(count_)?;
+                        lookahead_tree_ref_pointer =
+                            tree_ref_pointer.saturating_add(usize::try_from(count_)?);
                         lookahead_count = tree_refs[lookahead_tree_ref_pointer].count;
                     }
                 } else {
@@ -555,7 +538,8 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
             }
 
             let next_tree_ref_location = tree_refs[lookahead_tree_ref_pointer].location;
-            let count = tree_ref_count + tree_refs[lookahead_tree_ref_pointer].node_count;
+            let count =
+                tree_ref_count.saturating_add(tree_refs[lookahead_tree_ref_pointer].node_count);
             let branch_node_location;
             {
                 let mut branch_hasher = M::Hasher::new(root.len());
@@ -580,7 +564,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                 tree_refs[lookahead_tree_ref_pointer].key = tree_ref_key;
                 tree_refs[lookahead_tree_ref_pointer].location = branch_node_location;
                 tree_refs[lookahead_tree_ref_pointer].count =
-                    lookahead_count + tree_refs[tree_ref_pointer].count;
+                    lookahead_count.saturating_add(tree_refs[tree_ref_pointer].count);
                 tree_refs[lookahead_tree_ref_pointer].node_count = count;
                 tree_refs[tree_ref_pointer] = tree_refs[lookahead_tree_ref_pointer];
             }
@@ -600,16 +584,9 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         nodes.push_front(*root_hash);
 
         while !nodes.is_empty() {
-            let node_location;
-            if let Some(location) = nodes.pop_front() {
-                node_location = location;
-            } else {
-                return Err(Exception::new("Nodes should not be empty."));
-            }
+            let node_location = nodes.pop_front().ok_or(MerkleBitError::NoNodes)?;
 
-            let node = if let Some(n) = self.db.get_node(node_location)? {
-                n
-            } else {
+            let Some(node) = self.db.get_node(node_location)? else {
                 continue;
             };
 
@@ -674,67 +651,67 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         let mut depth = 0;
         while let Some(location) = nodes.pop_front() {
             if depth > self.depth {
-                return Err(Exception::new("Depth limit exceeded"));
+                return Err(MerkleBitError::DepthExceeded(depth));
             }
-            depth += 1;
+            depth = depth.saturating_add(1);
 
-            if let Some(node) = self.db.get_node(location)? {
-                match node.get_variant() {
-                    NodeVariant::Branch(b) => {
-                        if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
-                        }
-                        let index = b.get_split_index();
-                        let b_key = b.get_key();
-                        let min_split_index = calc_min_split_index(&[key], b_key)?;
-                        let keys = &[key];
-                        let descendants = check_descendants(keys, index, b_key, min_split_index)?;
-                        if descendants.is_empty() {
-                            return Err(Exception::new("Key not found in tree"));
-                        }
-
-                        if choose_zero(key, index)? {
-                            proof.push((*b.get_one(), true));
-                            nodes.push_back(*b.get_zero());
-                        } else {
-                            proof.push((*b.get_zero(), false));
-                            nodes.push_back(*b.get_one());
-                        }
+            let node = self
+                .db
+                .get_node(location)?
+                .ok_or(CorruptTreeError::NoNodeFromDB)?;
+            match node.get_variant() {
+                NodeVariant::Branch(b) => {
+                    if found_leaf {
+                        return Err(CorruptTreeError::MisplacedLeaf.into());
                     }
-                    NodeVariant::Leaf(l) => {
-                        if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
-                        }
-                        if *l.get_key() != key {
-                            return Err(Exception::new("Key not found in tree"));
-                        }
-
-                        let mut leaf_hasher = M::Hasher::new(location.len());
-                        leaf_hasher.update(b"l");
-                        leaf_hasher.update(&l.get_key()[..]);
-                        leaf_hasher.update(&l.get_data()[..]);
-                        let leaf_node_location = leaf_hasher.finalize();
-
-                        proof.push((leaf_node_location, false));
-                        nodes.push_back(*l.get_data());
-                        found_leaf = true;
+                    let index = b.get_split_index();
+                    let b_key = b.get_key();
+                    let min_split_index = calc_min_split_index(&[key], b_key)?;
+                    let keys = &[key];
+                    let descendants = check_descendants(keys, index, b_key, min_split_index)?;
+                    if descendants.is_empty() {
+                        return Err(MerkleBitError::KeyNotPresent);
                     }
-                    NodeVariant::Data(d) => {
-                        if !found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
-                        }
 
-                        let mut data_hasher = M::Hasher::new(location.len());
-                        data_hasher.update(b"d");
-                        data_hasher.update(&key[..]);
-                        data_hasher.update(d.get_value());
-                        let data_node_location = data_hasher.finalize();
-
-                        proof.push((data_node_location, false));
+                    if choose_zero(key, index)? {
+                        proof.push((*b.get_one(), true));
+                        nodes.push_back(*b.get_zero());
+                    } else {
+                        proof.push((*b.get_zero(), false));
+                        nodes.push_back(*b.get_one());
                     }
                 }
-            } else {
-                return Err(Exception::new("Failed to find node"));
+                NodeVariant::Leaf(l) => {
+                    if found_leaf {
+                        return Err(CorruptTreeError::MisplacedLeaf.into());
+                    }
+                    if *l.get_key() != key {
+                        return Err(MerkleBitError::KeyNotPresent);
+                    }
+
+                    let mut leaf_hasher = M::Hasher::new(location.len());
+                    leaf_hasher.update(b"l");
+                    leaf_hasher.update(&l.get_key()[..]);
+                    leaf_hasher.update(&l.get_data()[..]);
+                    let leaf_node_location = leaf_hasher.finalize();
+
+                    proof.push((leaf_node_location, false));
+                    nodes.push_back(*l.get_data());
+                    found_leaf = true;
+                }
+                NodeVariant::Data(d) => {
+                    if !found_leaf {
+                        return Err(CorruptTreeError::MisplacedLeaf.into());
+                    }
+
+                    let mut data_hasher = M::Hasher::new(location.len());
+                    data_hasher.update(b"d");
+                    data_hasher.update(&key[..]);
+                    data_hasher.update(d.get_value());
+                    let data_node_location = data_hasher.finalize();
+
+                    proof.push((data_node_location, false));
+                }
             }
         }
 
@@ -754,7 +731,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         proof: &[(Array<N>, bool)],
     ) -> BinaryMerkleTreeResult<()> {
         if proof.len() < 2 {
-            return Err(Exception::new("Proof is too short to be valid"));
+            return Err(MerkleBitError::ProofTooShort);
         }
 
         let key_len = root.len();
@@ -766,7 +743,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         let data_hash = data_hasher.finalize();
 
         if data_hash != proof[0].0 {
-            return Err(Exception::new("Proof is invalid"));
+            return Err(MerkleBitError::InvalidProof);
         }
 
         let mut leaf_hasher = M::Hasher::new(key_len);
@@ -776,7 +753,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         let leaf_hash = leaf_hasher.finalize();
 
         if leaf_hash != proof[1].0 {
-            return Err(Exception::new("Proof is invalid"));
+            return Err(MerkleBitError::InvalidProof);
         }
 
         let mut current_hash = leaf_hash;
@@ -796,7 +773,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
         }
 
         if *root != current_hash {
-            return Err(Exception::new("Proof is invalid"));
+            return Err(MerkleBitError::InvalidProof);
         }
 
         Ok(())
@@ -819,15 +796,15 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
         while let Some(location) = nodes.pop_front() {
             if depth > self.depth {
-                return Err(Exception::new("Depth limit exceeded"));
+                return Err(MerkleBitError::DepthExceeded(depth));
             }
-            depth += 1;
+            depth = depth.saturating_add(1);
 
             if let Some(node) = self.db.get_node(location)? {
                 match node.get_variant() {
                     NodeVariant::Branch(b) => {
                         if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
+                            return Err(CorruptTreeError::MisplacedLeaf.into());
                         }
 
                         let index = b.get_split_index();
@@ -847,7 +824,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     }
                     NodeVariant::Leaf(l) => {
                         if found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
+                            return Err(CorruptTreeError::MisplacedLeaf.into());
                         }
 
                         if l.get_key() != key {
@@ -859,7 +836,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
                     }
                     NodeVariant::Data(d) => {
                         if !found_leaf {
-                            return Err(Exception::new("Corrupt Merkle Tree"));
+                            return Err(CorruptTreeError::MisplacedLeaf.into());
                         }
 
                         let buffer = d.get_value();
@@ -905,6 +882,7 @@ impl<M: MerkleTree<N>, const N: usize> MerkleBIT<M, N> {
 
     /// Decomposes the tree into its underlying data structures
     #[inline]
+    #[allow(clippy::missing_const_for_fn)]
     pub fn decompose(self) -> (M::Database, usize) {
         (self.db, self.depth)
     }
@@ -928,7 +906,7 @@ pub mod tests {
     const KEY_LEN: usize = 32;
 
     #[test]
-    fn it_chooses_the_right_branch_easy() -> Result<(), Exception> {
+    fn it_chooses_the_right_branch_easy() -> Result<(), MerkleBitError> {
         let key = [0x0F_u8; KEY_LEN];
         for i in 0..8 {
             let expected_branch = i < 4;
@@ -939,7 +917,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_chooses_the_right_branch_medium() -> Result<(), Exception> {
+    fn it_chooses_the_right_branch_medium() -> Result<(), MerkleBitError> {
         {
             let key = [0x55; KEY_LEN];
             for i in 0..8 {
@@ -960,7 +938,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_chooses_the_right_branch_hard() -> Result<(), Exception> {
+    fn it_chooses_the_right_branch_hard() -> Result<(), MerkleBitError> {
         {
             let key = [0x68; KEY_LEN];
             for i in 0..8 {
@@ -981,7 +959,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_splits_an_all_zeros_sorted_list_of_pairs() -> Result<(), Exception> {
+    fn it_splits_an_all_zeros_sorted_list_of_pairs() -> Result<(), MerkleBitError> {
         // The complexity of these tests result from the fact that getting a key and splitting the
         // tree should not require any copying or moving of memory.
         #[cfg(feature = "serde")]
@@ -1008,7 +986,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_splits_an_all_ones_sorted_list_of_pairs() -> Result<(), Exception> {
+    fn it_splits_an_all_ones_sorted_list_of_pairs() -> Result<(), MerkleBitError> {
         #[cfg(feature = "serde")]
         let one_key = Array([0xFF_u8; KEY_LEN]);
         #[cfg(not(any(feature = "serde")))]
@@ -1030,7 +1008,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_splits_an_even_length_sorted_list_of_pairs() -> Result<(), Exception> {
+    fn it_splits_an_even_length_sorted_list_of_pairs() -> Result<(), MerkleBitError> {
         #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
         #[cfg(not(any(feature = "serde")))]
@@ -1062,7 +1040,8 @@ pub mod tests {
     }
 
     #[test]
-    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() -> Result<(), Exception> {
+    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_zeros() -> Result<(), MerkleBitError>
+    {
         #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
         #[cfg(not(any(feature = "serde")))]
@@ -1091,7 +1070,7 @@ pub mod tests {
     }
 
     #[test]
-    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() -> Result<(), Exception> {
+    fn it_splits_an_odd_length_sorted_list_of_pairs_with_more_ones() -> Result<(), MerkleBitError> {
         #[cfg(feature = "serde")]
         let zero_key = Array([0x00_u8; KEY_LEN]);
         #[cfg(not(any(feature = "serde")))]

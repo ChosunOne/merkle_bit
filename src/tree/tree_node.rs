@@ -105,7 +105,7 @@ impl<const N: usize> Encode for TreeNode<N> {
 impl<const N: usize> Encode for TreeNode<N> {
     #[inline]
     fn encode(&self) -> BinaryMerkleTreeResult<Vec<u8>> {
-        Ok(serde_yaml::to_vec(&self)?)
+        Ok(Vec::from(serde_yaml::to_string(&self)?))
     }
 }
 

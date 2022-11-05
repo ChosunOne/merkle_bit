@@ -12,7 +12,7 @@ pub mod integration_tests {
     use starling::merkle_bit::BinaryMerkleTreeResult;
     #[cfg(feature = "rocksdb")]
     use starling::rocks_tree::RocksTree;
-    use starling::traits::Exception;
+    use starling::traits::MerkleBitError;
 
     #[cfg(feature = "rocksdb")]
     type Tree = RocksTree;
@@ -1211,7 +1211,7 @@ pub mod integration_tests {
 
         let inclusion_proof = bmt.generate_inclusion_proof(&root, key)?;
         match Tree::verify_inclusion_proof(&[01u8; KEY_LEN].into(), key, &data, &inclusion_proof) {
-            Ok(_) => return Err(Exception::new("Failed to detect invalid proof")),
+            Ok(_) => return Err(MerkleBitError::InvalidProof),
             _ => {}
         }
         tear_down(&path);
@@ -1290,7 +1290,7 @@ pub mod integration_tests {
                 &values[i],
                 &inclusion_proof,
             ) {
-                return Err(Exception::new("Failed to detect an invalid proof"));
+                return Err(MerkleBitError::InvalidProof);
             }
         }
         tear_down(&path);
