@@ -155,7 +155,8 @@ impl<const N: usize> Decode for TreeNode<N> {
 impl<const N: usize> Decode for TreeNode<N> {
     #[inline]
     fn decode(buffer: &[u8]) -> BinaryMerkleTreeResult<Self> {
-        Ok(serde_yaml::from_slice(buffer)?)
+        let decoded_string = String::from_utf8_lossy(buffer);
+        Ok(serde_yaml::from_str(&decoded_string)?)
     }
 }
 
