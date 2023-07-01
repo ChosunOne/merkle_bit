@@ -6,7 +6,7 @@
     clippy::nursery,
     clippy::cargo
 )]
-#![allow(clippy::integer_arithmetic)]
+#![allow(clippy::arithmetic_side_effects)]
 #![allow(clippy::indexing_slicing)]
 #![allow(clippy::cast_possible_truncation)]
 #![allow(clippy::implicit_return)]
@@ -18,6 +18,8 @@
 #![forbid(unsafe_code)]
 #![allow(clippy::std_instead_of_core)]
 #![allow(clippy::question_mark_used)]
+#![allow(clippy::wildcard_imports)]
+#![allow(clippy::semicolon_outside_block)]
 
 //! # Merkle Binary Indexed Tree
 //! ## Introduction

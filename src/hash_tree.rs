@@ -48,7 +48,7 @@ impl<const N: usize> HashTree<N> {
         let tree = MerkleBIT::new(path, depth)?;
         Ok(Self {
             tree,
-            _value: PhantomData::default(),
+            _value: PhantomData,
         })
     }
 
@@ -61,7 +61,7 @@ impl<const N: usize> HashTree<N> {
         let tree = MerkleBIT::new(path, depth)?;
         Ok(Self {
             tree,
-            _value: PhantomData::default(),
+            _value: PhantomData,
         })
     }
 

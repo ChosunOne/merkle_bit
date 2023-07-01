@@ -278,10 +278,11 @@ pub enum MerkleBitError {
 impl Display for MerkleBitError {
     #[inline]
     fn fmt(&self, f: &mut Formatter) -> FmtResult {
-        write!(f, "{:?}", self)
+        write!(f, "{self}")
     }
 }
 
+#[allow(clippy::missing_trait_methods)]
 impl Error for MerkleBitError {}
 
 impl From<TryFromIntError> for MerkleBitError {

@@ -36,11 +36,48 @@ impl<const N: usize> PartialOrd for TreeRef<N> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         self.key.partial_cmp(&other.key)
     }
+    #[inline]
+    fn lt(&self, other: &Self) -> bool {
+        self.key.lt(&other.key)
+    }
+    #[inline]
+    fn le(&self, other: &Self) -> bool {
+        self.key.le(&other.key)
+    }
+    #[inline]
+    fn gt(&self, other: &Self) -> bool {
+        self.key.gt(&other.key)
+    }
+    #[inline]
+    fn ge(&self, other: &Self) -> bool {
+        self.key.ge(&other.key)
+    }
 }
 
+#[allow(clippy::missing_trait_methods)]
 impl<const N: usize> Ord for TreeRef<N> {
     #[inline]
     fn cmp(&self, other_ref: &Self) -> Ordering {
         self.key.cmp(&other_ref.key)
+    }
+    #[inline]
+    fn max(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        if self >= other {
+            return self;
+        }
+        other
+    }
+    #[inline]
+    fn min(self, other: Self) -> Self
+    where
+        Self: Sized,
+    {
+        if self <= other {
+            return self;
+        }
+        other
     }
 }
