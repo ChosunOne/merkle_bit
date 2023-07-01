@@ -17,6 +17,7 @@
 #![allow(clippy::blanket_clippy_restriction_lints)]
 #![forbid(unsafe_code)]
 #![allow(clippy::std_instead_of_core)]
+#![allow(clippy::question_mark_used)]
 
 //! # Merkle Binary Indexed Tree
 //! ## Introduction

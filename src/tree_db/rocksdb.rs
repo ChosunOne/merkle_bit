@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 impl From<rocksdb::Error> for MerkleBitError {
     #[inline]
     fn from(error: rocksdb::Error) -> Self {
-        Self::new(&error.to_string())
+        Self::RocksDb(error)
     }
 }
 

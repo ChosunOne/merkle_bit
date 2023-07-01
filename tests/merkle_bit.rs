@@ -115,8 +115,8 @@ pub mod integration_tests {
             }
         }
         tear_down(&path);
-        assert_eq!(retrieved_value[&key.into()], Some(data));
-        assert_eq!(removed_retrieved_value[&key.into()], None);
+        assert_eq!(retrieved_value[&Array::from(key)], Some(data));
+        assert_eq!(removed_retrieved_value[&Array::from(key)], None);
         Ok(())
     }
 

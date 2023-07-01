@@ -271,6 +271,8 @@ pub enum MerkleBitError {
     Ron(ron::error::Error),
     #[cfg(feature = "ron")]
     RonSpanned(ron::error::SpannedError),
+    #[cfg(feature = "rocksdb")]
+    RocksDb(rocksdb::Error),
 }
 
 impl Display for MerkleBitError {
